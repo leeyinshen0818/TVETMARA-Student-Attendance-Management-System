@@ -12,8 +12,15 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { useApp } from "@/lib/store";
 import type { User } from "@/lib/mock-data";
+import { RoleGate } from "@/components/role-gate";
 
-export const Route = createFileRoute("/users")({ component: UsersPage });
+export const Route = createFileRoute("/users")({
+  component: () => (
+    <RoleGate allow={["admin"]} feature="Manage Users">
+      <UsersPage />
+    </RoleGate>
+  ),
+});
 
 function UsersPage() {
   const { users, setUsers } = useApp();

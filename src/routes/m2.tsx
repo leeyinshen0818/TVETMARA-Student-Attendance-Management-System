@@ -19,7 +19,17 @@ export const Route = createFileRoute("/m2")({ component: M2 });
 const ISSUE_TYPES = ["Frequent Absence", "Late to Class", "Skipping Class", "Misconduct", "Disruptive Behavior", "No MC / No Reason", "Leaving Class Early", "Other"];
 
 function M2() {
-  const { students, disciplineReports, addDiscipline, updateDiscipline, currentUser } = useApp();
+  const { students: allStudents, disciplineReports: allReports, timetable, addDiscipline, updateDiscipline, currentUser } = useApp();
+
+  const isLecturer = currentUser?.role === "lecturer";
+  const isStaff = currentUser?.role === "staff";
+  const lecturerSections = isLecturer
+    ? Array.from(new Set(timetable.filter((t) => t.lecturerId === currentUser?.id).map((t) => t.section)))
+    : null;
+  const students = lecturerSections ? allStudents.filter((s) => lecturerSections.includes(s.section)) : allStudents;
+  const disciplineReports = isLecturer
+    ? allReports.filter((r) => r.lecturer === currentUser?.name)
+    : allReports;
 
   const [studentId, setStudentId] = React.useState("");
   const [subject, setSubject] = React.useState("");

@@ -23,7 +23,13 @@ const REASONS = ["Lecturer unavailable","Public holiday","Emergency","Room probl
 
 function M6() {
   const { slot: slotId } = Route.useSearch();
-  const { timetable, bookings, addBooking, updateBooking, currentUser } = useApp();
+  const { timetable, bookings: allBookings, addBooking, updateBooking, currentUser } = useApp();
+  const isAdmin = currentUser?.role === "admin";
+  const isLecturer = currentUser?.role === "lecturer";
+  const isStaff = currentUser?.role === "staff";
+  const bookings = isLecturer
+    ? allBookings.filter((b) => b.lecturerId === currentUser?.id)
+    : allBookings;
   const slot = timetable.find((t) => t.id === slotId);
 
   const [date, setDate] = React.useState("2026-05-05");
@@ -64,8 +70,12 @@ function M6() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="M6: Booking Module / Tempahan Kelas Gantian" subtitle="Book or reschedule a replacement class when a normal class is cancelled." />
+      <PageHeader
+        title={isAdmin ? "Booking Approvals / Kelulusan Tempahan" : isStaff ? "Booking Records / Rekod Tempahan" : "M6: Booking Request / Permohonan Tempahan"}
+        subtitle={isAdmin ? "Approve or reject replacement class requests." : isStaff ? "View-only list of replacement class bookings." : "Submit a replacement class request and track your booking status."}
+      />
 
+      {!isAdmin && !isStaff && (
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Replacement Class Booking Form</CardTitle></CardHeader>
@@ -135,6 +145,7 @@ function M6() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Booking Request List</CardTitle></CardHeader>

@@ -15,7 +15,12 @@ import type { Student } from "@/lib/mock-data";
 export const Route = createFileRoute("/students")({ component: StudentsPage });
 
 function StudentsPage() {
-  const { students } = useApp();
+  const { students: allStudents, timetable, currentUser } = useApp();
+  const isLecturer = currentUser?.role === "lecturer";
+  const sections = isLecturer
+    ? Array.from(new Set(timetable.filter((t) => t.lecturerId === currentUser?.id).map((t) => t.section)))
+    : null;
+  const students = sections ? allStudents.filter((s) => sections.includes(s.section)) : allStudents;
   const [q, setQ] = React.useState("");
   const [profile, setProfile] = React.useState<Student | null>(null);
   const [contact, setContact] = React.useState<Student | null>(null);
@@ -23,7 +28,11 @@ function StudentsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Student Records / Rekod Pelajar" subtitle="View student profiles, attendance summary and contact info." actions={<Input placeholder="Search students..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64 h-9" />} />
+      <PageHeader
+        title={isLecturer ? "My Students / Pelajar Saya" : "Student Records / Rekod Pelajar"}
+        subtitle={isLecturer ? "Students enrolled in your assigned classes." : "View student profiles, attendance summary and contact info."}
+        actions={<Input placeholder="Search students..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64 h-9" />}
+      />
       <Card><CardContent className="p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-muted-foreground border-b bg-muted/40"><tr>{["ID","Name","IC","Email","Phone","Program","Section","Sem","Status","Att %","Action"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr></thead>

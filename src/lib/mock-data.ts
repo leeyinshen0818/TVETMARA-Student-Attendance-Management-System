@@ -189,8 +189,8 @@ export const STUDENTS: Student[] = Array.from({ length: 42 }, (_, i) => {
 
 export const USERS: User[] = [
   { id: "U001", name: "Admin TVETMARA", email: "admin@tvetmara.edu.my", role: "admin", department: "Administration", status: "Active", lastLogin: "2026-04-29 08:12" },
-  { id: "U002", name: "Encik Ahmad bin Ismail", email: "ahmad@tvetmara.edu.my", role: "lecturer", department: "Electrical", status: "Active", lastLogin: "2026-04-29 07:45" },
-  { id: "U003", name: "Puan Aminah binti Yahya", email: "aminah@tvetmara.edu.my", role: "staff", department: "Academic", status: "Active", lastLogin: "2026-04-28 16:20" },
+  { id: "L001", name: "Encik Ahmad bin Ismail", email: "lecturer@tvetmara.edu.my", role: "lecturer", department: "Electrical", status: "Active", lastLogin: "2026-04-29 07:45" },
+  { id: "U003", name: "Puan Aminah binti Yahya", email: "academic@tvetmara.edu.my", role: "staff", department: "Academic", status: "Active", lastLogin: "2026-04-28 16:20" },
   { id: "U004", name: "Puan Siti Nurhaliza", email: "siti@tvetmara.edu.my", role: "lecturer", department: "Electrical", status: "Active", lastLogin: "2026-04-29 08:00" },
   { id: "U005", name: "Encik Razak bin Hamid", email: "razak@tvetmara.edu.my", role: "lecturer", department: "Automotive", status: "Active", lastLogin: "2026-04-28 14:00" },
   { id: "U006", name: "Puan Faridah binti Latif", email: "faridah@tvetmara.edu.my", role: "staff", department: "Academic", status: "Inactive", lastLogin: "2026-04-20 10:30" },

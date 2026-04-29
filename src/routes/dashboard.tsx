@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, GraduationCap, ClipboardCheck, Clock, Percent, AlertTriangle, CalendarPlus, CheckCircle2, BookOpen, AlertCircle } from "lucide-react";
+import { Users, GraduationCap, ClipboardCheck, Clock, Percent, AlertTriangle, CalendarPlus, CheckCircle2, BookOpen, AlertCircle, FileSearch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
@@ -16,14 +16,38 @@ function Dashboard() {
   const { students, lecturers, timetable, attendance, disciplineReports, bookings, settings, currentUser } = useApp();
 
   const today = "2026-04-29";
-  const todays = timetable.filter((t) => t.date === today);
+  const role = currentUser?.role ?? "admin";
+
+  // Scope data per role
+  const scopedTimetable = role === "lecturer"
+    ? timetable.filter((t) => t.lecturerId === currentUser?.id)
+    : timetable;
+  const scopedSections = role === "lecturer"
+    ? Array.from(new Set(scopedTimetable.map((t) => t.section)))
+    : null;
+  const scopedStudents = scopedSections
+    ? students.filter((s) => scopedSections.includes(s.section))
+    : students;
+  const scopedDiscipline = role === "lecturer"
+    ? disciplineReports.filter((d) => d.lecturer === currentUser?.name)
+    : disciplineReports;
+  const scopedBookings = role === "lecturer"
+    ? bookings.filter((b) => b.lecturerId === currentUser?.id)
+    : bookings;
+
+  const todays = scopedTimetable.filter((t) => t.date === today);
   const completedToday = todays.filter((t) => t.status === "Attendance Completed").length;
   const pendingToday = todays.length - completedToday;
-  const avgAtt = Math.round(students.reduce((a, s) => a + s.attendance, 0) / students.length);
-  const below80 = students.filter((s) => s.attendance < settings.threshold).length;
-  const pendingDisc = disciplineReports.filter((d) => d.status === "New" || d.status === "Under Review").length;
-  const pendingBookings = bookings.filter((b) => b.status === "Pending").length;
-  const approvedBookings = bookings.filter((b) => b.status === "Approved").length;
+  const avgAtt = scopedStudents.length
+    ? Math.round(scopedStudents.reduce((a, s) => a + s.attendance, 0) / scopedStudents.length)
+    : 0;
+  const below80 = scopedStudents.filter((s) => s.attendance < settings.threshold).length;
+  const pendingDisc = scopedDiscipline.filter((d) => d.status === "New" || d.status === "Under Review").length;
+  const pendingBookings = scopedBookings.filter((b) => b.status === "Pending").length;
+  const approvedBookings = scopedBookings.filter((b) => b.status === "Approved").length;
+  const absentToday = role === "lecturer"
+    ? todays.reduce((sum, t) => sum + (attendance[t.id]?.filter((r) => r.status === "Absent").length ?? 0), 0)
+    : 0;
 
   const trendData = Array.from({ length: 8 }, (_, i) => ({ week: `W${i + 1}`, attendance: 78 + ((i * 13) % 18) }));
   const distData = [
@@ -38,26 +62,59 @@ function Dashboard() {
     const avg = ss.length ? Math.round(ss.reduce((a, s) => a + s.attendance, 0) / ss.length) : 0;
     return { section: sec, attendance: avg };
   });
-  const lowest5 = [...students].sort((a, b) => a.attendance - b.attendance).slice(0, 5);
+  const lowest5 = [...scopedStudents].sort((a, b) => a.attendance - b.attendance).slice(0, 5);
+
+  const subtitle =
+    role === "admin"
+      ? "System-wide overview · Admin control panel"
+      : role === "lecturer"
+        ? "Your classes, attendance & discipline activity today"
+        : "Attendance monitoring & follow-up · Academic Staff";
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Welcome back, ${currentUser?.name.split(" ")[0]}`}
-        subtitle="Overview of attendance, classes & discipline activity at TVETMARA Johor Bahru"
+        subtitle={subtitle}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        <StatCard label="Total Students" value={students.length} icon={GraduationCap} />
-        <StatCard label="Total Lecturers" value={lecturers.length} icon={Users} tone="info" />
-        <StatCard label="Classes Today" value={todays.length} icon={BookOpen} tone="info" />
-        <StatCard label="Attendance Taken" value={completedToday} hint={`${pendingToday} pending`} icon={ClipboardCheck} tone="success" />
-        <StatCard label="Pending Attendance" value={pendingToday} icon={Clock} tone="warning" />
-        <StatCard label="Avg Attendance" value={`${avgAtt}%`} icon={Percent} tone="success" />
-        <StatCard label="Below 80%" value={below80} icon={AlertTriangle} tone="destructive" />
-        <StatCard label="Discipline Cases" value={pendingDisc} hint="Pending review" icon={AlertCircle} tone="destructive" />
-        <StatCard label="Pending Bookings" value={pendingBookings} icon={CalendarPlus} tone="warning" />
-        <StatCard label="Approved Replacement" value={approvedBookings} icon={CheckCircle2} tone="replacement" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        {role === "admin" && (
+          <>
+            <StatCard label="Total Students" value={students.length} icon={GraduationCap} />
+            <StatCard label="Total Lecturers" value={lecturers.length} icon={Users} tone="info" />
+            <StatCard label="Classes Today" value={todays.length} icon={BookOpen} tone="info" />
+            <StatCard label="Pending Timetable Issues" value={2} icon={AlertTriangle} tone="warning" />
+            <StatCard label="Pending Booking Approvals" value={pendingBookings} icon={CalendarPlus} tone="warning" />
+            <StatCard label="Attendance Not Submitted" value={pendingToday} icon={Clock} tone="warning" />
+            <StatCard label="Students Below 80%" value={below80} icon={AlertCircle} tone="destructive" />
+            <StatCard label="Approved Replacement" value={approvedBookings} icon={CheckCircle2} tone="replacement" />
+          </>
+        )}
+        {role === "lecturer" && (
+          <>
+            <StatCard label="Today's Classes" value={todays.length} icon={BookOpen} tone="info" />
+            <StatCard label="Attendance Pending" value={pendingToday} icon={Clock} tone="warning" />
+            <StatCard label="Attendance Completed" value={completedToday} icon={ClipboardCheck} tone="success" />
+            <StatCard label="Students Absent Today" value={absentToday} icon={AlertCircle} tone="destructive" />
+            <StatCard label="My Students" value={scopedStudents.length} icon={GraduationCap} />
+            <StatCard label="Below 80% (My Classes)" value={below80} icon={AlertTriangle} tone="destructive" />
+            <StatCard label="My Booking Requests" value={scopedBookings.length} hint={`${pendingBookings} pending`} icon={CalendarPlus} tone="warning" />
+            <StatCard label="My Discipline Reports" value={scopedDiscipline.length} icon={AlertCircle} tone="info" />
+          </>
+        )}
+        {role === "staff" && (
+          <>
+            <StatCard label="Average Attendance" value={`${avgAtt}%`} icon={Percent} tone="success" />
+            <StatCard label="Students Below 80%" value={below80} icon={AlertTriangle} tone="destructive" />
+            <StatCard label="Discipline Under Review" value={pendingDisc} icon={FileSearch} tone="destructive" />
+            <StatCard label="Attendance Not Submitted" value={pendingToday} icon={Clock} tone="warning" />
+            <StatCard label="Classes Today" value={todays.length} icon={BookOpen} tone="info" />
+            <StatCard label="Low-Attendance Classes" value={2} icon={AlertCircle} tone="warning" />
+            <StatCard label="Total Students" value={students.length} icon={GraduationCap} />
+            <StatCard label="Follow-Up Actions" value={pendingDisc + below80} icon={CheckCircle2} tone="replacement" />
+          </>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">

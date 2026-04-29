@@ -22,7 +22,13 @@ export const Route = createFileRoute("/m1")({
 function M1() {
   const { slot: initSlot } = Route.useSearch();
   const navigate = useNavigate();
-  const { timetable, students, attendance, saveAttendance, settings } = useApp();
+  const { timetable: allTimetable, students, attendance, saveAttendance, settings, currentUser } = useApp();
+
+  const isStaff = currentUser?.role === "staff";
+  const isLecturer = currentUser?.role === "lecturer";
+  const timetable = isLecturer
+    ? allTimetable.filter((t) => t.lecturerId === currentUser?.id)
+    : allTimetable;
 
   const [slotId, setSlotId] = React.useState(initSlot || timetable.find((t) => t.date === "2026-04-29")?.id || timetable[0]?.id);
   const slot = timetable.find((t) => t.id === slotId);
@@ -68,8 +74,8 @@ function M1() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="M1: Taking Attendance / Ambil Kehadiran"
-        subtitle="Mark attendance for a scheduled class session linked to the timetable."
+        title={isStaff ? "Attendance Records (View Only)" : "M1: Taking Attendance / Ambil Kehadiran"}
+        subtitle={isStaff ? "Read-only view of attendance for monitoring." : "Mark attendance for a scheduled class session linked to the timetable."}
       />
 
       <Card>
@@ -115,14 +121,16 @@ function M1() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm"><CheckCheck className="h-4 w-4 mr-1.5" /> Manual Attendance</Button>
-        <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}><QrCode className="h-4 w-4 mr-1.5" /> Generate QR Attendance</Button>
-        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1.5" /> Import Attendance Data</Button>
-        <Button variant="secondary" size="sm" onClick={markAllPresent}>Mark All Present</Button>
-        <Button variant="ghost" size="sm" onClick={() => toast("Draft saved")}><Save className="h-4 w-4 mr-1.5" /> Save Draft</Button>
-        <Button size="sm" className="ml-auto" onClick={() => setSubmitOpen(true)}><Send className="h-4 w-4 mr-1.5" /> Submit Attendance</Button>
-      </div>
+      {!isStaff && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm"><CheckCheck className="h-4 w-4 mr-1.5" /> Manual Attendance</Button>
+          <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}><QrCode className="h-4 w-4 mr-1.5" /> Generate QR Attendance</Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 mr-1.5" /> Import Attendance Data</Button>
+          <Button variant="secondary" size="sm" onClick={markAllPresent}>Mark All Present</Button>
+          <Button variant="ghost" size="sm" onClick={() => toast("Draft saved")}><Save className="h-4 w-4 mr-1.5" /> Save Draft</Button>
+          <Button size="sm" className="ml-auto" onClick={() => setSubmitOpen(true)}><Send className="h-4 w-4 mr-1.5" /> Submit Attendance</Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <StatCard label="Total" value={sectionStudents.length} />
