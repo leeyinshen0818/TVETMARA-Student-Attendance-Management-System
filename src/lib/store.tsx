@@ -20,6 +20,7 @@ import {
 interface AppState {
   currentUser: User | null;
   login: (role: Role) => void;
+  loginWithEmail: (email: string, password: string) => boolean;
   logout: () => void;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
@@ -75,8 +76,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const login = (role: Role) => {
-    const user = users.find((u) => u.role === role) || users[0];
+    const map: Record<Role, string> = {
+      admin: "admin@tvetmara.edu.my",
+      lecturer: "lecturer@tvetmara.edu.my",
+      staff: "academic@tvetmara.edu.my",
+    };
+    const user = users.find((u) => u.email === map[role]) || users.find((u) => u.role === role) || users[0];
     setCurrentUser(user);
+  };
+  const loginWithEmail = (email: string, _password: string) => {
+    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) return false;
+    setCurrentUser(user);
+    return true;
   };
   const logout = () => setCurrentUser(null);
 
@@ -125,6 +137,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUser,
         login,
+        loginWithEmail,
         logout,
         users,
         setUsers,
