@@ -22,7 +22,13 @@ export const Route = createFileRoute("/m1")({
 function M1() {
   const { slot: initSlot } = Route.useSearch();
   const navigate = useNavigate();
-  const { timetable, students, attendance, saveAttendance, settings } = useApp();
+  const { timetable: allTimetable, students, attendance, saveAttendance, settings, currentUser } = useApp();
+
+  const isStaff = currentUser?.role === "staff";
+  const isLecturer = currentUser?.role === "lecturer";
+  const timetable = isLecturer
+    ? allTimetable.filter((t) => t.lecturerId === currentUser?.id)
+    : allTimetable;
 
   const [slotId, setSlotId] = React.useState(initSlot || timetable.find((t) => t.date === "2026-04-29")?.id || timetable[0]?.id);
   const slot = timetable.find((t) => t.id === slotId);
