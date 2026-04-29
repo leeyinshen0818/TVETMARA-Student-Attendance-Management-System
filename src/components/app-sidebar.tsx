@@ -14,8 +14,6 @@ import {
   LogOut,
   GraduationCapIcon,
   UserCircle,
-  ClipboardList,
-  CheckSquare,
   FileSearch,
   Eye,
   BookMarked,
