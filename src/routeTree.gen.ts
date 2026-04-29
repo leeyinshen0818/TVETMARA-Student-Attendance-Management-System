@@ -9,8 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as StudentsRouteImport } from './routes/students'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as M6RouteImport } from './routes/m6'
+import { Route as M5RouteImport } from './routes/m5'
+import { Route as M4RouteImport } from './routes/m4'
+import { Route as M3RouteImport } from './routes/m3'
+import { Route as M2RouteImport } from './routes/m2'
+import { Route as M1RouteImport } from './routes/m1'
+import { Route as LecturersRouteImport } from './routes/lecturers'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentsRoute = StudentsRouteImport.update({
+  id: '/students',
+  path: '/students',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M6Route = M6RouteImport.update({
+  id: '/m6',
+  path: '/m6',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M5Route = M5RouteImport.update({
+  id: '/m5',
+  path: '/m5',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M4Route = M4RouteImport.update({
+  id: '/m4',
+  path: '/m4',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M3Route = M3RouteImport.update({
+  id: '/m3',
+  path: '/m3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M2Route = M2RouteImport.update({
+  id: '/m2',
+  path: '/m2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const M1Route = M1RouteImport.update({
+  id: '/m1',
+  path: '/m1',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LecturersRoute = LecturersRouteImport.update({
+  id: '/lecturers',
+  path: '/lecturers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +85,186 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/lecturers': typeof LecturersRoute
+  '/m1': typeof M1Route
+  '/m2': typeof M2Route
+  '/m3': typeof M3Route
+  '/m4': typeof M4Route
+  '/m5': typeof M5Route
+  '/m6': typeof M6Route
+  '/settings': typeof SettingsRoute
+  '/students': typeof StudentsRoute
+  '/users': typeof UsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/lecturers': typeof LecturersRoute
+  '/m1': typeof M1Route
+  '/m2': typeof M2Route
+  '/m3': typeof M3Route
+  '/m4': typeof M4Route
+  '/m5': typeof M5Route
+  '/m6': typeof M6Route
+  '/settings': typeof SettingsRoute
+  '/students': typeof StudentsRoute
+  '/users': typeof UsersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/lecturers': typeof LecturersRoute
+  '/m1': typeof M1Route
+  '/m2': typeof M2Route
+  '/m3': typeof M3Route
+  '/m4': typeof M4Route
+  '/m5': typeof M5Route
+  '/m6': typeof M6Route
+  '/settings': typeof SettingsRoute
+  '/students': typeof StudentsRoute
+  '/users': typeof UsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/lecturers'
+    | '/m1'
+    | '/m2'
+    | '/m3'
+    | '/m4'
+    | '/m5'
+    | '/m6'
+    | '/settings'
+    | '/students'
+    | '/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/lecturers'
+    | '/m1'
+    | '/m2'
+    | '/m3'
+    | '/m4'
+    | '/m5'
+    | '/m6'
+    | '/settings'
+    | '/students'
+    | '/users'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/lecturers'
+    | '/m1'
+    | '/m2'
+    | '/m3'
+    | '/m4'
+    | '/m5'
+    | '/m6'
+    | '/settings'
+    | '/students'
+    | '/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  LecturersRoute: typeof LecturersRoute
+  M1Route: typeof M1Route
+  M2Route: typeof M2Route
+  M3Route: typeof M3Route
+  M4Route: typeof M4Route
+  M5Route: typeof M5Route
+  M6Route: typeof M6Route
+  SettingsRoute: typeof SettingsRoute
+  StudentsRoute: typeof StudentsRoute
+  UsersRoute: typeof UsersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/students': {
+      id: '/students'
+      path: '/students'
+      fullPath: '/students'
+      preLoaderRoute: typeof StudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m6': {
+      id: '/m6'
+      path: '/m6'
+      fullPath: '/m6'
+      preLoaderRoute: typeof M6RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m5': {
+      id: '/m5'
+      path: '/m5'
+      fullPath: '/m5'
+      preLoaderRoute: typeof M5RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m4': {
+      id: '/m4'
+      path: '/m4'
+      fullPath: '/m4'
+      preLoaderRoute: typeof M4RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m3': {
+      id: '/m3'
+      path: '/m3'
+      fullPath: '/m3'
+      preLoaderRoute: typeof M3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m2': {
+      id: '/m2'
+      path: '/m2'
+      fullPath: '/m2'
+      preLoaderRoute: typeof M2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m1': {
+      id: '/m1'
+      path: '/m1'
+      fullPath: '/m1'
+      preLoaderRoute: typeof M1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lecturers': {
+      id: '/lecturers'
+      path: '/lecturers'
+      fullPath: '/lecturers'
+      preLoaderRoute: typeof LecturersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +277,17 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRoute,
+  LecturersRoute: LecturersRoute,
+  M1Route: M1Route,
+  M2Route: M2Route,
+  M3Route: M3Route,
+  M4Route: M4Route,
+  M5Route: M5Route,
+  M6Route: M6Route,
+  SettingsRoute: SettingsRoute,
+  StudentsRoute: StudentsRoute,
+  UsersRoute: UsersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
