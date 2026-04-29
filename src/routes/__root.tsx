@@ -35,11 +35,15 @@ export const Route = createRootRoute({
       { title: "TVETMARA Student Attendance Management System" },
       { name: "description", content: "Centralised attendance, timetable, discipline & replacement class management for TVETMARA Johor Bahru." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "TVETMARA Attendance Management" },
-      { property: "og:description", content: "Take attendance, manage timetable, discipline & replacement classes." },
+      { property: "og:title", content: "TVETMARA Student Attendance Management System" },
+      { property: "og:description", content: "Centralised attendance, timetable, discipline & replacement class management for TVETMARA Johor Bahru." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "TVETMARA Student Attendance Management System" },
+      { name: "twitter:description", content: "Centralised attendance, timetable, discipline & replacement class management for TVETMARA Johor Bahru." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1bf27cd3-a59b-49ab-9a69-2e5ff31a655a/id-preview-5e508a11--ade04f6f-38e9-4755-9a7c-f6ff05431aae.lovable.app-1777474937011.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/1bf27cd3-a59b-49ab-9a69-2e5ff31a655a/id-preview-5e508a11--ade04f6f-38e9-4755-9a7c-f6ff05431aae.lovable.app-1777474937011.png" },
     ],
     links: [
       {
