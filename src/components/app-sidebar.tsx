@@ -13,6 +13,12 @@ import {
   Settings,
   LogOut,
   GraduationCapIcon,
+  UserCircle,
+  ClipboardList,
+  CheckSquare,
+  FileSearch,
+  Eye,
+  BookMarked,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,32 +36,87 @@ import {
 import { useApp } from "@/lib/store";
 import type { Role } from "@/lib/mock-data";
 
-type Item = { title: string; url: string; icon: any; roles?: Role[] };
+type Item = { title: string; url: string; icon: any };
+type MenuGroup = { label: string; items: Item[] };
 
-const modules: Item[] = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "M1 Taking Attendance", url: "/m1", icon: ClipboardCheck, roles: ["lecturer", "admin"] },
-  { title: "M2 Discipline Issue", url: "/m2", icon: AlertTriangle },
-  { title: "M3 Reporting", url: "/m3", icon: BarChart3 },
-  { title: "M4 Upload Timetable", url: "/m4", icon: Upload, roles: ["admin"] },
-  { title: "M5 Timetable Slot", url: "/m5", icon: CalendarDays },
-  { title: "M6 Booking Module", url: "/m6", icon: CalendarPlus },
-];
-
-const records: Item[] = [
-  { title: "Student Records", url: "/students", icon: GraduationCap },
-  { title: "Lecturer Records", url: "/lecturers", icon: Users },
-  { title: "Manage Users", url: "/users", icon: UserCog, roles: ["admin"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["admin"] },
-];
+const MENUS: Record<Role, MenuGroup[]> = {
+  admin: [
+    {
+      label: "Overview",
+      items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
+    },
+    {
+      label: "Operations",
+      items: [
+        { title: "Upload Time Schedule", url: "/m4", icon: Upload },
+        { title: "Showing Timetable Slot", url: "/m5", icon: CalendarDays },
+        { title: "Taking Attendance Records", url: "/m1", icon: ClipboardCheck },
+        { title: "Reporting Module", url: "/m3", icon: BarChart3 },
+        { title: "Discipline Reports", url: "/m2", icon: AlertTriangle },
+        { title: "Booking Approvals", url: "/m6", icon: CalendarPlus },
+      ],
+    },
+    {
+      label: "Records",
+      items: [
+        { title: "Manage Users", url: "/users", icon: UserCog },
+        { title: "Student Records", url: "/students", icon: GraduationCap },
+        { title: "Lecturer Records", url: "/lecturers", icon: Users },
+        { title: "Settings", url: "/settings", icon: Settings },
+      ],
+    },
+  ],
+  lecturer: [
+    {
+      label: "Overview",
+      items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
+    },
+    {
+      label: "Teaching",
+      items: [
+        { title: "My Timetable", url: "/m5", icon: CalendarDays },
+        { title: "Taking Attendance", url: "/m1", icon: ClipboardCheck },
+        { title: "My Attendance Reports", url: "/m3", icon: BarChart3 },
+        { title: "Report Discipline Issue", url: "/m2", icon: AlertTriangle },
+        { title: "Booking Request", url: "/m6", icon: CalendarPlus },
+      ],
+    },
+    {
+      label: "Records",
+      items: [
+        { title: "My Students", url: "/students", icon: GraduationCap },
+        { title: "My Profile", url: "/lecturers", icon: UserCircle },
+      ],
+    },
+  ],
+  staff: [
+    {
+      label: "Overview",
+      items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
+    },
+    {
+      label: "Monitoring",
+      items: [
+        { title: "Attendance Reports", url: "/m3", icon: BarChart3 },
+        { title: "Taking Attendance (View)", url: "/m1", icon: Eye },
+        { title: "Discipline Follow-Up", url: "/m2", icon: FileSearch },
+        { title: "Timetable Monitoring", url: "/m5", icon: CalendarDays },
+        { title: "Booking Records", url: "/m6", icon: BookMarked },
+      ],
+    },
+    {
+      label: "Records",
+      items: [{ title: "Student Records", url: "/students", icon: GraduationCap }],
+    },
+  ],
+};
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { currentUser, logout } = useApp();
-
-  const visible = (item: Item) => !item.roles || (currentUser && item.roles.includes(currentUser.role));
+  const groups = currentUser ? MENUS[currentUser.role] : [];
   const isActive = (url: string) => path === url;
 
   return (
@@ -74,40 +135,25 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Modules</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {modules.filter(visible).map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Records</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {records.filter(visible).map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((g) => (
+          <SidebarGroup key={g.label}>
+            <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {g.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                      <Link to={item.url} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
