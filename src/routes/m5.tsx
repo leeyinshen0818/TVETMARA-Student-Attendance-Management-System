@@ -18,17 +18,27 @@ export const Route = createFileRoute("/m5")({ component: M5 });
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function M5() {
-  const { timetable, setTimetable } = useApp();
+  const { timetable: allTimetable, setTimetable, currentUser } = useApp();
   const [qr, setQr] = React.useState<string | null>(null);
   const today = "2026-04-29";
+
+  const timetable = currentUser?.role === "lecturer"
+    ? allTimetable.filter((t) => t.lecturerId === currentUser.id)
+    : allTimetable;
 
   const todays = timetable.filter((t) => t.date === today).sort((a, b) => a.startTime.localeCompare(b.startTime));
   const replacement = timetable.filter((t) => t.slotType === "Replacement Class");
   const cancelClass = (id: string) => { setTimetable((p) => p.map((t) => (t.id === id ? { ...t, status: "Cancelled" as const } : t))); toast.success("Class cancelled"); };
 
+  const titleByRole = currentUser?.role === "lecturer"
+    ? "My Timetable / Jadual Saya"
+    : currentUser?.role === "staff"
+      ? "Timetable Monitoring / Pemantauan Jadual"
+      : "M5: Showing Timetable Slot / Paparan Slot Jadual Waktu";
+
   return (
     <div className="space-y-5">
-      <PageHeader title="M5: Showing Timetable Slot / Paparan Slot Jadual Waktu" subtitle="Lecturer timetable & quick access to attendance taking." />
+      <PageHeader title={titleByRole} subtitle={currentUser?.role === "lecturer" ? "Your assigned classes only." : "All scheduled classes & quick access to attendance."} />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-sm">Filters</CardTitle></CardHeader>
