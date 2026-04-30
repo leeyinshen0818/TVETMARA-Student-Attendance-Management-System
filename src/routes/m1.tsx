@@ -13,11 +13,23 @@ import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { useApp } from "@/lib/store";
 import { generateAttendanceForSlot, type AttendanceRecord, type AttendanceStatus } from "@/lib/mock-data";
+import { RoleGate } from "@/components/role-gate";
 
 export const Route = createFileRoute("/m1")({
   validateSearch: (s: Record<string, unknown>) => ({ slot: (s.slot as string) || "" }),
-  component: M1,
+  component: M1Page,
 });
+
+function M1Page() {
+  return (
+    <RoleGate
+      allow={["lecturer"]}
+      message="Attendance taking is only available for lecturers. Admin can monitor attendance through the Reporting Module."
+    >
+      <M1 />
+    </RoleGate>
+  );
+}
 
 function M1() {
   const { slot: initSlot } = Route.useSearch();

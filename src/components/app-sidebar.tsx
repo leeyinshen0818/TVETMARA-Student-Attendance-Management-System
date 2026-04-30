@@ -46,7 +46,6 @@ const MENUS: Record<Role, MenuGroup[]> = {
       items: [
         { title: "Upload Time Schedule", url: "/m4", icon: Upload },
         { title: "Showing Timetable Slot", url: "/m5", icon: CalendarDays },
-        { title: "Taking Attendance Records", url: "/m1", icon: ClipboardCheck },
         { title: "Reporting Module", url: "/m3", icon: BarChart3 },
         { title: "Discipline Reports", url: "/m2", icon: AlertTriangle },
         { title: "Booking Approvals", url: "/m6", icon: CalendarPlus },
