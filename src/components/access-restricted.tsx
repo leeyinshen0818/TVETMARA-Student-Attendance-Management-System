@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useApp } from "@/lib/store";
 
-export function AccessRestricted({ feature }: { feature?: string }) {
+export function AccessRestricted({ feature, message }: { feature?: string; message?: string }) {
   const { currentUser } = useApp();
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -15,10 +15,14 @@ export function AccessRestricted({ feature }: { feature?: string }) {
           </div>
           <div>
             <h2 className="text-lg font-bold">Access Restricted</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Your role <span className="font-semibold capitalize">{currentUser?.role}</span> does not have permission to access
-              {feature ? ` ${feature}` : " this page"}.
-            </p>
+            {message ? (
+              <p className="text-sm text-muted-foreground mt-1">{message}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1">
+                Your role <span className="font-semibold capitalize">{currentUser?.role}</span> does not have permission to access
+                {feature ? ` ${feature}` : " this page"}.
+              </p>
+            )}
           </div>
           <Button asChild variant="outline" size="sm">
             <Link to="/dashboard">Back to Dashboard</Link>
