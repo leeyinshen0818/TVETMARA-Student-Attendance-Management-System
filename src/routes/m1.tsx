@@ -24,7 +24,7 @@ function M1() {
   const navigate = useNavigate();
   const { timetable: allTimetable, students, attendance, saveAttendance, settings, currentUser } = useApp();
 
-  const isStaff = currentUser?.role === "staff";
+  const isStaff = false;
   const isLecturer = currentUser?.role === "lecturer";
   const timetable = isLecturer
     ? allTimetable.filter((t) => t.lecturerId === currentUser?.id)

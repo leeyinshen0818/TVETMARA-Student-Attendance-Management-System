@@ -1,6 +1,6 @@
 import * as React from "react";
 import { toast } from "sonner";
-import { GraduationCap, ShieldCheck, BookOpen, Briefcase, Lock, Mail, LogIn } from "lucide-react";
+import { GraduationCap, ShieldCheck, BookOpen, Lock, Mail, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import type { Role } from "@/lib/mock-data";
 export const DEMO_ACCOUNTS: Record<Role, { email: string; password: string; title: string; desc: string; icon: any }> = {
   admin: { email: "admin@tvetmara.edu.my", password: "admin123", title: "Admin", desc: "System setup, users, approvals & full data", icon: ShieldCheck },
   lecturer: { email: "lecturer@tvetmara.edu.my", password: "lecturer123", title: "Lecturer", desc: "Take attendance for own classes & report issues", icon: BookOpen },
-  staff: { email: "academic@tvetmara.edu.my", password: "academic123", title: "Academic Staff / Management", desc: "Monitor attendance, follow-up & reports", icon: Briefcase },
 };
 
 export function LoginPage() {
@@ -38,7 +37,6 @@ export function LoginPage() {
   const tones: Record<Role, string> = {
     admin: "border-primary bg-primary/5 ring-2 ring-primary",
     lecturer: "border-primary bg-primary/5 ring-2 ring-primary",
-    staff: "border-primary bg-primary/5 ring-2 ring-primary",
   };
 
   return (
@@ -61,7 +59,7 @@ export function LoginPage() {
           <ul className="mt-6 space-y-2 text-sm text-sidebar-foreground/80">
             <li>• M1–M6 Attendance Modules</li>
             <li>• Real-time reporting & alerts</li>
-            <li>• Admin · Lecturer · Academic Staff roles</li>
+            <li>• Admin · Lecturer roles</li>
           </ul>
         </div>
         <div className="text-xs text-sidebar-foreground/60">© 2026 TVETMARA Johor Bahru. Prototype build.</div>
@@ -82,7 +80,7 @@ export function LoginPage() {
             <CardDescription>Select your role — credentials will fill automatically.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {(Object.keys(DEMO_ACCOUNTS) as Role[]).map((r) => {
                 const a = DEMO_ACCOUNTS[r];
                 const active = selected === r;

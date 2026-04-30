@@ -9,13 +9,11 @@ export function TopBar() {
   const { currentUser } = useApp();
   const today = format(new Date("2026-04-29"), "EEEE, dd MMM yyyy");
 
-  const roleLabel = currentUser?.role === "admin" ? "Admin" : currentUser?.role === "lecturer" ? "Lecturer" : "Academic Staff";
+  const roleLabel = currentUser?.role === "admin" ? "Admin" : "Lecturer";
   const roleClass =
     currentUser?.role === "admin"
       ? "bg-primary text-primary-foreground"
-      : currentUser?.role === "lecturer"
-        ? "bg-success text-success-foreground"
-        : "bg-info text-info-foreground";
+      : "bg-success text-success-foreground";
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card px-3 sm:px-4">

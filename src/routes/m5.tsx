@@ -32,9 +32,7 @@ function M5() {
 
   const titleByRole = currentUser?.role === "lecturer"
     ? "My Timetable / Jadual Saya"
-    : currentUser?.role === "staff"
-      ? "Timetable Monitoring / Pemantauan Jadual"
-      : "M5: Showing Timetable Slot / Paparan Slot Jadual Waktu";
+    : "Timetable Management / Pengurusan Jadual Waktu";
 
   return (
     <div className="space-y-5">

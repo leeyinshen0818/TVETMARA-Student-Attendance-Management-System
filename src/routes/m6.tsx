@@ -26,7 +26,7 @@ function M6() {
   const { timetable, bookings: allBookings, addBooking, updateBooking, currentUser } = useApp();
   const isAdmin = currentUser?.role === "admin";
   const isLecturer = currentUser?.role === "lecturer";
-  const isStaff = currentUser?.role === "staff";
+  const isStaff = false;
   const bookings = isLecturer
     ? allBookings.filter((b) => b.lecturerId === currentUser?.id)
     : allBookings;

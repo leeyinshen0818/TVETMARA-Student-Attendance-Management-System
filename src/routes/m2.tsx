@@ -22,7 +22,7 @@ function M2() {
   const { students: allStudents, disciplineReports: allReports, timetable, addDiscipline, updateDiscipline, currentUser } = useApp();
 
   const isLecturer = currentUser?.role === "lecturer";
-  const isStaff = currentUser?.role === "staff";
+  const isStaff = false;
   const lecturerSections = isLecturer
     ? Array.from(new Set(timetable.filter((t) => t.lecturerId === currentUser?.id).map((t) => t.section)))
     : null;

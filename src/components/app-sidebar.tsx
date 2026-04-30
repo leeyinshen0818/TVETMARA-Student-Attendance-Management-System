@@ -15,8 +15,6 @@ import {
   GraduationCapIcon,
   UserCircle,
   FileSearch,
-  Eye,
-  BookMarked,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,26 +83,6 @@ const MENUS: Record<Role, MenuGroup[]> = {
         { title: "My Students", url: "/students", icon: GraduationCap },
         { title: "My Profile", url: "/lecturers", icon: UserCircle },
       ],
-    },
-  ],
-  staff: [
-    {
-      label: "Overview",
-      items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
-    },
-    {
-      label: "Monitoring",
-      items: [
-        { title: "Attendance Reports", url: "/m3", icon: BarChart3 },
-        { title: "Taking Attendance (View)", url: "/m1", icon: Eye },
-        { title: "Discipline Follow-Up", url: "/m2", icon: FileSearch },
-        { title: "Timetable Monitoring", url: "/m5", icon: CalendarDays },
-        { title: "Booking Records", url: "/m6", icon: BookMarked },
-      ],
-    },
-    {
-      label: "Records",
-      items: [{ title: "Student Records", url: "/students", icon: GraduationCap }],
     },
   ],
 };

@@ -65,7 +65,7 @@ function UsersPage() {
               <F label="Role">
                 <Select value={editing.role} onValueChange={(v) => setEditing({ ...editing, role: v as any })}>
                   <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>{[{v:"admin",l:"Admin"},{v:"lecturer",l:"Lecturer"},{v:"staff",l:"Academic Staff"}].map((x) => <SelectItem key={x.v} value={x.v}>{x.l}</SelectItem>)}</SelectContent>
+                  <SelectContent>{[{v:"admin",l:"Admin"},{v:"lecturer",l:"Lecturer"}].map((x) => <SelectItem key={x.v} value={x.v}>{x.l}</SelectItem>)}</SelectContent>
                 </Select>
               </F>
               <F label="Department"><Input className="h-9" value={editing.department || ""} onChange={(e) => setEditing({ ...editing, department: e.target.value })} /></F>

@@ -79,7 +79,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const map: Record<Role, string> = {
       admin: "admin@tvetmara.edu.my",
       lecturer: "lecturer@tvetmara.edu.my",
-      staff: "academic@tvetmara.edu.my",
     };
     const user = users.find((u) => u.email === map[role]) || users.find((u) => u.role === role) || users[0];
     setCurrentUser(user);
