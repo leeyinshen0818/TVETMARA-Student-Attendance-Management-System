@@ -103,18 +103,6 @@ function Dashboard() {
             <StatCard label="My Discipline Reports" value={scopedDiscipline.length} icon={AlertCircle} tone="info" />
           </>
         )}
-        {role === "staff" && (
-          <>
-            <StatCard label="Average Attendance" value={`${avgAtt}%`} icon={Percent} tone="success" />
-            <StatCard label="Students Below 80%" value={below80} icon={AlertTriangle} tone="destructive" />
-            <StatCard label="Discipline Under Review" value={pendingDisc} icon={FileSearch} tone="destructive" />
-            <StatCard label="Attendance Not Submitted" value={pendingToday} icon={Clock} tone="warning" />
-            <StatCard label="Classes Today" value={todays.length} icon={BookOpen} tone="info" />
-            <StatCard label="Low-Attendance Classes" value={2} icon={AlertCircle} tone="warning" />
-            <StatCard label="Total Students" value={students.length} icon={GraduationCap} />
-            <StatCard label="Follow-Up Actions" value={pendingDisc + below80} icon={CheckCircle2} tone="replacement" />
-          </>
-        )}
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
