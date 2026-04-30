@@ -67,9 +67,7 @@ function Dashboard() {
   const subtitle =
     role === "admin"
       ? "System-wide overview · Admin control panel"
-      : role === "lecturer"
-        ? "Your classes, attendance & discipline activity today"
-        : "Attendance monitoring & follow-up · Academic Staff";
+      : "Your classes, attendance & discipline activity today";
 
   return (
     <div className="space-y-6">
