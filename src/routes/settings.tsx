@@ -15,7 +15,7 @@ function SettingsPage() {
   const { settings, setSettings } = useApp();
   return (
     <div className="space-y-5">
-      <PageHeader title="Settings" />
+      <PageHeader title="Settings / Tetapan Sistem" />
       <Card><CardHeader><CardTitle className="text-base">Attendance Rules</CardTitle></CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-4">
           <div><Label className="text-xs">Attendance Threshold (%)</Label><Input className="h-9 mt-1" type="number" value={settings.threshold} onChange={(e) => setSettings({ ...settings, threshold: +e.target.value })} /></div>

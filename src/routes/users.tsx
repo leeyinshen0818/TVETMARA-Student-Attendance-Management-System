@@ -34,7 +34,7 @@ function UsersPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Manage Users" actions={<Button onClick={() => { setEditing({ id: `U${Date.now().toString().slice(-4)}`, name: "", email: "", role: "lecturer", department: "", status: "Active", lastLogin: "—" }); setOpen(true); }}><Plus className="h-4 w-4 mr-1.5" />Add User</Button>} />
+      <PageHeader title="Manage Users / Pengurusan Pengguna" actions={<Button onClick={() => { setEditing({ id: `U${Date.now().toString().slice(-4)}`, name: "", email: "", role: "lecturer", department: "", status: "Active", lastLogin: "—" }); setOpen(true); }}><Plus className="h-4 w-4 mr-1.5" />Add User</Button>} />
       <Card><CardContent className="p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-muted-foreground border-b bg-muted/40"><tr>{["ID","Name","Email","Role","Department","Status","Last Login","Action"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr></thead>
