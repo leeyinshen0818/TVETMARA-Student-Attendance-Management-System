@@ -5,6 +5,8 @@ import { Eye, Mail, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/page-header";
@@ -22,17 +24,37 @@ function StudentsPage() {
     : null;
   const students = sections ? allStudents.filter((s) => sections.includes(s.section)) : allStudents;
   const [q, setQ] = React.useState("");
+  const [course, setCourse] = React.useState("All");
+  const [section, setSection] = React.useState("All");
+  const [semester, setSemester] = React.useState("All");
   const [profile, setProfile] = React.useState<Student | null>(null);
   const [contact, setContact] = React.useState<Student | null>(null);
-  const filtered = students.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) || s.id.includes(q) || s.section.toLowerCase().includes(q.toLowerCase()));
+  const courses = Array.from(new Set(students.map((s) => s.program)));
+  const classOptions = Array.from(new Set(students.map((s) => s.section)));
+  const semesters = Array.from(new Set(students.map((s) => String(s.semester))));
+  const filtered = students
+    .filter((s) => course === "All" || s.program === course)
+    .filter((s) => section === "All" || s.section === section)
+    .filter((s) => semester === "All" || String(s.semester) === semester)
+    .filter((s) => s.name.toLowerCase().includes(q.toLowerCase()) || s.id.includes(q) || s.section.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title={isLecturer ? "My Students / Pelajar Saya" : "Student Records / Rekod Pelajar"}
+        title={isLecturer ? "My Students" : "Student Records"}
         subtitle={isLecturer ? "Students enrolled in your assigned classes." : "View student profiles, attendance summary and contact info."}
-        actions={<Input placeholder="Search students..." value={q} onChange={(e) => setQ(e.target.value)} className="w-64 h-9" />}
       />
+      <Card>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+          <Filter label="Course" value={course} options={courses} onChange={setCourse} />
+          <Filter label="Class" value={section} options={classOptions} onChange={setSection} />
+          <Filter label="Semester" value={semester} options={semesters} onChange={setSemester} />
+          <div>
+            <Label className="text-xs">Search</Label>
+            <Input placeholder="Name, ID, class" value={q} onChange={(e) => setQ(e.target.value)} className="mt-1 h-9" />
+          </div>
+        </CardContent>
+      </Card>
       <Card><CardContent className="p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-xs text-muted-foreground border-b bg-muted/40"><tr>{["ID","Name","IC","Email","Phone","Program","Section","Sem","Status","Att %","Action"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr></thead>
@@ -93,4 +115,19 @@ function StudentsPage() {
 
 function Info({ label, value }: { label: string; value: string }) {
   return <div><div className="text-xs text-muted-foreground">{label}</div><div className="font-medium mt-0.5">{value}</div></div>;
+}
+
+function Filter({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="All">All</SelectItem>
+          {options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }
