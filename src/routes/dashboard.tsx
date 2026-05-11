@@ -16,7 +16,7 @@ function Dashboard() {
   const { students, lecturers, timetable, attendance, disciplineReports, bookings, settings, currentUser } = useApp();
 
   const today = "2026-04-29";
-  const role = currentUser?.role ?? "admin";
+  const role: string = currentUser?.role ?? "admin";
 
   // Scope data per role
   const scopedTimetable = role === "lecturer"
@@ -36,6 +36,10 @@ function Dashboard() {
     : bookings;
 
   const todays = scopedTimetable.filter((t) => t.date === today);
+  const upcomingClass =
+    scopedTimetable
+      .filter((t) => t.status !== "Cancelled")
+      .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`))[0] || null;
   const completedToday = todays.filter((t) => t.status === "Attendance Completed").length;
   const pendingToday = todays.length - completedToday;
   const avgAtt = scopedStudents.length
@@ -68,6 +72,83 @@ function Dashboard() {
     role === "admin"
       ? "System-wide overview · Admin control panel"
       : "Your classes, attendance & discipline activity today";
+
+  if (role === "admin") {
+    const uploadedSections = Array.from(new Set(timetable.map((t) => t.section))).length;
+    const pendingAttendance = timetable.filter((t) => t.status === "Attendance Not Taken" || t.status === "Attendance Pending").length;
+    const pendingApprovalBookings = bookings.filter((b) => b.status === "Pending");
+    const pendingDiscipline = disciplineReports.filter((d) => d.status === "New" || d.status === "Under Review");
+    const cancelled = timetable.filter((t) => t.status === "Cancelled").length;
+    const recentSlots = [...timetable].sort((a, b) => `${b.date}${b.startTime}`.localeCompare(`${a.date}${a.startTime}`)).slice(0, 6);
+
+    return (
+      <div className="space-y-6">
+        <PageHeader title={`Welcome back, ${currentUser?.name.split(" ")[0]}`} subtitle="Admin action centre for approvals, timetable control and academic monitoring." />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard label="Pending Booking Approvals" value={pendingApprovalBookings.length} icon={CalendarPlus} tone="warning" />
+          <StatCard label="Discipline Reports To Review" value={pendingDiscipline.length} icon={AlertTriangle} tone="warning" />
+          <StatCard label="Attendance Not Submitted" value={pendingAttendance} icon={Clock} tone="destructive" />
+          <StatCard label="Uploaded Sections" value={uploadedSections} icon={FileSearch} tone="info" />
+          <StatCard label="Total Students" value={students.length} icon={GraduationCap} />
+          <StatCard label="Total Lecturers" value={lecturers.length} icon={Users} tone="info" />
+          <StatCard label="Cancelled Classes" value={cancelled} icon={AlertCircle} tone="destructive" />
+          <StatCard label="Approved Replacement" value={approvedBookings} icon={CheckCircle2} tone="replacement" />
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Pending Admin Actions</CardTitle>
+              <CardDescription>Booking and discipline decisions that need admin review.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              <ActionList title="Booking Requests" empty="No pending booking requests." rows={pendingApprovalBookings.map((b) => ({ id: b.id, main: b.subject, sub: `${b.lecturerName} · ${b.section} · ${b.replacementDate}`, status: b.status }))} />
+              <ActionList title="Discipline Reports" empty="No discipline reports awaiting review." rows={pendingDiscipline.map((d) => ({ id: d.id, main: d.studentName, sub: `${d.issueType} · ${d.lecturer}`, status: d.status }))} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">Quick Admin Actions</CardTitle></CardHeader>
+            <CardContent className="grid gap-2">
+              <Button asChild variant="outline" className="justify-start"><Link to="/m4">Upload Timetable</Link></Button>
+              <Button asChild variant="outline" className="justify-start"><Link to="/m5">View Timetable Slots</Link></Button>
+              <Button asChild variant="outline" className="justify-start"><Link to="/m3">Download Reports</Link></Button>
+              <Button asChild variant="outline" className="justify-start"><Link to="/users">Manage Users</Link></Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Latest Timetable Slots</CardTitle>
+            <CardDescription>Recent slots available for sharing and monitoring.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
+                <tr>{["Date", "Time", "Section", "Code", "Subject", "Lecturer", "Room", "Status"].map((h) => <th key={h} className="p-2 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {recentSlots.map((slot) => (
+                  <tr key={slot.id} className="border-b last:border-0">
+                    <td className="p-2">{slot.date}</td>
+                    <td className="p-2">{slot.startTime}-{slot.endTime}</td>
+                    <td className="p-2 font-medium">{slot.section}</td>
+                    <td className="p-2 font-mono text-xs">{slot.subjectCode}</td>
+                    <td className="p-2">{slot.subjectName}</td>
+                    <td className="p-2 text-xs">{slot.lecturerName}</td>
+                    <td className="p-2 text-xs">{slot.room}</td>
+                    <td className="p-2"><StatusBadge status={slot.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -102,6 +183,41 @@ function Dashboard() {
           </>
         )}
       </div>
+
+      {role === "lecturer" && upcomingClass && (
+        <Card className="border-primary/40 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Upcoming Class</CardTitle>
+            <CardDescription>Your next scheduled teaching slot</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Subject</div>
+                <div className="font-semibold">{upcomingClass.subjectName}</div>
+                <div className="text-xs text-muted-foreground">{upcomingClass.subjectCode}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Section</div>
+                <div className="font-semibold">{upcomingClass.section}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Date / Time</div>
+                <div className="font-semibold">{upcomingClass.date}</div>
+                <div className="text-xs">{upcomingClass.startTime}-{upcomingClass.endTime}</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Venue</div>
+                <div className="font-semibold">{upcomingClass.room}</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button asChild size="sm"><Link to="/m1" search={{ slot: upcomingClass.id }}>Take Attendance</Link></Button>
+              <Button asChild size="sm" variant="outline"><Link to="/m6" search={{ slot: upcomingClass.id }}>Request Replacement</Link></Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
@@ -231,6 +347,26 @@ function AlertRow({ tone, title, desc }: { tone: "destructive" | "warning" | "in
     <div className={`border-l-4 ${cls} rounded p-2.5`}>
       <div className="text-sm font-semibold">{title}</div>
       <div className="text-xs text-muted-foreground">{desc}</div>
+    </div>
+  );
+}
+
+function ActionList({ title, empty, rows }: { title: string; empty: string; rows: Array<{ id: string; main: string; sub: string; status: string }> }) {
+  return (
+    <div className="rounded-md border">
+      <div className="border-b bg-muted/40 px-3 py-2 text-sm font-semibold">{title}</div>
+      <div className="divide-y">
+        {rows.length === 0 && <div className="p-3 text-sm text-muted-foreground">{empty}</div>}
+        {rows.map((row) => (
+          <div key={row.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+            <div className="min-w-0">
+              <div className="font-medium truncate">{row.main}</div>
+              <div className="text-xs text-muted-foreground truncate">{row.sub}</div>
+            </div>
+            <StatusBadge status={row.status} />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

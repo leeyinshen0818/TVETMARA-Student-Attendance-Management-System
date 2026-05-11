@@ -121,6 +121,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           startTime: booking.replacementStart,
           endTime: booking.replacementEnd,
           room: booking.room,
+          enrolled: timetable.find((t) => t.section === booking.section)?.enrolled,
+          capacity: timetable.find((t) => t.section === booking.section)?.capacity,
           classType: "Theory",
           weekRange: "Replacement",
           slotType: "Replacement Class",

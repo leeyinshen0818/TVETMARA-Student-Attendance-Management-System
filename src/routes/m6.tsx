@@ -38,7 +38,7 @@ function M6() {
   const [room, setRoom] = React.useState(ROOMS[0]);
   const [reason, setReason] = React.useState(REASONS[0]);
   const [remarks, setRemarks] = React.useState("");
-  const [availability, setAvailability] = React.useState<null | { ok: boolean }>(null);
+  const [availability, setAvailability] = React.useState<null | { ok: boolean; lecturerOk: boolean; roomOk: boolean; sectionOk: boolean; timeOk: boolean; conflictCount: number }>(null);
   const [approving, setApproving] = React.useState<BookingRequest | null>(null);
   const [rejecting, setRejecting] = React.useState<BookingRequest | null>(null);
   const [rejectReason, setRejectReason] = React.useState("");
@@ -46,6 +46,14 @@ function M6() {
 
   const submit = () => {
     if (!slot) { toast.error("Select a class slot from M5 first"); return; }
+    if (isLecturer && slot.lecturerId !== currentUser?.id) {
+      toast.error("You can only request replacement classes for your own timetable slots.");
+      return;
+    }
+    if (!availability?.ok) {
+      toast.error("Please check availability and resolve any conflict before submitting.");
+      return;
+    }
     addBooking({
       id: `B${Date.now().toString().slice(-4)}`,
       lecturerId: slot.lecturerId,
@@ -68,10 +76,27 @@ function M6() {
 
   const reset = () => { setRemarks(""); setAvailability(null); };
 
+  const checkAvailability = () => {
+    if (!slot) {
+      toast.error("Select a class slot from M5 first");
+      return;
+    }
+    const timeOk = start < end;
+    const conflicts = timetable.filter((item) => {
+      const overlaps = item.date === date && start < item.endTime && end > item.startTime;
+      if (!overlaps || item.id === slot.id) return false;
+      return item.room === room || item.lecturerId === slot.lecturerId || item.section === slot.section;
+    });
+    const lecturerOk = !conflicts.some((item) => item.lecturerId === slot.lecturerId);
+    const roomOk = !conflicts.some((item) => item.room === room);
+    const sectionOk = !conflicts.some((item) => item.section === slot.section);
+    setAvailability({ ok: timeOk && lecturerOk && roomOk && sectionOk, lecturerOk, roomOk, sectionOk, timeOk, conflictCount: conflicts.length });
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
-        title={isAdmin ? "Booking Approvals / Kelulusan Tempahan" : isStaff ? "Booking Records / Rekod Tempahan" : "M6: Booking Request / Permohonan Tempahan"}
+        title={isAdmin ? "Booking Approvals" : isStaff ? "Booking Records" : "M6: Booking Request"}
         subtitle={isAdmin ? "Approve or reject replacement class requests." : isStaff ? "View-only list of replacement class bookings." : "Submit a replacement class request and track your booking status."}
       />
 
@@ -86,11 +111,11 @@ function M6() {
                 <Info label="Section" value={slot.section} />
                 <Info label="Lecturer" value={slot.lecturerName} />
                 <Info label="Original Date" value={slot.date} />
-                <Info label="Original Time" value={`${slot.startTime} – ${slot.endTime}`} />
+                <Info label="Original Time" value={`${slot.startTime} - ${slot.endTime}`} />
                 <Info label="Original Room" value={slot.room} />
               </div>
             ) : (
-              <div className="p-3 bg-warning/10 border-l-4 border-warning text-sm rounded">No slot pre-selected. Open this page from M5 to pre-fill a class, or fill the form manually.</div>
+              <div className="p-3 bg-warning/10 border-l-4 border-warning text-sm rounded">No slot pre-selected. Open this page from M5 to pre-fill a class.</div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <F label="Replacement Date"><Input className="h-9" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></F>
@@ -105,7 +130,7 @@ function M6() {
             </F>
             <F label="Additional Remarks"><Textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} /></F>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setAvailability({ ok: Math.random() > 0.3 })}>Check Availability</Button>
+              <Button variant="outline" onClick={checkAvailability}>Check Availability</Button>
               <Button onClick={submit}>Submit Booking Request</Button>
               <Button variant="ghost" onClick={reset}><RotateCcw className="h-4 w-4 mr-1.5" />Reset</Button>
             </div>
@@ -118,11 +143,11 @@ function M6() {
             {availability === null && <p className="text-muted-foreground text-xs">Click "Check Availability" to verify lecturer, room, and class availability.</p>}
             {availability && (
               <>
-                <Row label="Lecturer" status={availability.ok ? "Available" : "Not Available"} ok={availability.ok} />
-                <Row label="Room" status={availability.ok ? "Available" : "Not Available"} ok={availability.ok} />
-                <Row label="Class" status="Available" ok />
-                <Row label="Time validity" status="Valid" ok />
-                <Row label="Conflict" status={availability.ok ? "No Conflict" : "Conflict Found"} ok={availability.ok} />
+                <Row label="Lecturer" status={availability.lecturerOk ? "Available" : "Not Available"} ok={availability.lecturerOk} />
+                <Row label="Room" status={availability.roomOk ? "Available" : "Not Available"} ok={availability.roomOk} />
+                <Row label="Section" status={availability.sectionOk ? "Available" : "Conflict"} ok={availability.sectionOk} />
+                <Row label="Time validity" status={availability.timeOk ? "Valid" : "Invalid"} ok={availability.timeOk} />
+                <Row label="Conflict" status={availability.ok ? "No Conflict" : `${availability.conflictCount || 1} Conflict Found`} ok={availability.ok} />
                 {!availability.ok && (
                   <div className="mt-3 border-t pt-3">
                     <div className="text-xs font-semibold mb-2 text-destructive">Suggested alternative slots:</div>
@@ -134,7 +159,7 @@ function M6() {
                           { d: "2026-05-07", t: "13:30", r: "Lab Elektrik 2" },
                         ].map((a, i) => (
                           <tr key={i} className="border-t"><td className="py-1">{a.d}</td><td>{a.t}</td><td>{a.r}</td>
-                            <td><Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setDate(a.d); setStart(a.t); setRoom(a.r); setAvailability({ ok: true }); }}>Select</Button></td></tr>
+                            <td><Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setDate(a.d); setStart(a.t); setRoom(a.r); setAvailability(null); }}>Select</Button></td></tr>
                         ))}
                       </tbody>
                     </table>
@@ -156,7 +181,7 @@ function M6() {
               {bookings.map((b) => (
                 <tr key={b.id} className="border-b last:border-0">
                   <td className="p-2 font-mono text-xs">{b.id}</td><td className="p-2 text-xs">{b.lecturerName}</td><td className="p-2">{b.subject}</td><td className="p-2">{b.section}</td>
-                  <td className="p-2 text-xs">{b.originalDate}</td><td className="p-2 text-xs">{b.replacementDate}</td><td className="p-2 text-xs">{b.replacementStart}–{b.replacementEnd}</td>
+                  <td className="p-2 text-xs">{b.originalDate}</td><td className="p-2 text-xs">{b.replacementDate}</td><td className="p-2 text-xs">{b.replacementStart}-{b.replacementEnd}</td>
                   <td className="p-2 text-xs">{b.room}</td><td className="p-2 text-xs">{b.reason}</td><td className="p-2"><StatusBadge status={b.status} /></td>
                   <td className="p-2"><div className="flex gap-1">
                     <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setViewing(b)}><Eye className="h-3.5 w-3.5" /></Button>
@@ -164,7 +189,7 @@ function M6() {
                       <Button size="sm" variant="ghost" className="h-7 px-2 text-success" onClick={() => setApproving(b)}><Check className="h-3.5 w-3.5" /></Button>
                       <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" onClick={() => setRejecting(b)}><X className="h-3.5 w-3.5" /></Button>
                     </>)}
-                    {b.status === "Approved" && <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { updateBooking(b.id, { status: "Completed" }); toast.success("Marked completed"); }}><CheckCircle2 className="h-3.5 w-3.5" /></Button>}
+                    {b.status === "Approved" && isAdmin && <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => { updateBooking(b.id, { status: "Completed" }); toast.success("Marked completed"); }}><CheckCircle2 className="h-3.5 w-3.5" /></Button>}
                   </div></td>
                 </tr>
               ))}
@@ -180,7 +205,7 @@ function M6() {
             <thead className="text-xs text-muted-foreground border-b bg-muted/40"><tr>{["Date","Time","Subject","Section","Room","Status"].map((h) => <th key={h} className="text-left p-2">{h}</th>)}</tr></thead>
             <tbody>
               {bookings.filter((b) => b.status === "Approved" || b.status === "Completed").map((b) => (
-                <tr key={b.id} className="border-b last:border-0"><td className="p-2">{b.replacementDate}</td><td className="p-2">{b.replacementStart}–{b.replacementEnd}</td><td className="p-2">{b.subject}</td><td className="p-2">{b.section}</td><td className="p-2">{b.room}</td><td className="p-2"><StatusBadge status={b.status} /></td></tr>
+                <tr key={b.id} className="border-b last:border-0"><td className="p-2">{b.replacementDate}</td><td className="p-2">{b.replacementStart}-{b.replacementEnd}</td><td className="p-2">{b.subject}</td><td className="p-2">{b.section}</td><td className="p-2">{b.room}</td><td className="p-2"><StatusBadge status={b.status} /></td></tr>
               ))}
             </tbody>
           </table>
@@ -205,7 +230,7 @@ function M6() {
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Booking Details</DialogTitle><DialogDescription>{viewing?.id}</DialogDescription></DialogHeader>
-          {viewing && <div className="grid grid-cols-2 gap-3 text-sm"><Info label="Lecturer" value={viewing.lecturerName} /><Info label="Subject" value={viewing.subject} /><Info label="Section" value={viewing.section} /><Info label="Room" value={viewing.room} /><Info label="Original" value={`${viewing.originalDate} ${viewing.originalTime}`} /><Info label="Replacement" value={`${viewing.replacementDate} ${viewing.replacementStart}–${viewing.replacementEnd}`} /><Info label="Reason" value={viewing.reason} /><Info label="Status" value={viewing.status} />{viewing.remarks && <div className="col-span-2"><div className="text-xs text-muted-foreground">Remarks</div><div>{viewing.remarks}</div></div>}</div>}
+          {viewing && <div className="grid grid-cols-2 gap-3 text-sm"><Info label="Lecturer" value={viewing.lecturerName} /><Info label="Subject" value={viewing.subject} /><Info label="Section" value={viewing.section} /><Info label="Room" value={viewing.room} /><Info label="Original" value={`${viewing.originalDate} ${viewing.originalTime}`} /><Info label="Replacement" value={`${viewing.replacementDate} ${viewing.replacementStart}-${viewing.replacementEnd}`} /><Info label="Reason" value={viewing.reason} /><Info label="Status" value={viewing.status} />{viewing.remarks && <div className="col-span-2"><div className="text-xs text-muted-foreground">Remarks</div><div>{viewing.remarks}</div></div>}</div>}
         </DialogContent>
       </Dialog>
     </div>
