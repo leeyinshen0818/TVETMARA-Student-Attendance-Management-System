@@ -1,0 +1,38 @@
+# This file tracks properties of this Flutter project.
+# Used by Flutter tool to assess capabilities and perform upgrades etc.
+#
+# This file should be version controlled.
+
+version:
+  revision: "manual-scaffold"
+  channel: "stable"
+
+project_type: app
+
+migration:
+  platforms:
+    - platform: root
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: android
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: ios
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: linux
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: macos
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: web
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+    - platform: windows
+      create_revision: manual-scaffold
+      base_revision: manual-scaffold
+
+  unmanaged_files:
+    - 'lib/main.dart'
+    - 'ios/Runner.xcodeproj/project.pbxproj'
