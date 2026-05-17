@@ -5,7 +5,6 @@ TVETMARA Student Attendance Management System rebuilt with Flutter.
 ## Getting Started
 
 ```bash
-flutter pub get
 flutter run
 ```
 
