@@ -62,14 +62,14 @@ class SettingsScreen extends StatelessWidget {
         const AppPanel(
           title: 'Sumber Data',
           subtitle:
-              'Data contoh sedang digunakan. Firebase boleh disambungkan selepas UI dimuktamadkan.',
+              'Sistem disambungkan ke Firebase Cloud Firestore.',
           child: Row(
             children: [
-              Icon(Icons.storage_outlined, color: Color(0xff1d4ed8)),
+              Icon(Icons.cloud_done_outlined, color: Color(0xff16a34a)),
               SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Binaan semasa menggunakan data contoh setempat untuk kehadiran, bilik, laporan, tempahan dan jadual.',
+                  'Data kehadiran, bilik, laporan, tempahan dan jadual disimpan di Firebase Cloud Firestore. Semua ahli pasukan berkongsi pangkalan data yang sama.',
                 ),
               ),
             ],

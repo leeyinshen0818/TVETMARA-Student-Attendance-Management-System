@@ -1,17 +1,18 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/mock_data.dart' as mock;
 import '../models/app_models.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 
 class AppState extends ChangeNotifier {
   AppUser? currentUser;
-  final users = List<AppUser>.from(mock.users);
-  final students = List<Student>.from(mock.students);
-  final lecturers = List<Lecturer>.from(mock.lecturers);
-  final roomResources = List<RoomResource>.from(mock.roomResources);
-  final timetable = List<TimetableSlot>.from(mock.timetable);
-  final disciplineReports = List<DisciplineReport>.from(mock.disciplineReports);
-  final bookings = List<BookingRequest>.from(mock.bookings);
+  List<AppUser> users = [];
+  List<Student> students = [];
+  List<Lecturer> lecturers = [];
+  List<RoomResource> roomResources = [];
+  List<TimetableSlot> timetable = [];
+  List<DisciplineReport> disciplineReports = [];
+  List<BookingRequest> bookings = [];
   final attendance = <String, List<AttendanceRecord>>{};
 
   int attendanceThreshold = 80;
@@ -19,25 +20,78 @@ class AppState extends ChangeNotifier {
   String session = 'Jan - Jun 2026';
   int semester = 2;
 
-  AppState() {
-    for (final slot
-        in timetable.where((slot) => slot.status == 'Attendance Completed')) {
-      attendance[slot.id] = mock.attendanceForSlot(slot);
+  bool _loading = true;
+  bool get loading => _loading;
+
+  String? _error;
+  String? get error => _error;
+
+  final _fs = FirestoreService.instance;
+
+  /// Load all data from Firestore.
+  /// Call once after Firebase is initialised and the user is authenticated.
+  Future<void> loadData() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final results = await Future.wait([
+        _fs.getUsers(),
+        _fs.getStudents(),
+        _fs.getLecturers(),
+        _fs.getRoomResources(),
+        _fs.getTimetableSlots(),
+        _fs.getDisciplineReports(),
+        _fs.getBookings(),
+        _fs.getAllAttendance(),
+      ]);
+
+      users = results[0] as List<AppUser>;
+      students = results[1] as List<Student>;
+      lecturers = results[2] as List<Lecturer>;
+      roomResources = results[3] as List<RoomResource>;
+      timetable = results[4] as List<TimetableSlot>;
+      disciplineReports = results[5] as List<DisciplineReport>;
+      bookings = results[6] as List<BookingRequest>;
+
+      final attendanceMap =
+          results[7] as Map<String, List<AttendanceRecord>>;
+      attendance
+        ..clear()
+        ..addAll(attendanceMap);
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _loading = false;
+      notifyListeners();
     }
   }
 
-  bool login(String email) {
-    final normalized = email.toLowerCase().trim();
-    final user = users
-        .where((item) => item.email.toLowerCase() == normalized)
-        .firstOrNull;
-    if (user == null) return false;
-    currentUser = user;
-    notifyListeners();
-    return true;
+  /// Authenticate with Firebase Auth, then look up the matching AppUser
+  /// profile in Firestore by email.
+  Future<bool> login(String email, String password) async {
+    try {
+      await AuthService.instance.signIn(email, password);
+      // After Firebase Auth success, fetch the user profile from Firestore
+      final appUser = await _fs.getUserByEmail(email);
+      if (appUser == null) {
+        // Auth succeeded but no profile doc — sign out and fail.
+        await AuthService.instance.signOut();
+        return false;
+      }
+      currentUser = appUser;
+      await _fs.updateLastLogin(appUser.id);
+      await loadData();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void logout() {
+    AuthService.instance.signOut();
     currentUser = null;
     notifyListeners();
   }
@@ -59,7 +113,8 @@ class AppState extends ChangeNotifier {
         .toList();
   }
 
-  void saveAttendance(String slotId, List<AttendanceRecord> records) {
+  Future<void> saveAttendance(
+      String slotId, List<AttendanceRecord> records) async {
     attendance[slotId] = records;
     final index = timetable.indexWhere((slot) => slot.id == slotId);
     if (index != -1) {
@@ -67,23 +122,29 @@ class AppState extends ChangeNotifier {
           timetable[index].copyWith(status: 'Attendance Completed');
     }
     notifyListeners();
+
+    // Persist to Firestore
+    await _fs.saveAttendance(slotId, records);
+    await _fs.updateSlotStatus(slotId, 'Attendance Completed');
   }
 
-  void addDiscipline(DisciplineReport report) {
+  Future<void> addDiscipline(DisciplineReport report) async {
     disciplineReports.insert(0, report);
     notifyListeners();
+    await _fs.addDisciplineReport(report);
   }
 
-  void updateDiscipline(String id, String status) {
+  Future<void> updateDiscipline(String id, String status) async {
     final index = disciplineReports.indexWhere((report) => report.id == id);
     if (index != -1) {
       disciplineReports[index] =
           disciplineReports[index].copyWith(status: status);
     }
     notifyListeners();
+    await _fs.updateDisciplineStatus(id, status);
   }
 
-  void addBooking(BookingRequest booking) {
+  Future<void> addBooking(BookingRequest booking) async {
     if (!isRoomAvailable(
       room: booking.room,
       date: booking.replacementDate,
@@ -95,9 +156,10 @@ class AppState extends ChangeNotifier {
     }
     bookings.insert(0, booking);
     notifyListeners();
+    await _fs.addBooking(booking);
   }
 
-  void updateBooking(String id, String status) {
+  Future<void> updateBooking(String id, String status) async {
     final index = bookings.indexWhere((booking) => booking.id == id);
     if (index == -1) return;
     bookings[index] = bookings[index].copyWith(status: status);
@@ -112,36 +174,38 @@ class AppState extends ChangeNotifier {
       )) {
         bookings[index] = booking.copyWith(status: 'Rejected');
         notifyListeners();
+        await _fs.updateBookingStatus(id, 'Rejected');
         return;
       }
       final source = timetable
           .where((slot) => slot.section == booking.section)
           .firstOrNull;
-      timetable.add(
-        TimetableSlot(
-          id: 'T${DateTime.now().millisecondsSinceEpoch}',
-          session: session,
-          semester: semester,
-          program: source?.program ?? '',
-          section: booking.section,
-          subjectCode: source?.subjectCode ?? 'REP',
-          subjectName: booking.subject,
-          lecturerId: booking.lecturerId,
-          lecturerName: booking.lecturerName,
-          day: 'Ganti',
-          date: booking.replacementDate,
-          startTime: booking.replacementStart,
-          endTime: booking.replacementEnd,
-          room: booking.room,
-          enrolled: source?.enrolled ?? 0,
-          capacity: source?.capacity ?? 0,
-          classType: source?.classType ?? 'Teori',
-          slotType: 'Kelas Ganti',
-          status: 'Upcoming',
-        ),
+      final newSlot = TimetableSlot(
+        id: 'T${DateTime.now().millisecondsSinceEpoch}',
+        session: session,
+        semester: semester,
+        program: source?.program ?? '',
+        section: booking.section,
+        subjectCode: source?.subjectCode ?? 'REP',
+        subjectName: booking.subject,
+        lecturerId: booking.lecturerId,
+        lecturerName: booking.lecturerName,
+        day: 'Ganti',
+        date: booking.replacementDate,
+        startTime: booking.replacementStart,
+        endTime: booking.replacementEnd,
+        room: booking.room,
+        enrolled: source?.enrolled ?? 0,
+        capacity: source?.capacity ?? 0,
+        classType: source?.classType ?? 'Teori',
+        slotType: 'Kelas Ganti',
+        status: 'Upcoming',
       );
+      timetable.add(newSlot);
+      await _fs.addTimetableSlot(newSlot);
     }
     notifyListeners();
+    await _fs.updateBookingStatus(id, status);
   }
 
   void updateAttendanceThreshold(int value) {

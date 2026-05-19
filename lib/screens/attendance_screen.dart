@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
+
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
@@ -33,7 +33,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final slot = slots.where((item) => item.id == slotId).firstOrNull;
     if (slot == null) return const Text('Tiada slot jadual ditetapkan.');
     if (loadedSlotId != slot.id) {
-      records = List.of(state.attendance[slot.id] ?? attendanceForSlot(slot));
+      records = List.of(state.attendance[slot.id] ?? _defaultRecords(slot, state));
       loadedSlotId = slot.id;
     }
     final students = state.students
@@ -138,4 +138,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ],
     );
   }
+}
+
+/// Generate blank attendance records (all present) for a slot.
+List<AttendanceRecord> _defaultRecords(TimetableSlot slot, dynamic state) {
+  final sectionStudents = (state.students as List<Student>)
+      .where((s) => s.section == slot.section)
+      .toList();
+  return sectionStudents
+      .map((s) => AttendanceRecord(
+            slotId: slot.id,
+            studentId: s.id,
+            status: AttendanceStatus.present,
+            checkIn: slot.startTime,
+            remarks: '',
+          ))
+      .toList();
 }

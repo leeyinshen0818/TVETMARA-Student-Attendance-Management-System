@@ -108,7 +108,10 @@ class _HomeShellState extends State<HomeShell> {
                         compact ? 14 : 24,
                         28,
                       ),
-                      child: items[index].screen,
+                      child: state.loading
+                          ? const Center(
+                              child: CircularProgressIndicator())
+                          : items[index].screen,
                     ),
                   ),
                 ),

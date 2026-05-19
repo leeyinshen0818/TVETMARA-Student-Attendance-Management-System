@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/seed_firestore.dart';
 import '../state/app_scope.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -12,6 +13,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final email = TextEditingController(text: 'admin@tvetmara.edu.my');
   final password = TextEditingController(text: 'admin123');
+  bool _loggingIn = false;
+  bool _seeding = false;
 
   @override
   void dispose() {
@@ -20,14 +23,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
-    final ok = AppScope.of(context).login(email.text);
-    if (!ok) {
+  Future<void> _login() async {
+    if (_loggingIn) return;
+    setState(() => _loggingIn = true);
+
+    final ok = await AppScope.of(context).login(email.text, password.text);
+
+    if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
-                'Emel demo tidak sah. Gunakan akaun admin atau pensyarah.')),
+                'Emel atau kata laluan tidak sah. Sila cuba lagi.')),
       );
+    }
+
+    if (mounted) setState(() => _loggingIn = false);
+  }
+
+  Future<void> _seed() async {
+    setState(() => _seeding = true);
+    try {
+      final didSeed = await seedFirestore();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(didSeed
+                ? 'Data berjaya dimuat naik ke Firestore!'
+                : 'Data sudah wujud — tiada perubahan.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ralat: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _seeding = false);
     }
   }
 
@@ -96,13 +129,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _LoginFeatureChip('Had 80%'),
                                   _LoginFeatureChip('PDF Mingguan'),
                                   _LoginFeatureChip('Tempahan Bilik'),
+                                  _LoginFeatureChip('Firebase Cloud'),
                                 ],
                               ),
                             ],
                           ),
                           const Padding(
                             padding: EdgeInsets.only(top: 18),
-                            child: Text('Prototaip Flutter',
+                            child: Text('Flutter + Firebase',
                                 style: TextStyle(color: Colors.white54)),
                           ),
                         ],
@@ -134,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 )),
                         const SizedBox(height: 8),
                         const Text(
-                            'Pilih akaun demo. Sebarang kata laluan diterima.'),
+                            'Masukkan emel dan kata laluan Firebase anda.'),
                         const SizedBox(height: 24),
                         Wrap(
                           spacing: 12,
@@ -162,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextField(
                           controller: email,
                           decoration: const InputDecoration(
-                              labelText: 'Nama Pengguna / Emel',
+                              labelText: 'Emel',
                               prefixIcon: Icon(Icons.email_outlined)),
                         ),
                         const SizedBox(height: 12),
@@ -175,16 +209,41 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 20),
                         FilledButton.icon(
-                          onPressed: _login,
-                          icon: const Icon(Icons.login),
-                          label: const Text('Log Masuk'),
+                          onPressed: _loggingIn ? null : _login,
+                          icon: _loggingIn
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.login),
+                          label: Text(
+                              _loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
                         ),
                         const SizedBox(height: 14),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _seeding ? null : _seed,
+                          icon: _seeding
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : const Icon(Icons.cloud_upload_outlined),
+                          label: Text(_seeding
+                              ? 'Memuat naik data...'
+                              : 'Seed Firestore (Pertama Kali)'),
+                        ),
+                        const SizedBox(height: 8),
                         const Text(
-                          'Admin: admin@tvetmara.edu.my | Pensyarah: lecturer@tvetmara.edu.my',
+                          'Tekan butang Seed sekali sahaja untuk memuat naik data awal ke Firebase.',
                           textAlign: TextAlign.center,
                           style:
-                              TextStyle(color: Color(0xff64748b), fontSize: 12),
+                              TextStyle(color: Color(0xff64748b), fontSize: 11),
                         ),
                       ],
                     ),

@@ -1,11 +1,15 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
+import 'firebase_options.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(AppScope(state: AppState(), child: const TvetmaraApp()));
 }
 

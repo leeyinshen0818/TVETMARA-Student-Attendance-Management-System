@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/mock_data.dart';
+
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
@@ -15,7 +15,7 @@ class BookingsScreen extends StatefulWidget {
 
 class _BookingsScreenState extends State<BookingsScreen> {
   String? selectedSlotId;
-  String room = rooms.first;
+  String room = '';
   String block = 'All';
   String date = '2026-05-05';
   String start = '14:00';
@@ -40,6 +40,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
     final filteredRooms = state.roomResources
         .where((item) => block == 'All' || item.block == block)
         .toList();
+    if (filteredRooms.isEmpty) {
+      return const Center(child: Text('Memuatkan senarai bilik...'));
+    }
     if (!filteredRooms.any((item) => item.name == room)) {
       room = filteredRooms.first.name;
     }

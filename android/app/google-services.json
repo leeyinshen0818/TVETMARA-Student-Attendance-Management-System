@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "256053250152",
+    "project_id": "tvetmara-7e520",
+    "storage_bucket": "tvetmara-7e520.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:256053250152:android:2fdd8a4da26a6d2b7f93dd",
+        "android_client_info": {
+          "package_name": "com.example.tvetmara_student_attendance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_4vlMmHmbigrD9JuTitbW8jVYb82PhS4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
