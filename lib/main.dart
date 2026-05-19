@@ -77,16 +77,18 @@ class TvetmaraApp extends StatelessWidget {
           dividerThickness: .7,
         ),
       ),
-      home: Builder(
-        builder: (context) {
-          final state = AppScope.of(context);
-          return AnimatedBuilder(
-            animation: state,
-            builder: (context, _) => state.currentUser == null
-                ? const LoginScreen()
-                : const HomeShell(),
-          );
-        },
+      home: SelectionArea(
+        child: Builder(
+          builder: (context) {
+            final state = AppScope.of(context);
+            return AnimatedBuilder(
+              animation: state,
+              builder: (context, _) => state.currentUser == null
+                  ? const LoginScreen()
+                  : const HomeShell(),
+            );
+          },
+        ),
       ),
     );
   }

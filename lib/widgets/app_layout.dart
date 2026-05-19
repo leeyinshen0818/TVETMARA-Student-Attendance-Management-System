@@ -119,7 +119,7 @@ class AppPanel extends StatelessWidget {
   }
 }
 
-class AppDataTable extends StatelessWidget {
+class AppDataTable extends StatefulWidget {
   const AppDataTable({
     super.key,
     required this.columns,
@@ -130,17 +130,65 @@ class AppDataTable extends StatelessWidget {
   final List<DataRow> rows;
 
   @override
+  State<AppDataTable> createState() => _AppDataTableState();
+}
+
+class _AppDataTableState extends State<AppDataTable> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xfff1f5f9)),
-          columns: columns,
-          rows: rows,
+    if (widget.rows.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        decoration: BoxDecoration(
+          color: const Color(0xfff8fafc),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xffe2e8f0)),
         ),
-      ),
+        child: const Column(
+          children: [
+            Icon(Icons.inbox_outlined, size: 36, color: Color(0xff94a3b8)),
+            SizedBox(height: 8),
+            Text(
+              'Tiada rekod ditemui.',
+              style: TextStyle(color: Color(0xff64748b), fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: DataTable(
+                  headingRowColor:
+                      WidgetStateProperty.all(const Color(0xfff1f5f9)),
+                  columns: widget.columns,
+                  rows: widget.rows,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
