@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
+import '../widgets/app_layout.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
@@ -12,15 +13,40 @@ class ReportsScreen extends StatelessWidget {
     final state = AppScope.of(context);
     final students = state.scopedStudents;
     final timetable = state.scopedTimetable;
-    final avg = students.isEmpty ? 0 : students.map((student) => student.attendance).reduce((a, b) => a + b) ~/ students.length;
-    final below = students.where((student) => student.attendance < state.attendanceThreshold).toList();
-    final completed = timetable.where((slot) => slot.status == 'Attendance Completed').length;
+    final percentages =
+        students.map(state.attendancePercentageForStudent).toList();
+    final avg = percentages.isEmpty
+        ? 0
+        : percentages.reduce((a, b) => a + b) ~/ percentages.length;
+    final below = state.criticalStudents;
+    final completed =
+        timetable.where((slot) => slot.status == 'Attendance Completed').length;
+    final frequencyLabel = switch (state.reportFrequency) {
+      'Weekly' => 'Mingguan',
+      'Daily' => 'Harian',
+      'Monthly' => 'Bulanan',
+      _ => state.reportFrequency,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Reporting Module', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+        PageHeader(
+          title: 'Laporan',
+          subtitle:
+              'Semakan PDF mingguan untuk pelajar bawah ${state.attendanceThreshold}%. MC dan CK dikecualikan daripada peratus kehadiran.',
+          trailing: FilledButton.icon(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content:
+                        Text('Laporan PDF dijana untuk semakan mingguan.')),
+              );
+            },
+            icon: const Icon(Icons.download),
+            label: const Text('Eksport PDF'),
+          ),
+        ),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -29,36 +55,61 @@ class ReportsScreen extends StatelessWidget {
           mainAxisSpacing: 12,
           childAspectRatio: 2.5,
           children: [
-            StatTile(label: 'Students', value: '${students.length}', icon: Icons.people_outline),
-            StatTile(label: 'Average Attendance', value: '$avg%', icon: Icons.percent),
-            StatTile(label: 'Below Threshold', value: '${below.length}', icon: Icons.warning_amber, color: Colors.red),
-            StatTile(label: 'Completed Sessions', value: '$completed', icon: Icons.check_circle_outline, color: Colors.green),
+            StatTile(
+                label: 'Pelajar',
+                value: '${students.length}',
+                icon: Icons.people_outline),
+            StatTile(
+                label: 'Purata Kehadiran', value: '$avg%', icon: Icons.percent),
+            StatTile(
+                label: 'Bawah Had',
+                value: '${below.length}',
+                icon: Icons.warning_amber,
+                color: Colors.red),
+            StatTile(
+                label: 'Sesi Selesai',
+                value: '$completed',
+                icon: Icons.check_circle_outline,
+                color: Colors.green),
           ],
         ),
         const SizedBox(height: 16),
-        Card(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Student ID')),
-                DataColumn(label: Text('Name')),
-                DataColumn(label: Text('Program')),
-                DataColumn(label: Text('Section')),
-                DataColumn(label: Text('Attendance')),
-                DataColumn(label: Text('Status')),
-              ],
-              rows: below.map((student) {
-                return DataRow(cells: [
-                  DataCell(Text(student.id)),
-                  DataCell(Text(student.name)),
-                  DataCell(Text(student.program)),
-                  DataCell(Text(student.section)),
-                  DataCell(Text('${student.attendance}%')),
-                  const DataCell(StatusChip('Below 80%')),
-                ]);
-              }).toList(),
-            ),
+        AppPanel(
+          title: 'Laporan Kehadiran Kritikal $frequencyLabel',
+          subtitle: 'Sesi ${state.session}',
+          trailing: const Icon(Icons.picture_as_pdf_outlined,
+              color: Color(0xffdc2626)),
+          child: AppDataTable(
+            columns: const [
+              DataColumn(label: Text('ID Pelajar')),
+              DataColumn(label: Text('Nama')),
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Kelas')),
+              DataColumn(label: Text('P')),
+              DataColumn(label: Text('L')),
+              DataColumn(label: Text('A')),
+              DataColumn(label: Text('MC')),
+              DataColumn(label: Text('CK')),
+              DataColumn(label: Text('Kehadiran')),
+              DataColumn(label: Text('Status')),
+            ],
+            rows: below.map((student) {
+              final summary = state.attendanceSummaryForStudent(student);
+              final risk = state.attendanceRiskForStudent(student);
+              return DataRow(cells: [
+                DataCell(Text(student.id)),
+                DataCell(Text(student.name)),
+                DataCell(Text(student.program)),
+                DataCell(Text(student.section)),
+                DataCell(Text('${summary.present}')),
+                DataCell(Text('${summary.late}')),
+                DataCell(Text('${summary.absent}')),
+                DataCell(Text('${summary.mc}')),
+                DataCell(Text('${summary.ck}')),
+                DataCell(Text('${summary.percentage}%')),
+                DataCell(StatusChip(risk)),
+              ]);
+            }).toList(),
           ),
         ),
       ],

@@ -2,6 +2,53 @@ enum UserRole { admin, lecturer }
 
 enum AttendanceStatus { present, absent, mc, ck, late }
 
+extension AttendanceStatusRules on AttendanceStatus {
+  String get label => switch (this) {
+        AttendanceStatus.present => 'Hadir',
+        AttendanceStatus.late => 'Lewat',
+        AttendanceStatus.absent => 'Tidak Hadir',
+        AttendanceStatus.mc => 'MC',
+        AttendanceStatus.ck => 'CK',
+      };
+
+  bool get countsAsAttended =>
+      this == AttendanceStatus.present || this == AttendanceStatus.late;
+  bool get isExempt =>
+      this == AttendanceStatus.mc || this == AttendanceStatus.ck;
+  bool get countsInDenominator => !isExempt;
+}
+
+class AttendanceSummary {
+  const AttendanceSummary({
+    required this.present,
+    required this.late,
+    required this.absent,
+    required this.mc,
+    required this.ck,
+  });
+
+  final int present;
+  final int late;
+  final int absent;
+  final int mc;
+  final int ck;
+
+  int get attended => present + late;
+  int get denominator => present + late + absent;
+  int get percentage =>
+      denominator == 0 ? 100 : ((attended / denominator) * 100).round();
+
+  AttendanceSummary add(AttendanceStatus status) {
+    return AttendanceSummary(
+      present: present + (status == AttendanceStatus.present ? 1 : 0),
+      late: late + (status == AttendanceStatus.late ? 1 : 0),
+      absent: absent + (status == AttendanceStatus.absent ? 1 : 0),
+      mc: mc + (status == AttendanceStatus.mc ? 1 : 0),
+      ck: ck + (status == AttendanceStatus.ck ? 1 : 0),
+    );
+  }
+}
+
 class AppUser {
   const AppUser({
     required this.id,
@@ -44,6 +91,20 @@ class Student {
   final String section;
   final int attendance;
   final bool active;
+}
+
+class RoomResource {
+  const RoomResource({
+    required this.name,
+    required this.block,
+    required this.type,
+    this.capacity,
+  });
+
+  final String name;
+  final String block;
+  final String type;
+  final int? capacity;
 }
 
 class Lecturer {

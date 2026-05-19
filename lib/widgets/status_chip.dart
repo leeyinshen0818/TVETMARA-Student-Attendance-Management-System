@@ -9,22 +9,73 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (label) {
-      'Approved' || 'Completed' || 'Attendance Completed' || 'Present' || 'Active' => Colors.green,
-      'Rejected' || 'Cancelled' || 'Absent' || 'High' => scheme.error,
-      'Pending' || 'Under Review' || 'Attendance Not Taken' || 'Ongoing' || 'Late' => Colors.orange,
-      'Replacement Class' => Colors.purple,
+      'Approved' ||
+      'Completed' ||
+      'Attendance Completed' ||
+      'Present' ||
+      'Active' ||
+      'Safe' ||
+      'Available' =>
+        Colors.green,
+      'Rejected' ||
+      'Cancelled' ||
+      'Absent' ||
+      'High' ||
+      'Critical' ||
+      'Unavailable' =>
+        scheme.error,
+      'Pending' ||
+      'Under Review' ||
+      'Attendance Not Taken' ||
+      'Ongoing' ||
+      'Late' ||
+      'Warning' =>
+        Colors.orange,
+      'MC' || 'CK' => Colors.blueGrey,
+      'Replacement Class' || 'Kelas Ganti' => Colors.purple,
       _ => scheme.primary,
+    };
+    final displayLabel = switch (label) {
+      'Approved' => 'Diluluskan',
+      'Completed' => 'Selesai',
+      'Attendance Completed' => 'Kehadiran Selesai',
+      'Present' => 'Hadir',
+      'Active' => 'Aktif',
+      'Safe' => 'Selamat',
+      'Available' => 'Tersedia',
+      'Rejected' => 'Ditolak',
+      'Cancelled' => 'Dibatalkan',
+      'Absent' => 'Tidak Hadir',
+      'High' => 'Tinggi',
+      'Critical' => 'Kritikal',
+      'Unavailable' => 'Tidak Tersedia',
+      'Pending' => 'Menunggu',
+      'Under Review' => 'Dalam Semakan',
+      'Attendance Not Taken' => 'Belum Diambil',
+      'Attendance Pending' => 'Menunggu Kehadiran',
+      'Ongoing' => 'Sedang Berlangsung',
+      'Late' => 'Lewat',
+      'Warning' => 'Amaran',
+      'Replacement Class' => 'Kelas Ganti',
+      'Kelas Ganti' => 'Kelas Ganti',
+      'Kelas Biasa' => 'Kelas Biasa',
+      'Upcoming' => 'Akan Datang',
+      'Inactive' => 'Tidak Aktif',
+      'Normal Class' => 'Kelas Biasa',
+      _ => label,
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(.12),
-        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: .12),
+        border: Border.all(color: color.withValues(alpha: .22)),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+        displayLabel,
+        style:
+            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }

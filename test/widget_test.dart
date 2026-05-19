@@ -5,7 +5,7 @@ import 'package:tvetmara_student_attendance/state/app_scope.dart';
 import 'package:tvetmara_student_attendance/state/app_state.dart';
 
 void main() {
-  testWidgets('shows login screen', (tester) async {
+  testWidgets('shows Malay login screen', (tester) async {
     await tester.pumpWidget(
       AppScope(
         state: AppState(),
@@ -13,7 +13,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Log Masuk'), findsWidgets);
     expect(find.byIcon(Icons.login), findsOneWidget);
   });
 }

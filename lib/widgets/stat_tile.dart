@@ -16,24 +16,46 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final tileColor = color ?? Theme.of(context).colorScheme.primary;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Row(
           children: [
+            Container(
+              width: 4,
+              height: 50,
+              decoration: BoxDecoration(
+                color: tileColor,
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: Theme.of(context).textTheme.labelSmall),
+                  Text(
+                    label.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: const Color(0xff64748b),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    value,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xff0f172a),
+                    ),
+                  ),
                 ],
               ),
             ),
             CircleAvatar(
-              backgroundColor: tileColor.withOpacity(.12),
+              backgroundColor: tileColor.withValues(alpha: .12),
               child: Icon(icon, color: tileColor),
             ),
           ],

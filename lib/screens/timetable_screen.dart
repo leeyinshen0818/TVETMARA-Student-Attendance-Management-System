@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
+import '../widgets/app_layout.dart';
 import '../widgets/status_chip.dart';
 
 class TimetableScreen extends StatelessWidget {
@@ -15,39 +16,46 @@ class TimetableScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(admin ? 'Showing Timetable Slot' : 'My Timetable', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Card(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columns: const [
-                DataColumn(label: Text('Code')),
-                DataColumn(label: Text('Subject')),
-                DataColumn(label: Text('Section')),
-                DataColumn(label: Text('Program')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Time')),
-                DataColumn(label: Text('Room')),
-                DataColumn(label: Text('Capacity')),
-                DataColumn(label: Text('Type')),
-                DataColumn(label: Text('Status')),
-              ],
-              rows: timetable.map((slot) {
-                return DataRow(cells: [
-                  DataCell(Text(slot.subjectCode)),
-                  DataCell(Text(slot.subjectName)),
-                  DataCell(Text(slot.section)),
-                  DataCell(Text(slot.program)),
-                  DataCell(Text(slot.date)),
-                  DataCell(Text('${slot.startTime}-${slot.endTime}')),
-                  DataCell(Text(slot.room)),
-                  DataCell(Text('${slot.enrolled}/${slot.capacity}')),
-                  DataCell(StatusChip(slot.slotType)),
-                  DataCell(StatusChip(slot.status)),
-                ]);
-              }).toList(),
-            ),
+        PageHeader(
+          title: admin ? 'Slot Jadual' : 'Jadual Saya',
+          subtitle:
+              'Jadual kelas yang dipautkan kepada pensyarah, bilik, kursus dan sesi kehadiran.',
+          trailing: StatusChip('${timetable.length} slot'),
+        ),
+        AppPanel(
+          title: 'Jadual Sesi',
+          subtitle: 'Jan - Jun 2026',
+          child: AppDataTable(
+            columns: const [
+              DataColumn(label: Text('Kod')),
+              DataColumn(label: Text('Subjek')),
+              DataColumn(label: Text('Kelas')),
+              DataColumn(label: Text('Program')),
+              DataColumn(label: Text('Sesi')),
+              DataColumn(label: Text('Hari')),
+              DataColumn(label: Text('Tarikh')),
+              DataColumn(label: Text('Masa')),
+              DataColumn(label: Text('Bilik')),
+              DataColumn(label: Text('Kapasiti')),
+              DataColumn(label: Text('Jenis')),
+              DataColumn(label: Text('Status')),
+            ],
+            rows: timetable.map((slot) {
+              return DataRow(cells: [
+                DataCell(Text(slot.subjectCode)),
+                DataCell(Text(slot.subjectName)),
+                DataCell(Text(slot.section)),
+                DataCell(Text(slot.program)),
+                DataCell(Text(slot.session)),
+                DataCell(Text(slot.day)),
+                DataCell(Text(slot.date)),
+                DataCell(Text('${slot.startTime}-${slot.endTime}')),
+                DataCell(Text(slot.room)),
+                DataCell(Text('${slot.enrolled}/${slot.capacity}')),
+                DataCell(StatusChip(slot.slotType)),
+                DataCell(StatusChip(slot.status)),
+              ]);
+            }).toList(),
           ),
         ),
       ],
