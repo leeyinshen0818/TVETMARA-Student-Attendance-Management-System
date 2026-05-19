@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/seed_firestore.dart';
 import '../state/app_scope.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,7 +13,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final email = TextEditingController(text: 'admin@tvetmara.edu.my');
   final password = TextEditingController(text: 'admin123');
   bool _loggingIn = false;
-  bool _seeding = false;
 
   @override
   void dispose() {
@@ -40,29 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) setState(() => _loggingIn = false);
   }
 
-  Future<void> _seed() async {
-    setState(() => _seeding = true);
-    try {
-      final didSeed = await seedFirestore();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(didSeed
-                ? 'Data berjaya dimuat naik ke Firestore!'
-                : 'Data sudah wujud — tiada perubahan.'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ralat: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _seeding = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,30 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           label: Text(
                               _loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
                         ),
-                        const SizedBox(height: 14),
-                        const Divider(),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _seeding ? null : _seed,
-                          icon: _seeding
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
-                                )
-                              : const Icon(Icons.cloud_upload_outlined),
-                          label: Text(_seeding
-                              ? 'Memuat naik data...'
-                              : 'Seed Firestore (Pertama Kali)'),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Tekan butang Seed sekali sahaja untuk memuat naik data awal ke Firebase.',
-                          textAlign: TextAlign.center,
-                          style:
-                              TextStyle(color: Color(0xff64748b), fontSize: 11),
-                        ),
+
                       ],
                     ),
                   ),
