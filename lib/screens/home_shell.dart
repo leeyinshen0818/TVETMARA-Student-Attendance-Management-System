@@ -4,7 +4,8 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import 'admin/register_user_screen.dart';
 import 'attendance_screen.dart';
-import 'bookings_screen.dart';
+import 'tempahan_screen.dart';
+import 'disiplin_screen.dart';
 import 'dashboard_screen.dart';
 import 'records_screen.dart';
 import 'reports_screen.dart';
@@ -51,10 +52,15 @@ class _HomeShellState extends State<HomeShell> {
       if (!isPensyarah)
         const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen()),
 
-      // Discipline & Room Booking
-      if (!isAdmin)
-        const _NavItem('Disiplin / Tempahan', Icons.warning_amber_outlined,
-            BookingsScreen()),
+      // Room Booking: Pensyarah creates, KP approves
+      if (isPensyarah || isKetuaProgram)
+        const _NavItem(
+            'Tempahan Bilik', Icons.meeting_room_outlined, TempahanScreen()),
+
+      // Discipline: Pensyarah creates, KJ approves
+      if (isPensyarah || user.role == UserRole.ketuaJabatan)
+        const _NavItem(
+            'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen()),
 
       // Student Records are mainly for Academic checking
       if (!isAdmin)
@@ -137,9 +143,17 @@ class _HomeShellState extends State<HomeShell> {
                         compact ? 14 : 24,
                         28,
                       ),
-                      child: state.loading
-                          ? const Center(child: CircularProgressIndicator())
-                          : items[index].screen,
+                      child: state.error != null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Text('Ralat memuat turun data: ${state.error}',
+                                    style: const TextStyle(color: Colors.red)),
+                              ),
+                            )
+                          : state.loading
+                              ? const Center(child: CircularProgressIndicator())
+                              : items[index].screen,
                     ),
                   ),
                 ),

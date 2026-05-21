@@ -137,6 +137,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 SizedBox(
                   width: 290,
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     initialValue: room,
                     decoration: const InputDecoration(labelText: 'Bilik'),
                     items: filteredRooms
@@ -198,6 +199,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 SizedBox(
                   width: 300,
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     value: selectedStudentId ?? state.scopedStudents.firstOrNull?.id,
                     decoration: const InputDecoration(labelText: 'Pelajar'),
                     items: state.scopedStudents

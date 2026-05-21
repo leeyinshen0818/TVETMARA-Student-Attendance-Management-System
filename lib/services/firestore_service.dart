@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_models.dart';
+import '../data/mock_data.dart' as mock;
 
 /// Centralized service for all Firestore read / write operations.
 class FirestoreService {
@@ -273,8 +274,9 @@ class FirestoreService {
       batch.set(_usersCol.doc(user.id), {
         'name': user.name,
         'email': user.email.toLowerCase(),
-        'role': user.role == UserRole.admin ? 'admin' : 'lecturer',
+        'role': user.role.name,
         'department': user.department,
+        'program': user.program,
         'active': user.active,
         'lastLogin': user.lastLogin,
       });
@@ -425,58 +427,7 @@ class FirestoreService {
       const Department(id: 'automotif', name: 'Jabatan Automotif'),
     ];
 
-    final progs = [
-      const ProgramCode(
-          id: 'DGS', name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN GAS (DGS)'),
-      const ProgramCode(
-          id: 'DPP',
-          name:
-              'DIPLOMA TEKNOLOGI KEJURUTERAAN PENYAMANAN UDARA DAN PENYEJUKAN (DPP)'),
-      const ProgramCode(
-          id: 'DEK', name: 'DIPLOMA TEKNOLOGI PEMBUATAN ELEKTRONIK (DEK)'),
-      const ProgramCode(id: 'DGM', name: 'DIPLOMA TEKNOLOGI MEKATRONIK (DGM)'),
-      const ProgramCode(
-          id: 'SMK', name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKATRONIK (SMK)'),
-      const ProgramCode(
-          id: 'DED',
-          name:
-              'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI) (DED)',
-          departmentId: 'elektrik'),
-      const ProgramCode(
-          id: 'DCP',
-          name: 'DIPLOMA KOMPETENSI ELEKTRIK (KUASA) (DCP)',
-          departmentId: 'elektrik'),
-      const ProgramCode(
-          id: 'DCB',
-          name: 'DIPLOMA LANJUTAN KOMPETENSI ELEKTRIK (PENJANAAN) (DCB)',
-          departmentId: 'elektrik'),
-      const ProgramCode(
-          id: 'ITW',
-          name: 'DIPLOMA KOMPETENSI KIMPALAN (ITW)',
-          departmentId: 'mekanikal'),
-      const ProgramCode(
-          id: 'SLR',
-          name: 'SIJIL TEKNOLOGI KEJURUTERAAN LUKISAN DAN REKABENTUK (SLR)',
-          departmentId: 'mekanikal'),
-      const ProgramCode(
-          id: 'SMI',
-          name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKANIK INDUSTRI (SMI)',
-          departmentId: 'mekanikal'),
-      const ProgramCode(
-          id: 'IMF',
-          name: 'DIPLOMA INDUSTRI SIAPAN LOGAM (IMF)',
-          departmentId: 'automotif'),
-      const ProgramCode(
-          id: 'SMM',
-          name: 'SIJIL TEKNOLOGI KEJURUTERAAN MARIN (SMM)',
-          departmentId: 'automotif'),
-      const ProgramCode(
-          id: 'DMM',
-          name: 'DIPLOMA TEKNOLOGI MARIN (DMM)',
-          departmentId: 'automotif'),
-    ];
-
-    await seedHierarchy(depts, progs);
+    await seedHierarchy(depts, mock.programs);
   }
 
   // ---------------------------------------------------------------------------

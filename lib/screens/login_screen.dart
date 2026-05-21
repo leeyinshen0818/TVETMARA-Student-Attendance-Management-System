@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
+import '../data/mock_data.dart' as mock;
+import '../data/seed_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -162,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             OutlinedButton.icon(
                               onPressed: () {
-                                email.text = 'kj_mekanikal@tvetmara.edu.my';
+                                email.text = 'kj_elektrik@tvetmara.edu.my';
                                 password.text = 'password123';
                               },
                               icon: const Icon(Icons.account_balance, size: 18),
@@ -170,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             OutlinedButton.icon(
                               onPressed: () {
-                                email.text = 'kp_dgs@tvetmara.edu.my';
+                                email.text = 'kp_ded@tvetmara.edu.my';
                                 password.text = 'password123';
                               },
                               icon: const Icon(Icons.school, size: 18),
@@ -178,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             OutlinedButton.icon(
                               onPressed: () {
-                                email.text = 'pensyarah@tvetmara.edu.my';
+                                email.text = 'pensyarah_ded@tvetmara.edu.my';
                                 password.text = 'password123';
                               },
                               icon: const Icon(Icons.menu_book, size: 18),
@@ -223,6 +225,27 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Seeding Database... Please wait.'), duration: Duration(days: 1)),
+          );
+          try {
+            await seedFirestore();
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Seeding Complete! You can now log in.')),
+            );
+          } catch (e) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error seeding: $e')),
+            );
+          }
+        },
+        label: const Text('Force Seed DB'),
+        icon: const Icon(Icons.download),
       ),
     );
   }

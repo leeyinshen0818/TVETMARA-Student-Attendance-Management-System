@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../data/mock_data.dart' as mock;
+import '../models/app_models.dart';
 import '../services/firestore_service.dart';
 
 /// One-time function to upload all mock data into Firestore and create
@@ -9,18 +10,31 @@ import '../services/firestore_service.dart';
 /// Call this once (e.g. from a hidden admin button), then never again.
 /// It checks whether seeding is needed by looking for a marker document.
 Future<bool> seedFirestore() async {
+  mock.initializeMockData();
   final fs = FirestoreService.instance;
 
+  // Guard removed: Force Seed DB button should always run.
+
   // ------------------------------------------------------------------
-  // Guard: skip if already seeded
+  // 1. Wipe existing collections to prevent conflicts with old test data
   // ------------------------------------------------------------------
-  final marker = await fs.db.collection('_meta').doc('seed').get();
-  if (marker.exists) {
-    return false; // already seeded
+  final cols = [
+    'users', 'students', 'lecturers', 'rooms', 
+    'timetable_slots', 'discipline_reports', 
+    'bookings', 'departments', 'programs',
+    'attendance_records'
+  ];
+  for (final col in cols) {
+    final snap = await fs.db.collection(col).get();
+    final batch = fs.db.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 
   // ------------------------------------------------------------------
-  // 1. Run migrations and structural seeding (programs, departments)
+  // 2. Run migrations and structural seeding (programs, departments)
   // ------------------------------------------------------------------
   await fs.runMigrationAndSeed();
 
@@ -43,15 +57,12 @@ Future<bool> seedFirestore() async {
   }
 
   // ------------------------------------------------------------------
-  // 2. Create Firebase Auth accounts for demo users
+  // 3. Create Firebase Auth accounts for demo users
   // ------------------------------------------------------------------
-  final demoAccounts = <Map<String, String>>[
-    {'email': 'admin@tvetmara.edu.my', 'password': 'admin123'},
-    {'email': 'kj_elektrik@tvetmara.edu.my', 'password': 'password123'},
-    {'email': 'kp_ded@tvetmara.edu.my', 'password': 'password123'},
-    {'email': 'lecturer@tvetmara.edu.my', 'password': 'lecturer123'},
-    {'email': 'zarina@tvetmara.edu.my', 'password': 'lecturer123'},
-  ];
+  final demoAccounts = mock.users.map((u) => {
+    'email': u.email,
+    'password': u.role == UserRole.admin ? 'admin123' : 'password123',
+  }).toList();
 
   for (final account in demoAccounts) {
     try {
@@ -69,7 +80,7 @@ Future<bool> seedFirestore() async {
   await FirebaseAuth.instance.signOut();
 
   // ------------------------------------------------------------------
-  // 3. Mark as seeded
+  // 4. Mark as seeded
   // ------------------------------------------------------------------
   await fs.db
       .collection('_meta')

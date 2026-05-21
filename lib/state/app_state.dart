@@ -69,6 +69,9 @@ class AppState extends ChangeNotifier {
       departments = results[9] as List<Department>;
     } catch (e) {
       _error = e.toString();
+      print('=== ERROR LOADING DATA ===');
+      print(e);
+      print('==========================');
     } finally {
       _loading = false;
       notifyListeners();
@@ -149,11 +152,25 @@ class AppState extends ChangeNotifier {
       return students.where((student) => student.program == kpProgram).toList();
     }
 
-    // Pensyarah sees only students physically enrolled in sections they teach
+    // Pensyarah sees students from sections they teach
     final sections = scopedTimetable.map((slot) => slot.section).toSet();
-    return students
-        .where((student) => sections.contains(student.section))
-        .toList();
+    if (sections.isNotEmpty) {
+      return students
+          .where((student) => sections.contains(student.section))
+          .toList();
+    }
+    // Fallback: if no timetable slots found, show students from same department
+    final deptPrograms = programs
+        .where((p) => p.departmentId == user.department)
+        .map((p) => p.name)
+        .toSet();
+    if (deptPrograms.isNotEmpty) {
+      return students
+          .where((student) => deptPrograms.contains(student.program))
+          .toList();
+    }
+    // Last resort: return all students
+    return students.toList();
   }
 
   List<DisciplineReport> get scopedDisciplineReports {
