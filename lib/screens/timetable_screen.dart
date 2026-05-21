@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/status_chip.dart';
+import 'add_timetable_screen.dart';
 
 class TimetableScreen extends StatelessWidget {
   const TimetableScreen({super.key});
@@ -20,7 +21,27 @@ class TimetableScreen extends StatelessWidget {
           title: admin ? 'Slot Jadual' : 'Jadual Saya',
           subtitle:
               'Jadual kelas yang dipautkan kepada pensyarah, bilik, kursus dan sesi kehadiran.',
-          trailing: StatusChip('${timetable.length} slot'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              StatusChip('${timetable.length} slot'),
+              if (!admin) ...[
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AddTimetableScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Jadual'),
+                ),
+              ],
+            ],
+          ),
         ),
         AppPanel(
           title: 'Jadual Sesi',

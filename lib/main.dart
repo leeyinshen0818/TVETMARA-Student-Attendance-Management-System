@@ -6,10 +6,12 @@ import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
+import 'data/seed_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await seedFirestore();
   runApp(AppScope(state: AppState(), child: const TvetmaraApp()));
 }
 

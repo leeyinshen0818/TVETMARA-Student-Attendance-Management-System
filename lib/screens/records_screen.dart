@@ -11,14 +11,18 @@ class RecordsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final admin = state.currentUser?.role == UserRole.admin;
+    final user = state.currentUser!;
+    final isManagement = user.role == UserRole.ketuaJabatan ||
+        user.role == UserRole.ketuaProgram;
     final students = state.scopedStudents;
+    final validLecturerIds = state.scopedTimetable.map((t) => t.lecturerId).toSet();
+    final visibleLecturers = state.lecturers.where((l) => validLecturerIds.contains(l.id)).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: admin ? 'Rekod' : 'Pelajar Saya',
+          title: isManagement ? 'Rekod Pelajar & Pensyarah' : 'Pelajar Saya',
           subtitle: 'Kedudukan kehadiran pelajar dan tugasan pensyarah-kursus.',
           trailing: StatusChip('${students.length} pelajar'),
         ),
@@ -54,7 +58,7 @@ class RecordsScreen extends StatelessWidget {
             }).toList(),
           ),
         ),
-        if (admin) ...[
+        if (isManagement) ...[
           const SizedBox(height: 20),
           AppPanel(
             title: 'Tugasan Pensyarah',
@@ -67,7 +71,7 @@ class RecordsScreen extends StatelessWidget {
                 DataColumn(label: Text('Jabatan')),
                 DataColumn(label: Text('Subjek')),
               ],
-              rows: state.lecturers.map((lecturer) {
+              rows: visibleLecturers.map((lecturer) {
                 return DataRow(cells: [
                   DataCell(Text(lecturer.id)),
                   DataCell(Text(lecturer.name)),

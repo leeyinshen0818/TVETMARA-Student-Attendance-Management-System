@@ -20,7 +20,12 @@ Future<bool> seedFirestore() async {
   }
 
   // ------------------------------------------------------------------
-  // 1. Seed collections
+  // 1. Run migrations and structural seeding (programs, departments)
+  // ------------------------------------------------------------------
+  await fs.runMigrationAndSeed();
+
+  // ------------------------------------------------------------------
+  // 2. Seed collections
   // ------------------------------------------------------------------
   await fs.seedUsers(mock.users);
   await fs.seedStudents(mock.students);
@@ -42,6 +47,8 @@ Future<bool> seedFirestore() async {
   // ------------------------------------------------------------------
   final demoAccounts = <Map<String, String>>[
     {'email': 'admin@tvetmara.edu.my', 'password': 'admin123'},
+    {'email': 'kj_elektrik@tvetmara.edu.my', 'password': 'password123'},
+    {'email': 'kp_ded@tvetmara.edu.my', 'password': 'password123'},
     {'email': 'lecturer@tvetmara.edu.my', 'password': 'lecturer123'},
     {'email': 'zarina@tvetmara.edu.my', 'password': 'lecturer123'},
   ];

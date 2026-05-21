@@ -31,6 +31,25 @@ class FirestoreService {
       _db.collection('discipline_reports');
   CollectionReference<Map<String, dynamic>> get _bookingsCol =>
       _db.collection('bookings');
+  CollectionReference<Map<String, dynamic>> get _departmentsCol =>
+      _db.collection('departments');
+  CollectionReference<Map<String, dynamic>> get _programsCol =>
+      _db.collection('programs');
+
+  // ---------------------------------------------------------------------------
+  // Account Registration
+  // ---------------------------------------------------------------------------
+  Future<void> createUserProfile(AppUser user) async {
+    await _usersCol.doc(user.id).set({
+      'name': user.name,
+      'email': user.email.toLowerCase(),
+      'role': user.role.name,
+      'department': user.department,
+      'program': user.program,
+      'active': user.active,
+      'lastLogin': user.lastLogin,
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Users
@@ -112,6 +131,29 @@ class FirestoreService {
   }
 
   // ---------------------------------------------------------------------------
+  // Hierarchy (Departments & Programs)
+  // ---------------------------------------------------------------------------
+  Future<List<Department>> getDepartments() async {
+    final snap = await _departmentsCol.get();
+    return snap.docs.map((doc) {
+      final d = doc.data();
+      return Department(id: doc.id, name: d['name'] as String);
+    }).toList();
+  }
+
+  Future<List<ProgramCode>> getPrograms() async {
+    final snap = await _programsCol.get();
+    return snap.docs.map((doc) {
+      final d = doc.data();
+      return ProgramCode(
+        id: doc.id,
+        name: d['name'] as String,
+        departmentId: d['departmentId'] as String?,
+      );
+    }).toList();
+  }
+
+  // ---------------------------------------------------------------------------
   // Attendance
   // ---------------------------------------------------------------------------
   Future<Map<String, List<AttendanceRecord>>> getAllAttendance() async {
@@ -119,15 +161,16 @@ class FirestoreService {
     final result = <String, List<AttendanceRecord>>{};
     for (final doc in snap.docs) {
       final slotId = doc.id;
-      final recordsSnap = await _attendanceCol.doc(slotId).collection('records').get();
-      result[slotId] = recordsSnap.docs.map((d) => _docToAttendance(slotId, d)).toList();
+      final recordsSnap =
+          await _attendanceCol.doc(slotId).collection('records').get();
+      result[slotId] =
+          recordsSnap.docs.map((d) => _docToAttendance(slotId, d)).toList();
     }
     return result;
   }
 
   Future<List<AttendanceRecord>> getAttendanceForSlot(String slotId) async {
-    final snap =
-        await _attendanceCol.doc(slotId).collection('records').get();
+    final snap = await _attendanceCol.doc(slotId).collection('records').get();
     return snap.docs.map((d) => _docToAttendance(slotId, d)).toList();
   }
 
@@ -137,8 +180,10 @@ class FirestoreService {
     // Create or update the parent document
     batch.set(_attendanceCol.doc(slotId), {'slotId': slotId});
     for (final record in records) {
-      final ref =
-          _attendanceCol.doc(slotId).collection('records').doc(record.studentId);
+      final ref = _attendanceCol
+          .doc(slotId)
+          .collection('records')
+          .doc(record.studentId);
       batch.set(ref, {
         'status': record.status.name,
         'checkIn': record.checkIn,
@@ -340,17 +385,127 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> seedHierarchy(
+      List<Department> departments, List<ProgramCode> programs) async {
+    final batch = _db.batch();
+    for (final dept in departments) {
+      batch.set(_departmentsCol.doc(dept.id), {'name': dept.name});
+    }
+    for (final prog in programs) {
+      batch.set(_programsCol.doc(prog.id), {
+        'name': prog.name,
+        'departmentId': prog.departmentId,
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> migrateOldUsers() async {
+    final snap = await _usersCol.get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      final role = doc.data()['role'];
+      if (role == 'lecturer') {
+        batch.update(doc.reference, {
+          'role': UserRole.pensyarah.name,
+          'department': null,
+          'program': null,
+        });
+      }
+    }
+    await batch.commit();
+  }
+
+  Future<void> runMigrationAndSeed() async {
+    await migrateOldUsers();
+
+    final depts = [
+      const Department(id: 'elektrik', name: 'Jabatan Elektrik'),
+      const Department(id: 'mekanikal', name: 'Jabatan Mekanikal'),
+      const Department(id: 'automotif', name: 'Jabatan Automotif'),
+    ];
+
+    final progs = [
+      const ProgramCode(
+          id: 'DGS', name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN GAS (DGS)'),
+      const ProgramCode(
+          id: 'DPP',
+          name:
+              'DIPLOMA TEKNOLOGI KEJURUTERAAN PENYAMANAN UDARA DAN PENYEJUKAN (DPP)'),
+      const ProgramCode(
+          id: 'DEK', name: 'DIPLOMA TEKNOLOGI PEMBUATAN ELEKTRONIK (DEK)'),
+      const ProgramCode(id: 'DGM', name: 'DIPLOMA TEKNOLOGI MEKATRONIK (DGM)'),
+      const ProgramCode(
+          id: 'SMK', name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKATRONIK (SMK)'),
+      const ProgramCode(
+          id: 'DED',
+          name:
+              'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI) (DED)',
+          departmentId: 'elektrik'),
+      const ProgramCode(
+          id: 'DCP',
+          name: 'DIPLOMA KOMPETENSI ELEKTRIK (KUASA) (DCP)',
+          departmentId: 'elektrik'),
+      const ProgramCode(
+          id: 'DCB',
+          name: 'DIPLOMA LANJUTAN KOMPETENSI ELEKTRIK (PENJANAAN) (DCB)',
+          departmentId: 'elektrik'),
+      const ProgramCode(
+          id: 'ITW',
+          name: 'DIPLOMA KOMPETENSI KIMPALAN (ITW)',
+          departmentId: 'mekanikal'),
+      const ProgramCode(
+          id: 'SLR',
+          name: 'SIJIL TEKNOLOGI KEJURUTERAAN LUKISAN DAN REKABENTUK (SLR)',
+          departmentId: 'mekanikal'),
+      const ProgramCode(
+          id: 'SMI',
+          name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKANIK INDUSTRI (SMI)',
+          departmentId: 'mekanikal'),
+      const ProgramCode(
+          id: 'IMF',
+          name: 'DIPLOMA INDUSTRI SIAPAN LOGAM (IMF)',
+          departmentId: 'automotif'),
+      const ProgramCode(
+          id: 'SMM',
+          name: 'SIJIL TEKNOLOGI KEJURUTERAAN MARIN (SMM)',
+          departmentId: 'automotif'),
+      const ProgramCode(
+          id: 'DMM',
+          name: 'DIPLOMA TEKNOLOGI MARIN (DMM)',
+          departmentId: 'automotif'),
+    ];
+
+    await seedHierarchy(depts, progs);
+  }
+
   // ---------------------------------------------------------------------------
   // Document → Model converters
   // ---------------------------------------------------------------------------
   AppUser _docToAppUser(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
+
+    UserRole parsedRole = UserRole.pensyarah;
+    final roleStr = d['role'] as String?;
+    if (roleStr != null) {
+      if (roleStr == 'admin') {
+        parsedRole = UserRole.admin;
+      } else if (roleStr == 'ketuaJabatan') {
+        parsedRole = UserRole.ketuaJabatan;
+      } else if (roleStr == 'ketuaProgram') {
+        parsedRole = UserRole.ketuaProgram;
+      } else {
+        parsedRole = UserRole.pensyarah;
+      }
+    }
+
     return AppUser(
       id: doc.id,
-      name: d['name'] as String,
-      email: d['email'] as String,
-      role: d['role'] == 'admin' ? UserRole.admin : UserRole.lecturer,
-      department: d['department'] as String,
+      name: d['name'] ?? '',
+      email: d['email'] ?? '',
+      role: parsedRole,
+      department: d['department'] as String?,
+      program: d['program'] as String?,
       active: d['active'] as bool? ?? true,
       lastLogin: d['lastLogin'] is Timestamp
           ? (d['lastLogin'] as Timestamp)

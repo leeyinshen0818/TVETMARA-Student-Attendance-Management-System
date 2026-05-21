@@ -1,4 +1,4 @@
-enum UserRole { admin, lecturer }
+enum UserRole { admin, ketuaJabatan, ketuaProgram, pensyarah }
 
 enum AttendanceStatus { present, absent, mc, ck, late }
 
@@ -49,13 +49,36 @@ class AttendanceSummary {
   }
 }
 
+class Department {
+  const Department({
+    required this.id,
+    required this.name,
+  });
+
+  final String id;
+  final String name;
+}
+
+class ProgramCode {
+  const ProgramCode({
+    required this.id,
+    required this.name,
+    this.departmentId,
+  });
+
+  final String id;
+  final String name;
+  final String? departmentId;
+}
+
 class AppUser {
   const AppUser({
     required this.id,
     required this.name,
     required this.email,
     required this.role,
-    required this.department,
+    this.department,
+    this.program,
     required this.active,
     required this.lastLogin,
   });
@@ -64,7 +87,8 @@ class AppUser {
   final String name;
   final String email;
   final UserRole role;
-  final String department;
+  final String? department;
+  final String? program;
   final bool active;
   final String lastLogin;
 }

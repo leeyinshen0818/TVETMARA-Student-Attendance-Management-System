@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 /// Wraps Firebase Authentication for email / password sign-in.
 class AuthService {
@@ -23,7 +24,26 @@ class AuthService {
     );
   }
 
-  /// Create a new user with email + password.
+  /// Create a new user with email + password without signing out the current admin.
+  Future<UserCredential> registerNewUserByAdmin(
+      String email, String password) async {
+    FirebaseApp secondaryApp = await Firebase.initializeApp(
+      name: 'Secondary',
+      options: Firebase.app().options,
+    );
+
+    final UserCredential credential =
+        await FirebaseAuth.instanceFor(app: secondaryApp)
+            .createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+
+    await secondaryApp.delete();
+    return credential;
+  }
+
+  /// Create a new user with email + password (standard).
   Future<UserCredential> createUser(String email, String password) {
     return _auth.createUserWithEmailAndPassword(
       email: email.trim(),

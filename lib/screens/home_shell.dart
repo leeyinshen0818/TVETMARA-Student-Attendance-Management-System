@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
+import 'admin/register_user_screen.dart';
 import 'attendance_screen.dart';
 import 'bookings_screen.dart';
 import 'dashboard_screen.dart';
@@ -24,21 +25,49 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final admin = user.role == UserRole.admin;
+
+    // Role checks
+    final isAdmin = user.role == UserRole.admin;
+    final isKetuaProgram = user.role == UserRole.ketuaProgram;
+    final isPensyarah = user.role == UserRole.pensyarah;
+
+    // Build navigation items based strictly on role
     final items = <_NavItem>[
+      // Dashboard is global to all users, but its interior will shape-shift later
       const _NavItem(
           'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen()),
-      if (!admin)
+
+      // Attendance is strictly for Pensyarah (and maybe Ketua Program as they also teach)
+      if (isPensyarah || isKetuaProgram)
         const _NavItem(
             'Kehadiran', Icons.fact_check_outlined, AttendanceScreen()),
-      const _NavItem(
-          'Jadual', Icons.calendar_month_outlined, TimetableScreen()),
-      const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen()),
-      const _NavItem('Disiplin / Tempahan', Icons.warning_amber_outlined,
-          BookingsScreen()),
-      const _NavItem('Rekod', Icons.people_alt_outlined, RecordsScreen()),
-      if (admin)
-        const _NavItem('Tetapan', Icons.settings_outlined, SettingsScreen()),
+
+      // Timetable Upload/View is mainly for academics, but Admin doesn't need it
+      if (!isAdmin)
+        const _NavItem(
+            'Jadual', Icons.calendar_month_outlined, TimetableScreen()),
+
+      // Reports are mostly for management (Admin, KJ, KP)
+      if (!isPensyarah)
+        const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen()),
+
+      // Discipline & Room Booking
+      if (!isAdmin)
+        const _NavItem('Disiplin / Tempahan', Icons.warning_amber_outlined,
+            BookingsScreen()),
+
+      // Student Records are mainly for Academic checking
+      if (!isAdmin)
+        const _NavItem(
+            'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen()),
+
+      // Admin Only Modules
+      if (isAdmin)
+        const _NavItem(
+            'Tetapan Sistem', Icons.settings_outlined, SettingsScreen()),
+      if (isAdmin)
+        const _NavItem(
+            'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
     ];
     if (index >= items.length) index = 0;
     final compact = MediaQuery.sizeOf(context).width < 780;
@@ -109,8 +138,7 @@ class _HomeShellState extends State<HomeShell> {
                         28,
                       ),
                       child: state.loading
-                          ? const Center(
-                              child: CircularProgressIndicator())
+                          ? const Center(child: CircularProgressIndicator())
                           : items[index].screen,
                     ),
                   ),
@@ -172,8 +200,13 @@ class _TopBar extends StatelessWidget {
               style: TextStyle(color: Color(0xff64748b))),
           const SizedBox(width: 16),
           Chip(
-              label: Text(
-                  user.role == UserRole.admin ? 'Pentadbir' : 'Pensyarah')),
+              label: Text(user.role == UserRole.admin
+                  ? 'Pentadbir'
+                  : user.role == UserRole.ketuaJabatan
+                      ? 'Ketua Jabatan'
+                      : user.role == UserRole.ketuaProgram
+                          ? 'Ketua Program'
+                          : 'Pensyarah')),
           const SizedBox(width: 8),
           Flexible(
             child: Text(

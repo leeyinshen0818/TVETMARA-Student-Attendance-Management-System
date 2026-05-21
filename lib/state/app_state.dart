@@ -15,6 +15,9 @@ class AppState extends ChangeNotifier {
   List<BookingRequest> bookings = [];
   final attendance = <String, List<AttendanceRecord>>{};
 
+  List<ProgramCode> programs = [];
+  List<Department> departments = [];
+
   int attendanceThreshold = 80;
   String reportFrequency = 'Weekly';
   String session = 'Jan - Jun 2026';
@@ -45,6 +48,8 @@ class AppState extends ChangeNotifier {
         _fs.getDisciplineReports(),
         _fs.getBookings(),
         _fs.getAllAttendance(),
+        _fs.getPrograms(),
+        _fs.getDepartments(),
       ]);
 
       users = results[0] as List<AppUser>;
@@ -55,11 +60,13 @@ class AppState extends ChangeNotifier {
       disciplineReports = results[5] as List<DisciplineReport>;
       bookings = results[6] as List<BookingRequest>;
 
-      final attendanceMap =
-          results[7] as Map<String, List<AttendanceRecord>>;
+      final attendanceMap = results[7] as Map<String, List<AttendanceRecord>>;
       attendance
         ..clear()
         ..addAll(attendanceMap);
+
+      programs = results[8] as List<ProgramCode>;
+      departments = results[9] as List<Department>;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -98,19 +105,87 @@ class AppState extends ChangeNotifier {
 
   List<TimetableSlot> get scopedTimetable {
     final user = currentUser;
-    if (user?.role == UserRole.lecturer) {
-      return timetable.where((slot) => slot.lecturerId == user!.id).toList();
+    if (user == null || user.role == UserRole.admin) return [];
+
+    if (user.role == UserRole.ketuaJabatan) {
+      final deptPrograms = programs
+          .where((p) => p.departmentId == user.department)
+          .map((p) => p.name)
+          .toSet();
+      return timetable
+          .where((slot) => deptPrograms.contains(slot.program))
+          .toList();
     }
-    return timetable;
+
+    if (user.role == UserRole.ketuaProgram) {
+      final kpProgram =
+          programs.where((p) => p.id == user.program).firstOrNull?.name;
+      if (kpProgram == null) return [];
+      return timetable.where((slot) => slot.program == kpProgram).toList();
+    }
+
+    // Pensyarah
+    return timetable.where((slot) => slot.lecturerId == user.id).toList();
   }
 
   List<Student> get scopedStudents {
     final user = currentUser;
-    if (user?.role != UserRole.lecturer) return students;
+    if (user == null || user.role == UserRole.admin) return [];
+
+    if (user.role == UserRole.ketuaJabatan) {
+      final deptPrograms = programs
+          .where((p) => p.departmentId == user.department)
+          .map((p) => p.name)
+          .toSet();
+      return students
+          .where((student) => deptPrograms.contains(student.program))
+          .toList();
+    }
+
+    if (user.role == UserRole.ketuaProgram) {
+      final kpProgram =
+          programs.where((p) => p.id == user.program).firstOrNull?.name;
+      if (kpProgram == null) return [];
+      return students.where((student) => student.program == kpProgram).toList();
+    }
+
+    // Pensyarah sees only students physically enrolled in sections they teach
     final sections = scopedTimetable.map((slot) => slot.section).toSet();
     return students
         .where((student) => sections.contains(student.section))
         .toList();
+  }
+
+  List<DisciplineReport> get scopedDisciplineReports {
+    final user = currentUser;
+    if (user == null || user.role == UserRole.admin) return [];
+
+    if (user.role == UserRole.ketuaJabatan ||
+        user.role == UserRole.ketuaProgram) {
+      final validStudents = scopedStudents.map((s) => s.id).toSet();
+      return disciplineReports
+          .where((r) => validStudents.contains(r.studentId))
+          .toList();
+    }
+    // Pensyarah
+    return disciplineReports.where((r) => r.lecturer == user.name).toList();
+  }
+
+  List<BookingRequest> get scopedBookings {
+    final user = currentUser;
+    if (user == null || user.role == UserRole.admin) return [];
+
+    // KJ and KP can see and approve bookings for their scope
+    if (user.role == UserRole.ketuaJabatan ||
+        user.role == UserRole.ketuaProgram) {
+      // Find sections within their scope using timetable
+      final validSections = scopedTimetable.map((t) => t.section).toSet();
+      return bookings
+          .where((b) => validSections.contains(b.section))
+          .toList();
+    }
+    // Pensyarah
+    return bookings.where((b) => b.lecturerId == user.id).toList();
   }
 
   Future<void> saveAttendance(

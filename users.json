@@ -1,0 +1,31 @@
+{"users": [
+{
+  "localId": "Z8BgPfKoNsW8LMwLVMNHgpQnfO12",
+  "email": "lecturer@tvetmara.edu.my",
+  "emailVerified": false,
+  "passwordHash": "yJChDbfEsMa+0ojZxwLgCemD1rbk0G2RxCWorCQroR4EKCaFWxkh/t6U2iNtwBdPNxM77ynZNWRojmkuZxGdOw==",
+  "salt": "C9P8fI6FtbZYig==",
+  "lastSignedInAt": "1779202494598",
+  "createdAt": "1779201170263",
+  "providerUserInfo": []
+},
+{
+  "localId": "ZcwWjI396oSDoUrdrkBOKPlFGz22",
+  "email": "zarina@tvetmara.edu.my",
+  "emailVerified": false,
+  "passwordHash": "DU36QBpwfTF2J0uugqKZA+bQH/9Ummyx+/OH7uFq3HiaGU0K4q2CxBaWUMZBbA5S9828akbbrzTfuaBiz2WKYw==",
+  "salt": "4GA1eLxzOfQktg==",
+  "lastSignedInAt": "1779201171104",
+  "createdAt": "1779201171104",
+  "providerUserInfo": []
+},
+{
+  "localId": "hGytUmo4qaZzTEjbvqmnZTF72da2",
+  "email": "admin@tvetmara.edu.my",
+  "emailVerified": false,
+  "passwordHash": "Ot673LsVO4WKPvbejHzRnW+aaSoquRIf8R54sl+y3d1XgFkiEm0Xlso3CBsBBRS3NciMxKki/8ey0CBNjTTkEg==",
+  "salt": "+BLhOQ9bgQU3Kw==",
+  "lastSignedInAt": "1779326497588",
+  "createdAt": "1779201169219",
+  "providerUserInfo": []
+}]}

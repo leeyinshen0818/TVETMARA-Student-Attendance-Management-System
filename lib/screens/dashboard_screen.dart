@@ -15,11 +15,7 @@ class DashboardScreen extends StatelessWidget {
     final user = state.currentUser!;
     final timetable = state.scopedTimetable;
     final students = state.scopedStudents;
-    final bookings = user.role == UserRole.lecturer
-        ? state.bookings
-            .where((booking) => booking.lecturerId == user.id)
-            .toList()
-        : state.bookings;
+    final bookings = state.scopedBookings;
     final below = state.criticalStudents.length;
     final pending = timetable
         .where((slot) =>

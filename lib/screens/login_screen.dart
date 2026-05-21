@@ -30,14 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text(
-                'Emel atau kata laluan tidak sah. Sila cuba lagi.')),
+            content: Text('Emel atau kata laluan tidak sah. Sila cuba lagi.')),
       );
     }
 
     if (mounted) setState(() => _loggingIn = false);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -145,24 +143,45 @@ class _LoginScreenState extends State<LoginScreen> {
                         const Text(
                             'Masukkan emel dan kata laluan Firebase anda.'),
                         const SizedBox(height: 24),
+                        const Text('Pilih Peranan Akses Pantas (Untuk Ujian):',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 8),
                         Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
                             FilledButton.icon(
                               onPressed: () {
                                 email.text = 'admin@tvetmara.edu.my';
                                 password.text = 'admin123';
                               },
-                              icon: const Icon(Icons.admin_panel_settings),
+                              icon: const Icon(Icons.admin_panel_settings,
+                                  size: 18),
                               label: const Text('Pentadbir'),
                             ),
                             OutlinedButton.icon(
                               onPressed: () {
-                                email.text = 'lecturer@tvetmara.edu.my';
-                                password.text = 'lecturer123';
+                                email.text = 'kj_mekanikal@tvetmara.edu.my';
+                                password.text = 'password123';
                               },
-                              icon: const Icon(Icons.menu_book),
+                              icon: const Icon(Icons.account_balance, size: 18),
+                              label: const Text('Ketua Jabatan'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                email.text = 'kp_dgs@tvetmara.edu.my';
+                                password.text = 'password123';
+                              },
+                              icon: const Icon(Icons.school, size: 18),
+                              label: const Text('Ketua Program'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                email.text = 'pensyarah@tvetmara.edu.my';
+                                password.text = 'password123';
+                              },
+                              icon: const Icon(Icons.menu_book, size: 18),
                               label: const Text('Pensyarah'),
                             ),
                           ],
@@ -193,10 +212,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       strokeWidth: 2, color: Colors.white),
                                 )
                               : const Icon(Icons.login),
-                          label: Text(
-                              _loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
+                          label:
+                              Text(_loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
                         ),
-
                       ],
                     ),
                   ),
