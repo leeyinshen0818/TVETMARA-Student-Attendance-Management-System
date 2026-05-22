@@ -5,12 +5,6 @@ TVETMARA Student Attendance Management System rebuilt with Flutter.
 ## Getting Started
 
 ```bash
-flutter run
+flutter run -d chrome (run in terminal)
 ```
 
-Demo accounts:
-
-- Admin: `admin@tvetmara.edu.my`
-- Lecturer: `lecturer@tvetmara.edu.my`
-
-Any password is accepted for the matching demo email.
