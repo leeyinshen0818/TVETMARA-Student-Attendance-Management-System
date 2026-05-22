@@ -29,7 +29,7 @@ class AppState extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
-  final _fs = FirestoreService.instance;
+  late final FirestoreService _fs = FirestoreService.instance;
 
   /// Load all data from Firestore.
   /// Call once after Firebase is initialised and the user is authenticated.
@@ -69,9 +69,9 @@ class AppState extends ChangeNotifier {
       departments = results[9] as List<Department>;
     } catch (e) {
       _error = e.toString();
-      print('=== ERROR LOADING DATA ===');
-      print(e);
-      print('==========================');
+      debugPrint('=== ERROR LOADING DATA ===');
+      debugPrint('$e');
+      debugPrint('==========================');
     } finally {
       _loading = false;
       notifyListeners();
@@ -104,6 +104,21 @@ class AppState extends ChangeNotifier {
     AuthService.instance.signOut();
     currentUser = null;
     notifyListeners();
+  }
+
+  bool get currentProgramHasKetuaJabatan {
+    final user = currentUser;
+    if (user?.role != UserRole.ketuaProgram || user?.program == null) {
+      return false;
+    }
+    final program = programs.where((p) => p.id == user!.program).firstOrNull;
+    return program?.departmentId != null;
+  }
+
+  bool get currentKetuaProgramInheritsKetuaJabatanTasks {
+    final user = currentUser;
+    return user?.role == UserRole.ketuaProgram &&
+        !currentProgramHasKetuaJabatan;
   }
 
   List<TimetableSlot> get scopedTimetable {
@@ -177,13 +192,21 @@ class AppState extends ChangeNotifier {
     final user = currentUser;
     if (user == null || user.role == UserRole.admin) return [];
 
-    if (user.role == UserRole.ketuaJabatan ||
-        user.role == UserRole.ketuaProgram) {
+    if (user.role == UserRole.ketuaJabatan) {
       final validStudents = scopedStudents.map((s) => s.id).toSet();
       return disciplineReports
           .where((r) => validStudents.contains(r.studentId))
           .toList();
     }
+
+    if (user.role == UserRole.ketuaProgram) {
+      if (!currentKetuaProgramInheritsKetuaJabatanTasks) return [];
+      final validStudents = scopedStudents.map((s) => s.id).toSet();
+      return disciplineReports
+          .where((r) => validStudents.contains(r.studentId))
+          .toList();
+    }
+
     // Pensyarah
     return disciplineReports.where((r) => r.lecturer == user.name).toList();
   }
@@ -192,15 +215,14 @@ class AppState extends ChangeNotifier {
     final user = currentUser;
     if (user == null || user.role == UserRole.admin) return [];
 
-    // KJ and KP can see and approve bookings for their scope
-    if (user.role == UserRole.ketuaJabatan ||
-        user.role == UserRole.ketuaProgram) {
-      // Find sections within their scope using timetable
+    // Option A: KP can see/approve bookings for their program scope.
+    if (user.role == UserRole.ketuaProgram) {
       final validSections = scopedTimetable.map((t) => t.section).toSet();
-      return bookings
-          .where((b) => validSections.contains(b.section))
-          .toList();
+      return bookings.where((b) => validSections.contains(b.section)).toList();
     }
+
+    if (user.role == UserRole.ketuaJabatan) return [];
+
     // Pensyarah
     return bookings.where((b) => b.lecturerId == user.id).toList();
   }
@@ -218,6 +240,39 @@ class AppState extends ChangeNotifier {
     // Persist to Firestore
     await _fs.saveAttendance(slotId, records);
     await _fs.updateSlotStatus(slotId, 'Attendance Completed');
+  }
+
+  Future<void> upsertTimetableSlot(TimetableSlot slot) async {
+    final index = timetable.indexWhere((item) => item.id == slot.id);
+    if (index == -1) {
+      timetable.add(slot);
+    } else {
+      timetable[index] = slot;
+    }
+    notifyListeners();
+    await _fs.updateTimetableSlot(slot);
+  }
+
+  Future<void> upsertTimetableSlots(List<TimetableSlot> slots) async {
+    for (final slot in slots) {
+      final index = timetable.indexWhere((item) => item.id == slot.id);
+      if (index == -1) {
+        timetable.add(slot);
+      } else {
+        timetable[index] = slot;
+      }
+    }
+    notifyListeners();
+    for (final slot in slots) {
+      await _fs.updateTimetableSlot(slot);
+    }
+  }
+
+  Future<void> deleteTimetableSlot(String slotId) async {
+    timetable.removeWhere((slot) => slot.id == slotId);
+    attendance.remove(slotId);
+    notifyListeners();
+    await _fs.deleteTimetableSlot(slotId);
   }
 
   Future<void> addDiscipline(DisciplineReport report) async {

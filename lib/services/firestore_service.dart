@@ -131,6 +131,16 @@ class FirestoreService {
     await _timetableCol.doc(slot.id).set(_slotToMap(slot));
   }
 
+  Future<void> updateTimetableSlot(TimetableSlot slot) async {
+    await _timetableCol
+        .doc(slot.id)
+        .set(_slotToMap(slot), SetOptions(merge: true));
+  }
+
+  Future<void> deleteTimetableSlot(String slotId) async {
+    await _timetableCol.doc(slotId).delete();
+  }
+
   // ---------------------------------------------------------------------------
   // Hierarchy (Departments & Programs)
   // ---------------------------------------------------------------------------

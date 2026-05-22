@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/stat_tile.dart';
@@ -11,6 +12,15 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    final user = state.currentUser!;
+    if (user.role != UserRole.ketuaJabatan &&
+        user.role != UserRole.ketuaProgram) {
+      return const PageHeader(
+        title: 'Akses Tidak Dibenarkan',
+        subtitle:
+            'Hanya Ketua Jabatan dan Ketua Program boleh menyemak laporan.',
+      );
+    }
     final students = state.scopedStudents;
     final timetable = state.scopedTimetable;
     final percentages =

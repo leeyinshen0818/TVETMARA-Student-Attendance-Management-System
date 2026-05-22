@@ -31,7 +31,15 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
-    final canApproveDiscipline = user.role == UserRole.ketuaJabatan;
+    final canApproveDiscipline = user.role == UserRole.ketuaJabatan ||
+        state.currentKetuaProgramInheritsKetuaJabatanTasks;
+    if (!isPensyarah && !canApproveDiscipline) {
+      return const PageHeader(
+        title: 'Akses Tidak Dibenarkan',
+        subtitle:
+            'Hanya Pensyarah boleh melapor disiplin. Ketua Jabatan atau Ketua Program tanpa Ketua Jabatan boleh membuat semakan disiplin.',
+      );
+    }
     final visibleDiscipline = state.scopedDisciplineReports;
 
     // For Pensyarah: use scopedStudents (which now has a fallback)
@@ -67,15 +75,14 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                         width: 300,
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: selectedStudentId ??
-                              studentsList.firstOrNull?.id,
-                          decoration: const InputDecoration(
-                              labelText: 'Pilih Pelajar'),
+                          initialValue:
+                              selectedStudentId ?? studentsList.firstOrNull?.id,
+                          decoration:
+                              const InputDecoration(labelText: 'Pilih Pelajar'),
                           items: studentsList
                               .map((s) => DropdownMenuItem(
                                   value: s.id,
-                                  child:
-                                      Text('${s.name} (${s.section})')))
+                                  child: Text('${s.name} (${s.section})')))
                               .toList(),
                           onChanged: (value) =>
                               setState(() => selectedStudentId = value),
@@ -85,17 +92,17 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                         width: 200,
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: issueType,
-                          decoration: const InputDecoration(
-                              labelText: 'Jenis Isu'),
+                          initialValue: issueType,
+                          decoration:
+                              const InputDecoration(labelText: 'Jenis Isu'),
                           items: [
                             'Kerap Tidak Hadir',
                             'Ponteng Kelas',
                             'Masalah Tingkah Laku',
                             'Lain-lain'
                           ]
-                              .map((i) => DropdownMenuItem(
-                                  value: i, child: Text(i)))
+                              .map((i) =>
+                                  DropdownMenuItem(value: i, child: Text(i)))
                               .toList(),
                           onChanged: (value) =>
                               setState(() => issueType = value!),
@@ -105,12 +112,12 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                         width: 150,
                         child: DropdownButtonFormField<String>(
                           isExpanded: true,
-                          value: severity,
+                          initialValue: severity,
                           decoration: const InputDecoration(
                               labelText: 'Tahap (Severity)'),
                           items: ['Low', 'Medium', 'High']
-                              .map((i) => DropdownMenuItem(
-                                  value: i, child: Text(i)))
+                              .map((i) =>
+                                  DropdownMenuItem(value: i, child: Text(i)))
                               .toList(),
                           onChanged: (value) =>
                               setState(() => severity = value!),
@@ -126,11 +133,11 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                       ),
                       FilledButton.icon(
                         onPressed: () {
-                          final targetId = selectedStudentId ??
-                              studentsList.firstOrNull?.id;
+                          final targetId =
+                              selectedStudentId ?? studentsList.firstOrNull?.id;
                           if (targetId == null) return;
-                          final student = studentsList
-                              .firstWhere((s) => s.id == targetId);
+                          final student =
+                              studentsList.firstWhere((s) => s.id == targetId);
 
                           state.addDiscipline(DisciplineReport(
                             id: 'D${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
@@ -198,8 +205,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                     ? IconButton(
                         onPressed: () =>
                             state.updateDiscipline(report.id, 'Approved'),
-                        icon:
-                            const Icon(Icons.check, color: Colors.green))
+                        icon: const Icon(Icons.check, color: Colors.green))
                     : const Text('-')),
               ]);
             }).toList(),

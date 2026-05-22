@@ -29,7 +29,10 @@ class _HomeShellState extends State<HomeShell> {
 
     // Role checks
     final isAdmin = user.role == UserRole.admin;
+    final isKetuaJabatan = user.role == UserRole.ketuaJabatan;
     final isKetuaProgram = user.role == UserRole.ketuaProgram;
+    final isKetuaProgramWithoutKj =
+        state.currentKetuaProgramInheritsKetuaJabatanTasks;
     final isPensyarah = user.role == UserRole.pensyarah;
 
     // Build navigation items based strictly on role
@@ -38,32 +41,32 @@ class _HomeShellState extends State<HomeShell> {
       const _NavItem(
           'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen()),
 
-      // Attendance is strictly for Pensyarah (and maybe Ketua Program as they also teach)
-      if (isPensyarah || isKetuaProgram)
+      // Option A: only Pensyarah takes attendance.
+      if (isPensyarah)
         const _NavItem(
             'Kehadiran', Icons.fact_check_outlined, AttendanceScreen()),
 
-      // Timetable Upload/View is mainly for academics, but Admin doesn't need it
-      if (!isAdmin)
+      // Option A: KJ uploads timetable; KP inherits this if program has no KJ.
+      if (isKetuaJabatan || isKetuaProgramWithoutKj)
         const _NavItem(
             'Jadual', Icons.calendar_month_outlined, TimetableScreen()),
 
-      // Reports are mostly for management (Admin, KJ, KP)
-      if (!isPensyarah)
+      // Option A: KJ reviews department reports, KP reviews program reports.
+      if (isKetuaJabatan || isKetuaProgram)
         const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen()),
 
-      // Room Booking: Pensyarah creates, KP approves
+      // Option A: Pensyarah requests, KP approves.
       if (isPensyarah || isKetuaProgram)
         const _NavItem(
             'Tempahan Bilik', Icons.meeting_room_outlined, TempahanScreen()),
 
-      // Discipline: Pensyarah creates, KJ approves
-      if (isPensyarah || user.role == UserRole.ketuaJabatan)
+      // Option A: Pensyarah reports, KJ oversees; KP inherits if program has no KJ.
+      if (isPensyarah || isKetuaJabatan || isKetuaProgramWithoutKj)
         const _NavItem(
             'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen()),
 
-      // Student Records are mainly for Academic checking
-      if (!isAdmin)
+      // Option A: KJ/KP view attendance through scoped student records.
+      if (isKetuaJabatan || isKetuaProgram)
         const _NavItem(
             'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen()),
 
@@ -147,7 +150,8 @@ class _HomeShellState extends State<HomeShell> {
                           ? Center(
                               child: Padding(
                                 padding: const EdgeInsets.all(24.0),
-                                child: Text('Ralat memuat turun data: ${state.error}',
+                                child: Text(
+                                    'Ralat memuat turun data: ${state.error}',
                                     style: const TextStyle(color: Colors.red)),
                               ),
                             )

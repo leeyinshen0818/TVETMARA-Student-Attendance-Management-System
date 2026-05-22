@@ -33,6 +33,30 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <style>
+    #app-loading {
+      align-items: center;
+      color: #475569;
+      display: flex;
+      font: 14px Arial, sans-serif;
+      height: 100vh;
+      justify-content: center;
+    }
+  </style>
+  <div id="app-loading">Memuatkan Sistem Kehadiran TVETMARA...</div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var loading = document.getElementById('app-loading');
+      if (loading) loading.remove();
+    });
+    window.addEventListener('error', function (event) {
+      var loading = document.getElementById('app-loading');
+      if (loading) {
+        loading.textContent = 'Aplikasi gagal dimuatkan. Sila hard refresh halaman ini.';
+      }
+      console.error(event.error || event.message);
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

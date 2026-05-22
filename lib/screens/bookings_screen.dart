@@ -20,7 +20,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   String start = '14:00';
   String end = '16:00';
   String reason = 'Latihan / Mesyuarat';
-  
+
   // Discipline Report State
   String? selectedStudentId;
   String issueType = 'Kerap Tidak Hadir';
@@ -200,7 +200,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   width: 300,
                   child: DropdownButtonFormField<String>(
                     isExpanded: true,
-                    value: selectedStudentId ?? state.scopedStudents.firstOrNull?.id,
+                    initialValue: selectedStudentId ??
+                        state.scopedStudents.firstOrNull?.id,
                     decoration: const InputDecoration(labelText: 'Pelajar'),
                     items: state.scopedStudents
                         .map((s) => DropdownMenuItem(
@@ -214,9 +215,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 SizedBox(
                   width: 200,
                   child: DropdownButtonFormField<String>(
-                    value: issueType,
+                    initialValue: issueType,
                     decoration: const InputDecoration(labelText: 'Jenis Isu'),
-                    items: ['Kerap Tidak Hadir', 'Ponteng Kelas', 'Masalah Tingkah Laku', 'Lain-lain']
+                    items: [
+                      'Kerap Tidak Hadir',
+                      'Ponteng Kelas',
+                      'Masalah Tingkah Laku',
+                      'Lain-lain'
+                    ]
                         .map((i) => DropdownMenuItem(value: i, child: Text(i)))
                         .toList(),
                     onChanged: (value) => setState(() => issueType = value!),
@@ -225,8 +231,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 SizedBox(
                   width: 150,
                   child: DropdownButtonFormField<String>(
-                    value: severity,
-                    decoration: const InputDecoration(labelText: 'Tahap (Severity)'),
+                    initialValue: severity,
+                    decoration:
+                        const InputDecoration(labelText: 'Tahap (Severity)'),
                     items: ['Low', 'Medium', 'High']
                         .map((i) => DropdownMenuItem(value: i, child: Text(i)))
                         .toList(),
@@ -242,10 +249,12 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 ),
                 FilledButton.icon(
                   onPressed: () {
-                    final targetId = selectedStudentId ?? state.scopedStudents.firstOrNull?.id;
+                    final targetId = selectedStudentId ??
+                        state.scopedStudents.firstOrNull?.id;
                     if (targetId == null) return;
-                    final student = state.scopedStudents.firstWhere((s) => s.id == targetId);
-                    
+                    final student = state.scopedStudents
+                        .firstWhere((s) => s.id == targetId);
+
                     state.addDiscipline(DisciplineReport(
                       id: 'D${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
                       studentId: student.id,

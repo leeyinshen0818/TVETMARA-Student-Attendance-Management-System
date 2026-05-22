@@ -80,25 +80,44 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
 
   Future<void> _saveSlot() async {
     if (!_formKey.currentState!.validate()) return;
+    final user = AppScope.of(context).currentUser!;
+    final state = AppScope.of(context);
+    final canAddTimetable = user.role == UserRole.ketuaJabatan ||
+        state.currentKetuaProgramInheritsKetuaJabatanTasks;
+    if (!canAddTimetable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Hanya Ketua Jabatan atau Ketua Program tanpa Ketua Jabatan boleh menambah jadual.')),
+      );
+      return;
+    }
     if (_selectedProgramName == null) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Sila pilih Program')));
       return;
     }
+    if (_selectedLecturerId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Sila pilih Pensyarah')));
+      return;
+    }
 
     setState(() => _isSaving = true);
-      final lecturer = AppScope.of(context).lecturers.firstWhere((l) => l.id == _selectedLecturerId);
-      
-      final newSlot = TimetableSlot(
-        id: const Uuid().v4(),
-        session: _sessionCtrl.text.trim(),
-        semester: int.tryParse(_semesterCtrl.text) ?? 1,
-        program: _selectedProgramName!,
-        section: _sectionCtrl.text.trim(),
-        subjectCode: _subjectCodeCtrl.text.trim(),
-        subjectName: _subjectNameCtrl.text.trim(),
-        lecturerId: lecturer.id,
-        lecturerName: lecturer.name,
+    final lecturer = AppScope.of(context)
+        .lecturers
+        .firstWhere((l) => l.id == _selectedLecturerId);
+
+    final newSlot = TimetableSlot(
+      id: const Uuid().v4(),
+      session: _sessionCtrl.text.trim(),
+      semester: int.tryParse(_semesterCtrl.text) ?? 1,
+      program: _selectedProgramName!,
+      section: _sectionCtrl.text.trim(),
+      subjectCode: _subjectCodeCtrl.text.trim(),
+      subjectName: _subjectNameCtrl.text.trim(),
+      lecturerId: lecturer.id,
+      lecturerName: lecturer.name,
       day: _dayCtrl.text.trim(),
       date: _dateCtrl.text.trim(),
       startTime: _startTimeCtrl.text.trim(),
@@ -106,9 +125,9 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
       room: _roomCtrl.text.trim(),
       enrolled: 0,
       capacity: int.tryParse(_capacityCtrl.text) ?? 30,
-      classType: 'Kuliah',
-      slotType: 'Biasa',
-      status: 'Akan Datang',
+      classType: 'Teori',
+      slotType: 'Kelas Biasa',
+      status: 'Upcoming',
     );
 
     try {
@@ -134,9 +153,45 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final state = AppScope.of(context);
-    final lecturers = state.lecturers;
-    _selectedLecturerId ??= state.currentUser?.id;
-    if (lecturers.isNotEmpty && !lecturers.any((l) => l.id == _selectedLecturerId)) {
+    final user = state.currentUser!;
+    final canAddTimetable = user.role == UserRole.ketuaJabatan ||
+        state.currentKetuaProgramInheritsKetuaJabatanTasks;
+    if (!canAddTimetable) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+              'Hanya Ketua Jabatan atau Ketua Program tanpa Ketua Jabatan boleh menambah jadual.'),
+        ),
+      );
+    }
+    final visiblePrograms = user.role == UserRole.ketuaProgram
+        ? _programs.where((program) => program.id == user.program).toList()
+        : _programs
+            .where((program) => program.departmentId == user.department)
+            .toList();
+    final lecturers = user.role == UserRole.ketuaProgram
+        ? state.lecturers
+            .where((lecturer) => lecturer.id == 'L_${user.program}')
+            .toList()
+        : state.lecturers
+            .where((lecturer) => lecturer.department == user.department)
+            .toList();
+    if (visiblePrograms.isEmpty || lecturers.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Text(
+              'Tiada program atau pensyarah ditemui untuk jabatan ini. Sila seed data dahulu.'),
+        ),
+      );
+    }
+    if (visiblePrograms.isNotEmpty &&
+        !visiblePrograms.any((p) => p.id == _selectedProgramId)) {
+      _selectedProgramId = visiblePrograms.first.id;
+      _selectedProgramName = visiblePrograms.first.name;
+    }
+
+    if (lecturers.isNotEmpty &&
+        !lecturers.any((l) => l.id == _selectedLecturerId)) {
       _selectedLecturerId = lecturers.first.id;
     }
 
@@ -162,7 +217,7 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
                 decoration: const InputDecoration(
                     labelText: 'Program (Course)',
                     border: OutlineInputBorder()),
-                items: _programs
+                items: visiblePrograms
                     .map((p) =>
                         DropdownMenuItem(value: p.id, child: Text(p.name)))
                     .toList(),
@@ -170,7 +225,7 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
                   setState(() {
                     _selectedProgramId = val;
                     _selectedProgramName =
-                        _programs.firstWhere((p) => p.id == val).name;
+                        visiblePrograms.firstWhere((p) => p.id == val).name;
                   });
                 },
               ),

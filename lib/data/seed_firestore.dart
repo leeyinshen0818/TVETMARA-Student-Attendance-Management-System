@@ -13,15 +13,21 @@ Future<bool> seedFirestore() async {
   mock.initializeMockData();
   final fs = FirestoreService.instance;
 
-  // Guard removed: Force Seed DB button should always run.
+  // Development helper for rebuilding mock Firestore data when run manually.
 
   // ------------------------------------------------------------------
   // 1. Wipe existing collections to prevent conflicts with old test data
   // ------------------------------------------------------------------
   final cols = [
-    'users', 'students', 'lecturers', 'rooms', 
-    'timetable_slots', 'discipline_reports', 
-    'bookings', 'departments', 'programs',
+    'users',
+    'students',
+    'lecturers',
+    'rooms',
+    'timetable_slots',
+    'discipline_reports',
+    'bookings',
+    'departments',
+    'programs',
     'attendance_records'
   ];
   for (final col in cols) {
@@ -59,10 +65,12 @@ Future<bool> seedFirestore() async {
   // ------------------------------------------------------------------
   // 3. Create Firebase Auth accounts for demo users
   // ------------------------------------------------------------------
-  final demoAccounts = mock.users.map((u) => {
-    'email': u.email,
-    'password': u.role == UserRole.admin ? 'admin123' : 'password123',
-  }).toList();
+  final demoAccounts = mock.users
+      .map((u) => {
+            'email': u.email,
+            'password': u.role == UserRole.admin ? 'admin123' : 'password123',
+          })
+      .toList();
 
   for (final account in demoAccounts) {
     try {

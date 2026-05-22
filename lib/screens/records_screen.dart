@@ -14,9 +14,18 @@ class RecordsScreen extends StatelessWidget {
     final user = state.currentUser!;
     final isManagement = user.role == UserRole.ketuaJabatan ||
         user.role == UserRole.ketuaProgram;
+    if (!isManagement) {
+      return const PageHeader(
+        title: 'Akses Tidak Dibenarkan',
+        subtitle:
+            'Hanya Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
+      );
+    }
     final students = state.scopedStudents;
-    final validLecturerIds = state.scopedTimetable.map((t) => t.lecturerId).toSet();
-    final visibleLecturers = state.lecturers.where((l) => validLecturerIds.contains(l.id)).toList();
+    final validLecturerIds =
+        state.scopedTimetable.map((t) => t.lecturerId).toSet();
+    final visibleLecturers =
+        state.lecturers.where((l) => validLecturerIds.contains(l.id)).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

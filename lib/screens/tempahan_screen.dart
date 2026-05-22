@@ -40,6 +40,13 @@ class _TempahanScreenState extends State<TempahanScreen> {
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
     final canApproveBookings = user.role == UserRole.ketuaProgram;
+    if (!isPensyarah && !canApproveBookings) {
+      return const PageHeader(
+        title: 'Akses Tidak Dibenarkan',
+        subtitle:
+            'Hanya Pensyarah boleh memohon tempahan dan Ketua Program boleh meluluskan tempahan.',
+      );
+    }
     final visibleBookings = state.scopedBookings;
     final slots = state.scopedTimetable;
     final blocks = [
@@ -92,7 +99,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                     width: 240,
                     child: DropdownButtonFormField<String>(
                       isExpanded: true,
-                      value: selected?.id,
+                      initialValue: selected?.id,
                       decoration: const InputDecoration(labelText: 'Kelas'),
                       items: slots
                           .map((slot) => DropdownMenuItem(
@@ -109,8 +116,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                     width: 200,
                     child: TextField(
                       controller: _subjectCtrl,
-                      decoration:
-                          const InputDecoration(labelText: 'Subjek'),
+                      decoration: const InputDecoration(labelText: 'Subjek'),
                     ),
                   ),
                   SizedBox(
@@ -151,7 +157,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                   width: 150,
                   child: DropdownButtonFormField<String>(
                     isExpanded: true,
-                    value: block,
+                    initialValue: block,
                     decoration: const InputDecoration(labelText: 'Blok'),
                     items: blocks
                         .map((item) => DropdownMenuItem(
@@ -167,7 +173,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                     width: 290,
                     child: DropdownButtonFormField<String>(
                       isExpanded: true,
-                      value: room,
+                      initialValue: room,
                       decoration: const InputDecoration(labelText: 'Bilik'),
                       items: filteredRooms
                           .map((item) => DropdownMenuItem(
@@ -209,8 +215,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                       status: 'Pending',
                     ));
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content:
-                            Text('Permohonan tempahan telah dihantar.')));
+                        content: Text('Permohonan tempahan telah dihantar.')));
                   },
                   icon: const Icon(Icons.send),
                   label: const Text('Hantar Permohonan'),
@@ -263,13 +268,12 @@ class _TempahanScreenState extends State<TempahanScreen> {
                           IconButton(
                               onPressed: () =>
                                   state.updateBooking(booking.id, 'Approved'),
-                              icon: const Icon(Icons.check,
-                                  color: Colors.green)),
+                              icon:
+                                  const Icon(Icons.check, color: Colors.green)),
                           IconButton(
                               onPressed: () =>
                                   state.updateBooking(booking.id, 'Rejected'),
-                              icon:
-                                  const Icon(Icons.close, color: Colors.red)),
+                              icon: const Icon(Icons.close, color: Colors.red)),
                         ],
                       )
                     : const Text('-')),

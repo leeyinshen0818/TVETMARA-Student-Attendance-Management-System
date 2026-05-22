@@ -61,8 +61,7 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: 20),
         const AppPanel(
           title: 'Sumber Data',
-          subtitle:
-              'Sistem disambungkan ke Firebase Cloud Firestore.',
+          subtitle: 'Sistem disambungkan ke Firebase Cloud Firestore.',
           child: Row(
             children: [
               Icon(Icons.cloud_done_outlined, color: Color(0xff16a34a)),

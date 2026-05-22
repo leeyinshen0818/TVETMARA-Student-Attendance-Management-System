@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
-import '../data/mock_data.dart' as mock;
-import '../data/seed_firestore.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -124,100 +122,113 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           Expanded(
             child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('Log Masuk',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xff0f172a),
-                                )),
-                        const SizedBox(height: 8),
-                        const Text(
-                            'Masukkan emel dan kata laluan Firebase anda.'),
-                        const SizedBox(height: 24),
-                        const Text('Pilih Peranan Akses Pantas (Untuk Ujian):',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: () {
-                                email.text = 'admin@tvetmara.edu.my';
-                                password.text = 'admin123';
-                              },
-                              icon: const Icon(Icons.admin_panel_settings,
-                                  size: 18),
-                              label: const Text('Pentadbir'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                email.text = 'kj_elektrik@tvetmara.edu.my';
-                                password.text = 'password123';
-                              },
-                              icon: const Icon(Icons.account_balance, size: 18),
-                              label: const Text('Ketua Jabatan'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                email.text = 'kp_ded@tvetmara.edu.my';
-                                password.text = 'password123';
-                              },
-                              icon: const Icon(Icons.school, size: 18),
-                              label: const Text('Ketua Program'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                email.text = 'pensyarah_ded@tvetmara.edu.my';
-                                password.text = 'password123';
-                              },
-                              icon: const Icon(Icons.menu_book, size: 18),
-                              label: const Text('Pensyarah'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: email,
-                          decoration: const InputDecoration(
-                              labelText: 'Emel',
-                              prefixIcon: Icon(Icons.email_outlined)),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: password,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                              labelText: 'Kata Laluan',
-                              prefixIcon: Icon(Icons.lock_outline)),
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton.icon(
-                          onPressed: _loggingIn ? null : _login,
-                          icon: _loggingIn
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.login),
-                          label:
-                              Text(_loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
-                        ),
-                      ],
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Log Masuk',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xff0f172a),
+                                  )),
+                          const SizedBox(height: 8),
+                          const Text(
+                              'Masukkan emel dan kata laluan Firebase anda.'),
+                          const SizedBox(height: 24),
+                          const Text(
+                              'Pilih Peranan Akses Pantas (Untuk Ujian):',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () {
+                                  email.text = 'admin@tvetmara.edu.my';
+                                  password.text = 'admin123';
+                                },
+                                icon: const Icon(Icons.admin_panel_settings,
+                                    size: 18),
+                                label: const Text('Pentadbir'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  email.text = 'kj_elektrik@tvetmara.edu.my';
+                                  password.text = 'password123';
+                                },
+                                icon:
+                                    const Icon(Icons.account_balance, size: 18),
+                                label: const Text('Ketua Jabatan'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  email.text = 'kp_dgs@tvetmara.edu.my';
+                                  password.text = 'password123';
+                                },
+                                icon: const Icon(Icons.school, size: 18),
+                                label: const Text('KP Tanpa KJ'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  email.text = 'kp_ded@tvetmara.edu.my';
+                                  password.text = 'password123';
+                                },
+                                icon: const Icon(Icons.account_tree, size: 18),
+                                label: const Text('KP Dengan KJ'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  email.text = 'pensyarah_ded@tvetmara.edu.my';
+                                  password.text = 'password123';
+                                },
+                                icon: const Icon(Icons.menu_book, size: 18),
+                                label: const Text('Pensyarah'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: email,
+                            decoration: const InputDecoration(
+                                labelText: 'Emel',
+                                prefixIcon: Icon(Icons.email_outlined)),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: password,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                                labelText: 'Kata Laluan',
+                                prefixIcon: Icon(Icons.lock_outline)),
+                          ),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: _loggingIn ? null : _login,
+                            icon: _loggingIn
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.login),
+                            label: Text(
+                                _loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -225,27 +236,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Seeding Database... Please wait.'), duration: Duration(days: 1)),
-          );
-          try {
-            await seedFirestore();
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Seeding Complete! You can now log in.')),
-            );
-          } catch (e) {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error seeding: $e')),
-            );
-          }
-        },
-        label: const Text('Force Seed DB'),
-        icon: const Icon(Icons.download),
       ),
     );
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
@@ -29,11 +28,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    final user = state.currentUser!;
+    if (user.role != UserRole.pensyarah) {
+      return const PageHeader(
+        title: 'Akses Tidak Dibenarkan',
+        subtitle: 'Hanya Pensyarah boleh mengambil kehadiran kelas.',
+      );
+    }
     final slots = state.scopedTimetable;
     final slot = slots.where((item) => item.id == slotId).firstOrNull;
     if (slot == null) return const Text('Tiada slot jadual ditetapkan.');
     if (loadedSlotId != slot.id) {
-      records = List.of(state.attendance[slot.id] ?? _defaultRecords(slot, state));
+      records =
+          List.of(state.attendance[slot.id] ?? _defaultRecords(slot, state));
       loadedSlotId = slot.id;
     }
     final students = state.students

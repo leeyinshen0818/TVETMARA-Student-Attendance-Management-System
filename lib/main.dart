@@ -6,13 +6,80 @@ import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
-import 'data/seed_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await seedFirestore();
-  runApp(AppScope(state: AppState(), child: const TvetmaraApp()));
+  try {
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
+    runApp(AppScope(state: AppState(), child: const TvetmaraApp()));
+  } catch (error, stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'app startup',
+      ),
+    );
+    runApp(StartupErrorApp(error: error));
+  }
+}
+
+class StartupErrorApp extends StatelessWidget {
+  const StartupErrorApp({super.key, required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: const Color(0xfff8fafc),
+        body: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 560),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xffe2e8f0)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: Color(0xffdc2626), size: 32),
+                const SizedBox(height: 14),
+                const Text(
+                  'Aplikasi gagal dimulakan',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xff0f172a),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sila semak sambungan Firebase atau muat semula halaman.',
+                  style: TextStyle(color: Color(0xff64748b)),
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  '$error',
+                  style: const TextStyle(
+                    color: Color(0xff991b1b),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class TvetmaraApp extends StatelessWidget {

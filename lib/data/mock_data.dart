@@ -1,49 +1,135 @@
 import '../models/app_models.dart';
-import 'package:uuid/uuid.dart';
 
-final _uuid = const Uuid();
-
-final List<ProgramCode> programs = [
-  const ProgramCode(id: 'DGS', name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN GAS', departmentId: null),
-  const ProgramCode(id: 'DPP', name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN PENYAMANAN UDARA DAN PENYEJUKAN', departmentId: null),
-  const ProgramCode(id: 'DED', name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI)', departmentId: 'elektrik'),
-  const ProgramCode(id: 'DEK', name: 'DIPLOMA TEKNOLOGI PEMBUATAN ELEKTRONIK', departmentId: null),
-  const ProgramCode(id: 'DCP', name: 'DIPLOMA KOMPETENSI ELEKTRIK (KUASA)', departmentId: 'elektrik'),
-  const ProgramCode(id: 'DCB', name: 'DIPLOMA LANJUTAN KOMPETENSI ELEKTRIK (PENJANAAN)', departmentId: 'elektrik'),
-  const ProgramCode(id: 'DKM', name: 'DIPLOMA KEJURUTERAAN MEKANIKAL', departmentId: 'mekanikal'),
-  const ProgramCode(id: 'DKA', name: 'DIPLOMA KEJURUTERAAN AUTOMOTIF', departmentId: 'mekanikal'),
-  const ProgramCode(id: 'DKI', name: 'DIPLOMA KIMPALAN INDUSTRI', departmentId: 'mekanikal'),
-  const ProgramCode(id: 'DSK', name: 'DIPLOMA SISTEM KOMPUTER', departmentId: 'komputer'),
-  const ProgramCode(id: 'DPM', name: 'DIPLOMA PENYELENGGARAAN MESIN', departmentId: 'mekanikal'),
-  const ProgramCode(id: 'DKB', name: 'DIPLOMA KEJURUTERAAN BANGUNAN', departmentId: null),
-  const ProgramCode(id: 'DSE', name: 'DIPLOMA SISTEM ELEKTRONIK', departmentId: 'elektrik'),
-  const ProgramCode(id: 'DPB', name: 'DIPLOMA PEMESINAN BERKOMPUTER', departmentId: 'mekanikal'),
+const List<ProgramCode> programs = [
+  ProgramCode(
+      id: 'DGS',
+      name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN GAS (DGS)',
+      departmentId: null),
+  ProgramCode(
+      id: 'DPP',
+      name:
+          'DIPLOMA TEKNOLOGI KEJURUTERAAN PENYAMANAN UDARA DAN PENYEJUKAN (DPP)',
+      departmentId: null),
+  ProgramCode(
+      id: 'DED',
+      name: 'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI) (DED)',
+      departmentId: 'elektrik'),
+  ProgramCode(
+      id: 'DEK',
+      name: 'DIPLOMA TEKNOLOGI PEMBUATAN ELEKTRONIK (DEK)',
+      departmentId: null),
+  ProgramCode(
+      id: 'DCP',
+      name: 'DIPLOMA KOMPETENSI ELEKTRIK (KUASA) (DCP)',
+      departmentId: 'elektrik'),
+  ProgramCode(
+      id: 'DCB',
+      name: 'DIPLOMA LANJUTAN KOMPETENSI ELEKTRIK (PENJANAAN) (DCB)',
+      departmentId: 'elektrik'),
+  ProgramCode(
+      id: 'ITW',
+      name: 'DIPLOMA KOMPETENSI KIMPALAN (ITW)',
+      departmentId: 'mekanikal'),
+  ProgramCode(
+      id: 'DGM',
+      name: 'DIPLOMA TEKNOLOGI MEKATRONIK (DGM)',
+      departmentId: null),
+  ProgramCode(
+      id: 'IMF',
+      name: 'DIPLOMA INDUSTRI SIAPAN LOGAM (IMF)',
+      departmentId: 'automotif'),
+  ProgramCode(
+      id: 'SLR',
+      name: 'SIJIL TEKNOLOGI KEJURUTERAAN LUKISAN DAN REKABENTUK (SLR)',
+      departmentId: 'mekanikal'),
+  ProgramCode(
+      id: 'SMI',
+      name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKANIK INDUSTRI (SMI)',
+      departmentId: 'mekanikal'),
+  ProgramCode(
+      id: 'SMK',
+      name: 'SIJIL TEKNOLOGI KEJURUTERAAN MEKATRONIK (SMK)',
+      departmentId: null),
+  ProgramCode(
+      id: 'SMM',
+      name: 'SIJIL TEKNOLOGI KEJURUTERAAN MARIN (SMM)',
+      departmentId: 'automotif'),
+  ProgramCode(
+      id: 'DMM',
+      name: 'DIPLOMA TEKNOLOGI MARIN (DMM)',
+      departmentId: 'automotif'),
 ];
 
 const roomResources = [
   RoomResource(name: 'BILIK KULIAH 1', block: 'Utama', type: 'Kelas'),
   RoomResource(name: 'BILIK KULIAH 2', block: 'Utama', type: 'Kelas'),
+  RoomResource(name: 'BILIK KULIAH 3', block: 'Utama', type: 'Kelas'),
   RoomResource(name: 'MAKMAL KOMPUTER A', block: 'Komputer', type: 'Makmal'),
   RoomResource(name: 'BENGKEL ELEKTRIK', block: 'Elektrik', type: 'Bengkel'),
   RoomResource(name: 'BENGKEL MEKANIKAL', block: 'Mekanikal', type: 'Bengkel'),
 ];
 
 final List<AppUser> users = [
-  const AppUser(id: 'U001', name: 'Pentadbir TVETMARA', email: 'admin@tvetmara.edu.my', role: UserRole.admin, department: 'Pentadbiran', active: true, lastLogin: '2026-05-01 08:00'),
-  const AppUser(id: 'KJ_E', name: 'KJ Elektrik', email: 'kj_elektrik@tvetmara.edu.my', role: UserRole.ketuaJabatan, department: 'elektrik', active: true, lastLogin: '2026-05-01 08:00'),
-  const AppUser(id: 'KJ_M', name: 'KJ Mekanikal', email: 'kj_mekanikal@tvetmara.edu.my', role: UserRole.ketuaJabatan, department: 'mekanikal', active: true, lastLogin: '2026-05-01 08:00'),
-  const AppUser(id: 'KJ_K', name: 'KJ Komputer', email: 'kj_komputer@tvetmara.edu.my', role: UserRole.ketuaJabatan, department: 'komputer', active: true, lastLogin: '2026-05-01 08:00'),
-  ...programs.map((p) => AppUser(id: 'KP_${p.id}', name: 'KP ${p.id}', email: 'kp_${p.id.toLowerCase()}@tvetmara.edu.my', role: UserRole.ketuaProgram, program: p.id, active: true, lastLogin: '2026-05-01 08:00')),
-  ...programs.map((p) => AppUser(id: 'L_${p.id}', name: 'Pensyarah ${p.id}', email: 'pensyarah_${p.id.toLowerCase()}@tvetmara.edu.my', role: UserRole.pensyarah, department: p.departmentId ?? 'Umum', active: true, lastLogin: '2026-05-01 08:00')),
+  const AppUser(
+      id: 'U001',
+      name: 'Pentadbir TVETMARA',
+      email: 'admin@tvetmara.edu.my',
+      role: UserRole.admin,
+      department: 'Pentadbiran',
+      active: true,
+      lastLogin: '2026-05-01 08:00'),
+  const AppUser(
+      id: 'KJ_E',
+      name: 'KJ Elektrik',
+      email: 'kj_elektrik@tvetmara.edu.my',
+      role: UserRole.ketuaJabatan,
+      department: 'elektrik',
+      active: true,
+      lastLogin: '2026-05-01 08:00'),
+  const AppUser(
+      id: 'KJ_M',
+      name: 'KJ Mekanikal',
+      email: 'kj_mekanikal@tvetmara.edu.my',
+      role: UserRole.ketuaJabatan,
+      department: 'mekanikal',
+      active: true,
+      lastLogin: '2026-05-01 08:00'),
+  const AppUser(
+      id: 'KJ_K',
+      name: 'KJ Automotif',
+      email: 'kj_automotif@tvetmara.edu.my',
+      role: UserRole.ketuaJabatan,
+      department: 'automotif',
+      active: true,
+      lastLogin: '2026-05-01 08:00'),
+  ...programs.map((p) => AppUser(
+      id: 'KP_${p.id}',
+      name: 'KP ${p.id}',
+      email: 'kp_${p.id.toLowerCase()}@tvetmara.edu.my',
+      role: UserRole.ketuaProgram,
+      program: p.id,
+      active: true,
+      lastLogin: '2026-05-01 08:00')),
+  ...programs.map((p) => AppUser(
+      id: 'L_${p.id}',
+      name: 'Pensyarah ${p.id}',
+      email: 'pensyarah_${p.id.toLowerCase()}@tvetmara.edu.my',
+      role: UserRole.pensyarah,
+      department: p.departmentId ?? 'Umum',
+      active: true,
+      lastLogin: '2026-05-01 08:00')),
 ];
 
-final List<Lecturer> lecturers = users.where((u) => u.role == UserRole.pensyarah).map((u) => Lecturer(
-  id: u.id,
-  name: u.name,
-  email: u.email,
-  department: u.department ?? 'Umum',
-  subjects: ['SUBJ101', 'SUBJ102'],
-)).toList();
+final List<Lecturer> lecturers = users
+    .where((u) => u.role == UserRole.pensyarah)
+    .map((u) => Lecturer(
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          department: u.department ?? 'Umum',
+          subjects: ['SUBJ101', 'SUBJ102'],
+        ))
+    .toList();
 
 final List<Student> students = [];
 final List<TimetableSlot> timetable = [];
@@ -60,13 +146,13 @@ void _generateMockData() {
   for (var prog in programs) {
     for (var sectionSuffix in sections) {
       final sectionName = '${prog.id} $sectionSuffix';
-      
+
       // Generate 5 students per section (15 per program)
       for (int i = 0; i < 5; i++) {
         students.add(Student(
           id: 'S${2026000 + studentIdCounter}',
-          name: 'Pelajar ${studentIdCounter} ($sectionName)',
-          email: 'student${studentIdCounter}@student.tvetmara.edu.my',
+          name: 'Pelajar $studentIdCounter ($sectionName)',
+          email: 'student$studentIdCounter@student.tvetmara.edu.my',
           phone: '012-3456789',
           program: prog.name,
           semester: sectionSuffix.startsWith('1') ? 1 : 2,
@@ -84,15 +170,26 @@ void _generateMockData() {
           semester: sectionSuffix.startsWith('1') ? 1 : 2,
           program: prog.name,
           section: sectionName,
-          subjectCode: 'SUBJ${sectionSuffix.startsWith('1') ? '10' : '20'}${i+1}',
-          subjectName: 'Asas ${prog.id} ${sectionSuffix.startsWith('1') ? '1' : '2'}.${i+1}',
+          subjectCode:
+              'SUBJ${sectionSuffix.startsWith('1') ? '10' : '20'}${i + 1}',
+          subjectName:
+              'Asas ${prog.id} ${sectionSuffix.startsWith('1') ? '1' : '2'}.${i + 1}',
           lecturerId: 'L_${prog.id}',
           lecturerName: 'Pensyarah ${prog.id}',
           day: i == 0 ? 'Isnin' : 'Selasa',
           date: i == 0 ? '2026-05-18' : '2026-05-19',
-          startTime: sectionSuffix == '1A' ? '08:00' : sectionSuffix == '1B' ? '10:00' : '14:00',
-          endTime: sectionSuffix == '1A' ? '10:00' : sectionSuffix == '1B' ? '12:00' : '16:00',
-          room: 'BILIK KULIAH ${sectionSuffix == '1A' ? '1' : sectionSuffix == '1B' ? '2' : '3'}',
+          startTime: sectionSuffix == '1A'
+              ? '08:00'
+              : sectionSuffix == '1B'
+                  ? '10:00'
+                  : '14:00',
+          endTime: sectionSuffix == '1A'
+              ? '10:00'
+              : sectionSuffix == '1B'
+                  ? '12:00'
+                  : '16:00',
+          room:
+              'BILIK KULIAH ${sectionSuffix == '1A' ? '1' : sectionSuffix == '1B' ? '2' : '3'}',
           enrolled: 5,
           capacity: 30,
           classType: 'Teori',
@@ -109,11 +206,12 @@ void _generateMockData() {
 void initializeMockData() {
   _generateMockData();
 }
+
 final disciplineReports = <DisciplineReport>[
   const DisciplineReport(
     id: 'D001',
-    studentId: 'S2026001',
-    studentName: 'Pelajar 1 (DED)',
+    studentId: 'S2026031',
+    studentName: 'Pelajar 31 (DED 1A)',
     section: 'DED 1A',
     subject: 'Asas DED 1',
     lecturer: 'Pensyarah DED',
@@ -146,12 +244,22 @@ final bookings = <BookingRequest>[
 ];
 
 List<AttendanceRecord> attendanceForSlot(TimetableSlot slot) {
-  final sectionStudents = students.where((s) => s.section == slot.section).toList();
-  return sectionStudents.map((s) => AttendanceRecord(
-    slotId: slot.id,
-    studentId: s.id,
-    status: AttendanceStatus.present,
-    checkIn: '08:00',
-    remarks: '',
-  )).toList();
+  final sectionStudents =
+      students.where((s) => s.section == slot.section).toList();
+  return sectionStudents.asMap().entries.map((entry) {
+    final status = switch (entry.key % 5) {
+      0 => AttendanceStatus.present,
+      1 => AttendanceStatus.late,
+      2 => AttendanceStatus.absent,
+      3 => AttendanceStatus.mc,
+      _ => AttendanceStatus.ck,
+    };
+    return AttendanceRecord(
+      slotId: slot.id,
+      studentId: entry.value.id,
+      status: status,
+      checkIn: status.countsAsAttended ? slot.startTime : '-',
+      remarks: status.isExempt ? 'Dikecualikan' : '',
+    );
+  }).toList();
 }

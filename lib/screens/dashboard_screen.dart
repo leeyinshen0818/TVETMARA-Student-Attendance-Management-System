@@ -28,9 +28,15 @@ class DashboardScreen extends StatelessWidget {
       children: [
         PageHeader(
           title: 'Selamat kembali, ${user.name.split(' ').first}',
-          subtitle: user.role == UserRole.admin
-              ? 'Ringkasan admin, kelulusan, kehadiran kritikal dan aktiviti jadual.'
-              : 'Kelas anda, penghantaran kehadiran dan permohonan bilik ganti.',
+          subtitle: switch (user.role) {
+            UserRole.admin => 'Ringkasan pentadbir dan tetapan asas sistem.',
+            UserRole.ketuaJabatan =>
+              'Pemantauan jabatan untuk jadual, disiplin, kehadiran dan laporan.',
+            UserRole.ketuaProgram =>
+              'Pemantauan program untuk kehadiran, laporan dan kelulusan tempahan.',
+            UserRole.pensyarah =>
+              'Kelas anda, penghantaran kehadiran, laporan disiplin dan permohonan bilik.',
+          },
           trailing: const StatusChip('Jan - Jun 2026'),
         ),
         GridView.count(
