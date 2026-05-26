@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/app_models.dart';
@@ -28,6 +29,9 @@ class AppState extends ChangeNotifier {
 
   String? _error;
   String? get error => _error;
+
+  String? _loginError;
+  String? get loginError => _loginError;
 
   late final FirestoreService _fs = FirestoreService.instance;
 
@@ -81,17 +85,26 @@ class AppState extends ChangeNotifier {
   /// Authenticate with Firebase Auth, then look up the matching AppUser
   /// profile in Firestore by Firebase Auth UID.
   Future<bool> login(String email, String password) async {
+    _loginError = null;
     try {
       final credential = await AuthService.instance.signIn(email, password);
       final uid = credential.user?.uid;
       if (uid == null) {
         await AuthService.instance.signOut();
+        _loginError = 'Akaun Firebase tidak sah. Sila cuba semula.';
         return false;
       }
 
       final appUser = await _fs.getUserById(uid);
-      if (appUser == null || !appUser.isActive) {
+      if (appUser == null) {
         await AuthService.instance.signOut();
+        _loginError =
+            'Profil pengguna tidak dijumpai dalam Firestore. Sila hubungi pentadbir.';
+        return false;
+      }
+      if (!appUser.isActive) {
+        await AuthService.instance.signOut();
+        _loginError = 'Akaun anda tidak aktif. Sila hubungi pentadbir sistem.';
         return false;
       }
 
@@ -100,9 +113,29 @@ class AppState extends ChangeNotifier {
       await loadData();
       notifyListeners();
       return true;
+    } on FirebaseAuthException catch (e) {
+      _loginError = _messageForAuthError(e);
+      return false;
     } catch (_) {
+      _loginError = 'Log masuk gagal. Sila semak sambungan dan cuba lagi.';
       return false;
     }
+  }
+
+  String _messageForAuthError(FirebaseAuthException error) {
+    return switch (error.code) {
+      'invalid-email' => 'Format emel tidak sah.',
+      'wrong-password' ||
+      'invalid-credential' =>
+        'Emel atau kata laluan tidak betul.',
+      'user-not-found' => 'Akaun tidak dijumpai dalam Firebase Auth.',
+      'user-disabled' => 'Akaun Firebase ini telah dinyahaktifkan.',
+      'network-request-failed' =>
+        'Ralat rangkaian. Sila semak sambungan internet anda.',
+      'too-many-requests' =>
+        'Terlalu banyak cubaan log masuk. Sila cuba semula kemudian.',
+      _ => 'Ralat Firebase Auth: ${error.message ?? error.code}',
+    };
   }
 
   void logout() {

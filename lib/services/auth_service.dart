@@ -27,20 +27,28 @@ class AuthService {
   /// Create a new user with email + password without signing out the current admin.
   Future<UserCredential> registerNewUserByAdmin(
       String email, String password) async {
-    FirebaseApp secondaryApp = await Firebase.initializeApp(
-      name: 'Secondary',
-      options: Firebase.app().options,
-    );
+    const secondaryAppName = 'SecondaryRegistration';
+    FirebaseApp? secondaryApp;
+    try {
+      try {
+        await Firebase.app(secondaryAppName).delete();
+      } on FirebaseException {
+        // No stale secondary app exists.
+      }
 
-    final UserCredential credential =
-        await FirebaseAuth.instanceFor(app: secondaryApp)
-            .createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+      secondaryApp = await Firebase.initializeApp(
+        name: secondaryAppName,
+        options: Firebase.app().options,
+      );
 
-    await secondaryApp.delete();
-    return credential;
+      return FirebaseAuth.instanceFor(app: secondaryApp)
+          .createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+    } finally {
+      await secondaryApp?.delete();
+    }
   }
 
   /// Create a new user with email + password (standard).

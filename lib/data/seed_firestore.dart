@@ -7,8 +7,8 @@ import '../services/firestore_service.dart';
 /// One-time function to upload all mock data into Firestore and create
 /// Firebase Auth accounts for the demo users.
 ///
-/// Call this once (e.g. from a hidden admin button), then never again.
-/// It checks whether seeding is needed by looking for a marker document.
+/// Call this only from an explicit debug/demo trigger. It rebuilds demo data
+/// and does not run automatically during app startup.
 Future<bool> seedFirestore() async {
   mock.initializeMockData();
   final fs = FirestoreService.instance;
