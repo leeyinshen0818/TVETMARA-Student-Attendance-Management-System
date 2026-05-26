@@ -79,19 +79,24 @@ class AppState extends ChangeNotifier {
   }
 
   /// Authenticate with Firebase Auth, then look up the matching AppUser
-  /// profile in Firestore by email.
+  /// profile in Firestore by Firebase Auth UID.
   Future<bool> login(String email, String password) async {
     try {
-      await AuthService.instance.signIn(email, password);
-      // After Firebase Auth success, fetch the user profile from Firestore
-      final appUser = await _fs.getUserByEmail(email);
-      if (appUser == null) {
-        // Auth succeeded but no profile doc — sign out and fail.
+      final credential = await AuthService.instance.signIn(email, password);
+      final uid = credential.user?.uid;
+      if (uid == null) {
         await AuthService.instance.signOut();
         return false;
       }
+
+      final appUser = await _fs.getUserById(uid);
+      if (appUser == null || !appUser.isActive) {
+        await AuthService.instance.signOut();
+        return false;
+      }
+
       currentUser = appUser;
-      await _fs.updateLastLogin(appUser.id);
+      await _fs.updateLastLogin(appUser.uid);
       await loadData();
       notifyListeners();
       return true;
@@ -108,26 +113,26 @@ class AppState extends ChangeNotifier {
 
   bool get currentProgramHasKetuaJabatan {
     final user = currentUser;
-    if (user?.role != UserRole.ketuaProgram || user?.program == null) {
+    if (user?.role != UserRole.ketua_program || user?.programId == null) {
       return false;
     }
-    final program = programs.where((p) => p.id == user!.program).firstOrNull;
+    final program = programs.where((p) => p.id == user!.programId).firstOrNull;
     return program?.departmentId != null;
   }
 
   bool get currentKetuaProgramInheritsKetuaJabatanTasks {
     final user = currentUser;
-    return user?.role == UserRole.ketuaProgram &&
+    return user?.role == UserRole.ketua_program &&
         !currentProgramHasKetuaJabatan;
   }
 
   List<TimetableSlot> get scopedTimetable {
     final user = currentUser;
-    if (user == null || user.role == UserRole.admin) return [];
+    if (user == null || user.role == UserRole.pentadbir) return [];
 
-    if (user.role == UserRole.ketuaJabatan) {
+    if (user.role == UserRole.ketua_jabatan) {
       final deptPrograms = programs
-          .where((p) => p.departmentId == user.department)
+          .where((p) => p.departmentId == user.departmentId)
           .map((p) => p.name)
           .toSet();
       return timetable
@@ -135,24 +140,24 @@ class AppState extends ChangeNotifier {
           .toList();
     }
 
-    if (user.role == UserRole.ketuaProgram) {
+    if (user.role == UserRole.ketua_program) {
       final kpProgram =
-          programs.where((p) => p.id == user.program).firstOrNull?.name;
+          programs.where((p) => p.id == user.programId).firstOrNull?.name;
       if (kpProgram == null) return [];
       return timetable.where((slot) => slot.program == kpProgram).toList();
     }
 
     // Pensyarah
-    return timetable.where((slot) => slot.lecturerId == user.id).toList();
+    return timetable.where((slot) => slot.lecturerId == user.uid).toList();
   }
 
   List<Student> get scopedStudents {
     final user = currentUser;
-    if (user == null || user.role == UserRole.admin) return [];
+    if (user == null || user.role == UserRole.pentadbir) return [];
 
-    if (user.role == UserRole.ketuaJabatan) {
+    if (user.role == UserRole.ketua_jabatan) {
       final deptPrograms = programs
-          .where((p) => p.departmentId == user.department)
+          .where((p) => p.departmentId == user.departmentId)
           .map((p) => p.name)
           .toSet();
       return students
@@ -160,9 +165,9 @@ class AppState extends ChangeNotifier {
           .toList();
     }
 
-    if (user.role == UserRole.ketuaProgram) {
+    if (user.role == UserRole.ketua_program) {
       final kpProgram =
-          programs.where((p) => p.id == user.program).firstOrNull?.name;
+          programs.where((p) => p.id == user.programId).firstOrNull?.name;
       if (kpProgram == null) return [];
       return students.where((student) => student.program == kpProgram).toList();
     }
@@ -176,7 +181,7 @@ class AppState extends ChangeNotifier {
     }
     // Fallback: if no timetable slots found, show students from same department
     final deptPrograms = programs
-        .where((p) => p.departmentId == user.department)
+        .where((p) => p.departmentId == user.departmentId)
         .map((p) => p.name)
         .toSet();
     if (deptPrograms.isNotEmpty) {
@@ -190,16 +195,16 @@ class AppState extends ChangeNotifier {
 
   List<DisciplineReport> get scopedDisciplineReports {
     final user = currentUser;
-    if (user == null || user.role == UserRole.admin) return [];
+    if (user == null || user.role == UserRole.pentadbir) return [];
 
-    if (user.role == UserRole.ketuaJabatan) {
+    if (user.role == UserRole.ketua_jabatan) {
       final validStudents = scopedStudents.map((s) => s.id).toSet();
       return disciplineReports
           .where((r) => validStudents.contains(r.studentId))
           .toList();
     }
 
-    if (user.role == UserRole.ketuaProgram) {
+    if (user.role == UserRole.ketua_program) {
       if (!currentKetuaProgramInheritsKetuaJabatanTasks) return [];
       final validStudents = scopedStudents.map((s) => s.id).toSet();
       return disciplineReports
@@ -213,18 +218,18 @@ class AppState extends ChangeNotifier {
 
   List<BookingRequest> get scopedBookings {
     final user = currentUser;
-    if (user == null || user.role == UserRole.admin) return [];
+    if (user == null || user.role == UserRole.pentadbir) return [];
 
     // Option A: KP can see/approve bookings for their program scope.
-    if (user.role == UserRole.ketuaProgram) {
+    if (user.role == UserRole.ketua_program) {
       final validSections = scopedTimetable.map((t) => t.section).toSet();
       return bookings.where((b) => validSections.contains(b.section)).toList();
     }
 
-    if (user.role == UserRole.ketuaJabatan) return [];
+    if (user.role == UserRole.ketua_jabatan) return [];
 
     // Pensyarah
-    return bookings.where((b) => b.lecturerId == user.id).toList();
+    return bookings.where((b) => b.lecturerId == user.uid).toList();
   }
 
   Future<void> saveAttendance(

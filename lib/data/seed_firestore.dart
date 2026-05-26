@@ -45,50 +45,121 @@ Future<bool> seedFirestore() async {
   await fs.runMigrationAndSeed();
 
   // ------------------------------------------------------------------
-  // 2. Seed collections
+  // 3. Create Firebase Auth accounts and align users/{uid}
   // ------------------------------------------------------------------
-  await fs.seedUsers(mock.users);
-  await fs.seedStudents(mock.students);
-  await fs.seedLecturers(mock.lecturers);
-  await fs.seedRooms(mock.roomResources);
-  await fs.seedTimetable(mock.timetable);
-  await fs.seedDisciplineReports(mock.disciplineReports);
-  await fs.seedBookings(mock.bookings);
+  final authUidByMockId = <String, String>{};
+  for (final user in mock.users) {
+    final password =
+        user.role == UserRole.pentadbir ? 'admin123' : 'password123';
+    UserCredential credential;
+    try {
+      credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: user.email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (e.code != 'email-already-in-use') rethrow;
+      credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: user.email,
+        password: password,
+      );
+    }
+    final uid = credential.user?.uid;
+    if (uid != null) authUidByMockId[user.uid] = uid;
+  }
 
-  // Seed attendance for completed slots
+  final seededUsers = mock.users
+      .map((user) => AppUser(
+            uid: authUidByMockId[user.uid] ?? user.uid,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            programId: user.programId,
+            departmentId: user.departmentId,
+            phoneNumber: user.phoneNumber,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          ))
+      .toList();
+
+  final seededLecturers = mock.lecturers
+      .map((lecturer) => Lecturer(
+            id: authUidByMockId[lecturer.id] ?? lecturer.id,
+            name: lecturer.name,
+            email: lecturer.email,
+            department: lecturer.department,
+            subjects: lecturer.subjects,
+          ))
+      .toList();
+
+  final seededTimetable = mock.timetable
+      .map((slot) => TimetableSlot(
+            id: slot.id,
+            session: slot.session,
+            semester: slot.semester,
+            program: slot.program,
+            section: slot.section,
+            subjectCode: slot.subjectCode,
+            subjectName: slot.subjectName,
+            lecturerId: authUidByMockId[slot.lecturerId] ?? slot.lecturerId,
+            lecturerName: slot.lecturerName,
+            day: slot.day,
+            date: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            room: slot.room,
+            enrolled: slot.enrolled,
+            capacity: slot.capacity,
+            classType: slot.classType,
+            slotType: slot.slotType,
+            status: slot.status,
+          ))
+      .toList();
+
+  final seededBookings = mock.bookings
+      .map((booking) => BookingRequest(
+            id: booking.id,
+            lecturerId:
+                authUidByMockId[booking.lecturerId] ?? booking.lecturerId,
+            lecturerName: booking.lecturerName,
+            subject: booking.subject,
+            section: booking.section,
+            originalDate: booking.originalDate,
+            originalTime: booking.originalTime,
+            replacementDate: booking.replacementDate,
+            replacementStart: booking.replacementStart,
+            replacementEnd: booking.replacementEnd,
+            room: booking.room,
+            reason: booking.reason,
+            remarks: booking.remarks,
+            status: booking.status,
+          ))
+      .toList();
+
+  // ------------------------------------------------------------------
+  // 4. Seed collections
+  // ------------------------------------------------------------------
+  await fs.seedUsers(seededUsers);
+  await fs.seedStudents(mock.students);
+  await fs.seedLecturers(seededLecturers);
+  await fs.seedRooms(mock.roomResources);
+  await fs.seedTimetable(seededTimetable);
+  await fs.seedDisciplineReports(mock.disciplineReports);
+  await fs.seedBookings(seededBookings);
+
+  // Seed attendance for completed slots.
   for (final slot
-      in mock.timetable.where((s) => s.status == 'Attendance Completed')) {
+      in seededTimetable.where((s) => s.status == 'Attendance Completed')) {
     final records = mock.attendanceForSlot(slot);
     await fs.saveAttendance(slot.id, records);
   }
 
-  // ------------------------------------------------------------------
-  // 3. Create Firebase Auth accounts for demo users
-  // ------------------------------------------------------------------
-  final demoAccounts = mock.users
-      .map((u) => {
-            'email': u.email,
-            'password': u.role == UserRole.admin ? 'admin123' : 'password123',
-          })
-      .toList();
-
-  for (final account in demoAccounts) {
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: account['email']!,
-        password: account['password']!,
-      );
-    } on FirebaseAuthException catch (e) {
-      // If account already exists, that's fine — skip it.
-      if (e.code != 'email-already-in-use') rethrow;
-    }
-  }
-
-  // Sign out after creating accounts (we were signed in as the last created user)
+  // Sign out after creating accounts.
   await FirebaseAuth.instance.signOut();
 
   // ------------------------------------------------------------------
-  // 4. Mark as seeded
+  // 5. Mark as seeded
   // ------------------------------------------------------------------
   await fs.db
       .collection('_meta')

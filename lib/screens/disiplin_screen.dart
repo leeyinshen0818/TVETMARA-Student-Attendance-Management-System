@@ -31,7 +31,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
-    final canApproveDiscipline = user.role == UserRole.ketuaJabatan ||
+    final canApproveDiscipline = user.role == UserRole.ketua_jabatan ||
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     if (!isPensyarah && !canApproveDiscipline) {
       return const PageHeader(

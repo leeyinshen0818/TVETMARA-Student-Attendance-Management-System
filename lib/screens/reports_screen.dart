@@ -13,8 +13,8 @@ class ReportsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    if (user.role != UserRole.ketuaJabatan &&
-        user.role != UserRole.ketuaProgram) {
+    if (user.role != UserRole.ketua_jabatan &&
+        user.role != UserRole.ketua_program) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:

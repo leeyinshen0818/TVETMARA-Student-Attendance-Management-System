@@ -29,10 +29,11 @@ class DashboardScreen extends StatelessWidget {
         PageHeader(
           title: 'Selamat kembali, ${user.name.split(' ').first}',
           subtitle: switch (user.role) {
-            UserRole.admin => 'Ringkasan pentadbir dan tetapan asas sistem.',
-            UserRole.ketuaJabatan =>
+            UserRole.pentadbir =>
+              'Ringkasan pentadbir dan tetapan asas sistem.',
+            UserRole.ketua_jabatan =>
               'Pemantauan jabatan untuk jadual, disiplin, kehadiran dan laporan.',
-            UserRole.ketuaProgram =>
+            UserRole.ketua_program =>
               'Pemantauan program untuk kehadiran, laporan dan kelulusan tempahan.',
             UserRole.pensyarah =>
               'Kelas anda, penghantaran kehadiran, laporan disiplin dan permohonan bilik.',

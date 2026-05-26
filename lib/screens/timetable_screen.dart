@@ -49,7 +49,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final canUploadTimetable = user.role == UserRole.ketuaJabatan ||
+    final canUploadTimetable = user.role == UserRole.ketua_jabatan ||
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     if (!canUploadTimetable) {
       return const PageHeader(
@@ -64,7 +64,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: user.role == UserRole.ketuaProgram
+          title: user.role == UserRole.ketua_program
               ? 'Pengurusan Jadual Program'
               : 'Pengurusan Jadual Jabatan',
           subtitle:
@@ -575,13 +575,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
       return state.scopedTimetable.first.program;
     }
     final user = state.currentUser;
-    if (user?.role == UserRole.ketuaProgram) {
+    if (user?.role == UserRole.ketua_program) {
       final program =
-          state.programs.where((p) => p.id == user!.program).firstOrNull;
+          state.programs.where((p) => p.id == user!.programId).firstOrNull;
       if (program != null) return program.name;
     }
     final departmentProgram = state.programs
-        .where((program) => program.departmentId == user?.department)
+        .where((program) => program.departmentId == user?.departmentId)
         .firstOrNull;
     return departmentProgram?.name ??
         'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI) (DED)';
@@ -589,14 +589,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Set<String> _allowedProgramNames(AppState state) {
     final user = state.currentUser;
-    if (user?.role == UserRole.ketuaProgram) {
+    if (user?.role == UserRole.ketua_program) {
       final program =
-          state.programs.where((p) => p.id == user!.program).firstOrNull;
+          state.programs.where((p) => p.id == user!.programId).firstOrNull;
       if (program != null) return {program.name};
     }
-    if (user?.role == UserRole.ketuaJabatan) {
+    if (user?.role == UserRole.ketua_jabatan) {
       return state.programs
-          .where((program) => program.departmentId == user!.department)
+          .where((program) => program.departmentId == user!.departmentId)
           .map((program) => program.name)
           .toSet();
     }
@@ -608,23 +608,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
       return state.scopedTimetable.first.section;
     }
     final user = state.currentUser;
-    return '${user?.program ?? 'DED'} 1A';
+    return '${user?.programId ?? 'DED'} 1A';
   }
 
   Lecturer _sampleLecturer(AppState state, String program) {
     final scopedLecturer = state.lecturers.where((lecturer) {
       final user = state.currentUser;
-      if (user?.role == UserRole.ketuaJabatan) {
-        return lecturer.department == user!.department;
+      if (user?.role == UserRole.ketua_jabatan) {
+        return lecturer.department == user!.departmentId;
       }
-      return lecturer.id == 'L_${user?.program}';
+      return lecturer.id == 'L_${user?.programId}';
     }).firstOrNull;
     if (scopedLecturer != null) return scopedLecturer;
     return Lecturer(
-      id: 'L_${state.currentUser?.program ?? 'DED'}',
+      id: 'L_${state.currentUser?.programId ?? 'DED'}',
       name: 'Pensyarah $program',
       email: '',
-      department: state.currentUser?.department ?? '',
+      department: state.currentUser?.departmentId ?? '',
       subjects: const [],
     );
   }

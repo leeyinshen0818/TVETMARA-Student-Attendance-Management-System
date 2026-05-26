@@ -28,9 +28,9 @@ class _HomeShellState extends State<HomeShell> {
     final user = state.currentUser!;
 
     // Role checks
-    final isAdmin = user.role == UserRole.admin;
-    final isKetuaJabatan = user.role == UserRole.ketuaJabatan;
-    final isKetuaProgram = user.role == UserRole.ketuaProgram;
+    final isAdmin = user.role == UserRole.pentadbir;
+    final isKetuaJabatan = user.role == UserRole.ketua_jabatan;
+    final isKetuaProgram = user.role == UserRole.ketua_program;
     final isKetuaProgramWithoutKj =
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     final isPensyarah = user.role == UserRole.pensyarah;
@@ -218,11 +218,11 @@ class _TopBar extends StatelessWidget {
               style: TextStyle(color: Color(0xff64748b))),
           const SizedBox(width: 16),
           Chip(
-              label: Text(user.role == UserRole.admin
+              label: Text(user.role == UserRole.pentadbir
                   ? 'Pentadbir'
-                  : user.role == UserRole.ketuaJabatan
+                  : user.role == UserRole.ketua_jabatan
                       ? 'Ketua Jabatan'
-                      : user.role == UserRole.ketuaProgram
+                      : user.role == UserRole.ketua_program
                           ? 'Ketua Program'
                           : 'Pensyarah')),
           const SizedBox(width: 8),

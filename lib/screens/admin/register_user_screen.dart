@@ -68,12 +68,12 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     // Additional Validation
-    if (_selectedRole == UserRole.ketuaJabatan &&
+    if (_selectedRole == UserRole.ketua_jabatan &&
         _selectedDepartmentId == null) {
       _showError('Sila pilih Jabatan.');
       return;
     }
-    if ((_selectedRole == UserRole.ketuaProgram ||
+    if ((_selectedRole == UserRole.ketua_program ||
             _selectedRole == UserRole.pensyarah) &&
         _selectedProgramId == null) {
       _showError('Sila pilih Program.');
@@ -93,19 +93,18 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
 
       // 2. Create User Profile in Firestore
       final newUser = AppUser(
-        id: uid,
+        uid: uid,
         name: nameController.text.trim(),
         email: emailController.text.trim(),
         role: _selectedRole,
-        department: _selectedRole == UserRole.ketuaJabatan
+        departmentId: _selectedRole == UserRole.ketua_jabatan
             ? _selectedDepartmentId
             : null,
-        program: (_selectedRole == UserRole.ketuaProgram ||
+        programId: (_selectedRole == UserRole.ketua_program ||
                 _selectedRole == UserRole.pensyarah)
             ? _selectedProgramId
             : null,
-        active: true,
-        lastLogin: '',
+        isActive: true,
       );
 
       await FirestoreService.instance.createUserProfile(newUser);
@@ -189,10 +188,10 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
                 decoration: const InputDecoration(labelText: 'Peranan (Role)'),
                 items: const [
                   DropdownMenuItem(
-                      value: UserRole.ketuaJabatan,
+                      value: UserRole.ketua_jabatan,
                       child: Text('Ketua Jabatan')),
                   DropdownMenuItem(
-                      value: UserRole.ketuaProgram,
+                      value: UserRole.ketua_program,
                       child: Text('Ketua Program')),
                   DropdownMenuItem(
                       value: UserRole.pensyarah, child: Text('Pensyarah')),
@@ -204,7 +203,7 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
               const SizedBox(height: 16),
 
               // Dynamic Dropdowns
-              if (_selectedRole == UserRole.ketuaJabatan)
+              if (_selectedRole == UserRole.ketua_jabatan)
                 DropdownButtonFormField<String>(
                   initialValue: _selectedDepartmentId,
                   decoration:

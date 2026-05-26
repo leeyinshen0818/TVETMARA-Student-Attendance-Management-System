@@ -21,28 +21,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
   String end = '16:00';
   String reason = 'Latihan / Mesyuarat';
 
-  // Discipline Report State
-  String? selectedStudentId;
-  String issueType = 'Kerap Tidak Hadir';
-  String severity = 'Medium';
-  final _descCtrl = TextEditingController(text: '');
-
-  @override
-  void dispose() {
-    _descCtrl.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final admin = user.role == UserRole.admin;
-    final canApproveBookings = user.role == UserRole.ketuaProgram;
-    final canApproveDiscipline = user.role == UserRole.ketuaJabatan ||
-        (user.role == UserRole.ketuaProgram && user.department == null);
-    final isManagement = user.role == UserRole.ketuaJabatan ||
-        user.role == UserRole.ketuaProgram;
+    final admin = user.role == UserRole.pentadbir;
+    final isApprover = user.role == UserRole.ketua_jabatan ||
+        user.role == UserRole.ketua_program;
     final visibleBookings = state.scopedBookings;
     final visibleDiscipline = state.scopedDisciplineReports;
     final slots = state.scopedTimetable;
@@ -69,15 +54,15 @@ class _BookingsScreenState extends State<BookingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: isManagement
+          title: isApprover
               ? 'Kelulusan Tempahan & Disiplin'
               : 'Tempahan & Laporan Saya',
-          subtitle: isManagement
+          subtitle: isApprover
               ? 'Semak permohonan kelas ganti dan laporan disiplin program anda.'
               : 'Mohon bilik kelas ganti berdasarkan ruang yang tersedia.',
           trailing: StatusChip('${visibleBookings.length} permohonan'),
         ),
-        if (selected != null)
+        if (!isApprover && selected != null)
           AppPanel(
             title: 'Permohonan Ganti Baharu',
             subtitle: '${selected.subjectCode} - ${selected.subjectName}',
@@ -137,7 +122,6 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 SizedBox(
                   width: 290,
                   child: DropdownButtonFormField<String>(
-                    isExpanded: true,
                     initialValue: room,
                     decoration: const InputDecoration(labelText: 'Bilik'),
                     items: filteredRooms
@@ -182,99 +166,6 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Hantar Permohonan'),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        if (state.scopedStudents.isNotEmpty && !admin)
-          AppPanel(
-            title: 'Lapor Disiplin Baharu',
-            subtitle: 'Laporkan masalah kehadiran atau tingkah laku pelajar.',
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 300,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    initialValue: selectedStudentId ??
-                        state.scopedStudents.firstOrNull?.id,
-                    decoration: const InputDecoration(labelText: 'Pelajar'),
-                    items: state.scopedStudents
-                        .map((s) => DropdownMenuItem(
-                            value: s.id,
-                            child: Text('${s.name} (${s.section})')))
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => selectedStudentId = value),
-                  ),
-                ),
-                SizedBox(
-                  width: 200,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: issueType,
-                    decoration: const InputDecoration(labelText: 'Jenis Isu'),
-                    items: [
-                      'Kerap Tidak Hadir',
-                      'Ponteng Kelas',
-                      'Masalah Tingkah Laku',
-                      'Lain-lain'
-                    ]
-                        .map((i) => DropdownMenuItem(value: i, child: Text(i)))
-                        .toList(),
-                    onChanged: (value) => setState(() => issueType = value!),
-                  ),
-                ),
-                SizedBox(
-                  width: 150,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: severity,
-                    decoration:
-                        const InputDecoration(labelText: 'Tahap (Severity)'),
-                    items: ['Low', 'Medium', 'High']
-                        .map((i) => DropdownMenuItem(value: i, child: Text(i)))
-                        .toList(),
-                    onChanged: (value) => setState(() => severity = value!),
-                  ),
-                ),
-                SizedBox(
-                  width: 300,
-                  child: TextField(
-                    controller: _descCtrl,
-                    decoration: const InputDecoration(labelText: 'Keterangan'),
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    final targetId = selectedStudentId ??
-                        state.scopedStudents.firstOrNull?.id;
-                    if (targetId == null) return;
-                    final student = state.scopedStudents
-                        .firstWhere((s) => s.id == targetId);
-
-                    state.addDiscipline(DisciplineReport(
-                      id: 'D${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-                      studentId: student.id,
-                      studentName: student.name,
-                      section: student.section,
-                      subject: '-',
-                      lecturer: user.name,
-                      date: DateTime.now().toIso8601String().substring(0, 10),
-                      issueType: issueType,
-                      severity: severity,
-                      description: _descCtrl.text.trim(),
-                      followUp: false,
-                      status: 'New',
-                    ));
-                    _descCtrl.clear();
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Laporan disiplin telah dihantar.')));
-                  },
-                  icon: const Icon(Icons.add_alert),
-                  label: const Text('Hantar Laporan'),
                 ),
               ],
             ),
@@ -332,7 +223,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     ? 'Available'
                     : 'Unavailable')),
                 DataCell(StatusChip(booking.status)),
-                DataCell(canApproveBookings && booking.status == 'Pending'
+                DataCell(isApprover && booking.status == 'Pending'
                     ? Wrap(
                         spacing: 8,
                         children: [
@@ -372,7 +263,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 DataCell(Text(report.issueType)),
                 DataCell(StatusChip(report.severity)),
                 DataCell(StatusChip(report.status)),
-                DataCell(canApproveDiscipline &&
+                DataCell(isApprover &&
                         (report.status == 'New' ||
                             report.status == 'Under Review')
                     ? IconButton(

@@ -39,7 +39,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
-    final canApproveBookings = user.role == UserRole.ketuaProgram;
+    final canApproveBookings = user.role == UserRole.ketua_program;
     if (!isPensyarah && !canApproveBookings) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
@@ -198,7 +198,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
                     }
                     state.addBooking(BookingRequest(
                       id: 'B${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-                      lecturerId: user.id,
+                      lecturerId: user.uid,
                       lecturerName: user.name,
                       subject: selected?.subjectName ?? _subjectCtrl.text,
                       section: selected?.section ?? _sectionCtrl.text,

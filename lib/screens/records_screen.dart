@@ -12,8 +12,8 @@ class RecordsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final isManagement = user.role == UserRole.ketuaJabatan ||
-        user.role == UserRole.ketuaProgram;
+    final isManagement = user.role == UserRole.ketua_jabatan ||
+        user.role == UserRole.ketua_program;
     if (!isManagement) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',

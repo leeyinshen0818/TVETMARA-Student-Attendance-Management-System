@@ -1,4 +1,30 @@
-enum UserRole { admin, ketuaJabatan, ketuaProgram, pensyarah }
+// ignore_for_file: constant_identifier_names
+
+import '../core/constants/firestore_constants.dart';
+
+enum UserRole {
+  pentadbir,
+  ketua_program,
+  ketua_jabatan,
+  pensyarah;
+
+  String get firestoreValue => switch (this) {
+        UserRole.pentadbir => AppRoles.pentadbir,
+        UserRole.ketua_program => AppRoles.ketuaProgram,
+        UserRole.ketua_jabatan => AppRoles.ketuaJabatan,
+        UserRole.pensyarah => AppRoles.pensyarah,
+      };
+
+  static UserRole fromFirestore(String? value) {
+    return switch (value) {
+      AppRoles.pentadbir || 'admin' => UserRole.pentadbir,
+      AppRoles.ketuaProgram || 'ketuaProgram' => UserRole.ketua_program,
+      AppRoles.ketuaJabatan || 'ketuaJabatan' => UserRole.ketua_jabatan,
+      AppRoles.pensyarah || 'lecturer' => UserRole.pensyarah,
+      _ => UserRole.pensyarah,
+    };
+  }
+}
 
 enum AttendanceStatus { present, absent, mc, ck, late }
 
@@ -73,24 +99,35 @@ class ProgramCode {
 
 class AppUser {
   const AppUser({
-    required this.id,
+    required this.uid,
     required this.name,
     required this.email,
     required this.role,
-    this.department,
-    this.program,
-    required this.active,
-    required this.lastLogin,
+    this.programId,
+    this.departmentId,
+    this.phoneNumber,
+    required this.isActive,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  final String id;
+  final String uid;
   final String name;
   final String email;
   final UserRole role;
-  final String? department;
-  final String? program;
-  final bool active;
-  final String lastLogin;
+  final String? programId;
+  final String? departmentId;
+  final String? phoneNumber;
+  final bool isActive;
+  final String? createdAt;
+  final String? updatedAt;
+
+  // Temporary compatibility aliases for modules not included in Phase 1.
+  String get id => uid;
+  String? get program => programId;
+  String? get department => departmentId;
+  bool get active => isActive;
+  String get lastLogin => updatedAt ?? '';
 }
 
 class Student {

@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/app_models.dart';
+import '../core/constants/firestore_constants.dart';
 import '../data/mock_data.dart' as mock;
+import '../models/app_models.dart';
 
 /// Centralized service for all Firestore read / write operations.
 class FirestoreService {
@@ -17,51 +18,36 @@ class FirestoreService {
   // Collection references
   // ---------------------------------------------------------------------------
   CollectionReference<Map<String, dynamic>> get _usersCol =>
-      _db.collection('users');
+      _db.collection(FirestoreCollections.users);
   CollectionReference<Map<String, dynamic>> get _studentsCol =>
-      _db.collection('students');
+      _db.collection(FirestoreCollections.students);
   CollectionReference<Map<String, dynamic>> get _lecturersCol =>
       _db.collection('lecturers');
   CollectionReference<Map<String, dynamic>> get _roomsCol =>
-      _db.collection('rooms');
+      _db.collection(FirestoreCollections.rooms);
   CollectionReference<Map<String, dynamic>> get _timetableCol =>
-      _db.collection('timetable_slots');
+      _db.collection(FirestoreCollections.timetableSlots);
   CollectionReference<Map<String, dynamic>> get _attendanceCol =>
-      _db.collection('attendance_records');
+      _db.collection(FirestoreCollections.attendanceRecords);
   CollectionReference<Map<String, dynamic>> get _disciplineCol =>
-      _db.collection('discipline_reports');
+      _db.collection(FirestoreCollections.disciplineReports);
   CollectionReference<Map<String, dynamic>> get _bookingsCol =>
-      _db.collection('bookings');
+      _db.collection(FirestoreCollections.legacyBookings);
   CollectionReference<Map<String, dynamic>> get _departmentsCol =>
-      _db.collection('departments');
+      _db.collection(FirestoreCollections.departments);
   CollectionReference<Map<String, dynamic>> get _programsCol =>
-      _db.collection('programs');
+      _db.collection(FirestoreCollections.programs);
 
   // ---------------------------------------------------------------------------
   // Account Registration
   // ---------------------------------------------------------------------------
   Future<void> createUserProfile(AppUser user) async {
-    await _usersCol.doc(user.id).set({
-      'name': user.name,
-      'email': user.email.toLowerCase(),
-      'role': user.role.name,
-      'department': user.department,
-      'program': user.program,
-      'active': user.active,
-      'lastLogin': user.lastLogin,
-    });
+    await _usersCol.doc(user.uid).set(_userToMap(user));
   }
 
   // ---------------------------------------------------------------------------
   // Users
   // ---------------------------------------------------------------------------
-  Future<AppUser?> getUserByEmail(String email) async {
-    final snap =
-        await _usersCol.where('email', isEqualTo: email.toLowerCase()).get();
-    if (snap.docs.isEmpty) return null;
-    return _docToAppUser(snap.docs.first);
-  }
-
   Future<AppUser?> getUserById(String id) async {
     final snap = await _usersCol.doc(id).get();
     if (!snap.exists) return null;
@@ -75,7 +61,7 @@ class FirestoreService {
 
   Future<void> updateLastLogin(String userId) async {
     await _usersCol.doc(userId).update({
-      'lastLogin': FieldValue.serverTimestamp(),
+      UserFields.updatedAt: FieldValue.serverTimestamp(),
     });
   }
 
@@ -281,15 +267,7 @@ class FirestoreService {
   Future<void> seedUsers(List<AppUser> users) async {
     final batch = _db.batch();
     for (final user in users) {
-      batch.set(_usersCol.doc(user.id), {
-        'name': user.name,
-        'email': user.email.toLowerCase(),
-        'role': user.role.name,
-        'department': user.department,
-        'program': user.program,
-        'active': user.active,
-        'lastLogin': user.lastLogin,
-      });
+      batch.set(_usersCol.doc(user.uid), _userToMap(user));
     }
     await batch.commit();
   }
@@ -416,12 +394,31 @@ class FirestoreService {
     final snap = await _usersCol.get();
     final batch = _db.batch();
     for (final doc in snap.docs) {
-      final role = doc.data()['role'];
-      if (role == 'lecturer') {
+      final data = doc.data();
+      final updates = <String, dynamic>{};
+      final role = data[UserFields.role] as String?;
+      if (role != null) {
+        updates[UserFields.role] = UserRole.fromFirestore(role).firestoreValue;
+      }
+      if (!data.containsKey(UserFields.uid)) {
+        updates[UserFields.uid] = doc.id;
+      }
+      if (data.containsKey('program') &&
+          !data.containsKey(UserFields.programId)) {
+        updates[UserFields.programId] = data['program'];
+      }
+      if (data.containsKey('department') &&
+          !data.containsKey(UserFields.departmentId)) {
+        updates[UserFields.departmentId] = data['department'];
+      }
+      if (data.containsKey('active') &&
+          !data.containsKey(UserFields.isActive)) {
+        updates[UserFields.isActive] = data['active'];
+      }
+      updates[UserFields.updatedAt] = FieldValue.serverTimestamp();
+      if (updates.isNotEmpty) {
         batch.update(doc.reference, {
-          'role': UserRole.pensyarah.name,
-          'department': null,
-          'program': null,
+          ...updates,
         });
       }
     }
@@ -446,35 +443,19 @@ class FirestoreService {
   AppUser _docToAppUser(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
 
-    UserRole parsedRole = UserRole.pensyarah;
-    final roleStr = d['role'] as String?;
-    if (roleStr != null) {
-      if (roleStr == 'admin') {
-        parsedRole = UserRole.admin;
-      } else if (roleStr == 'ketuaJabatan') {
-        parsedRole = UserRole.ketuaJabatan;
-      } else if (roleStr == 'ketuaProgram') {
-        parsedRole = UserRole.ketuaProgram;
-      } else {
-        parsedRole = UserRole.pensyarah;
-      }
-    }
-
     return AppUser(
-      id: doc.id,
-      name: d['name'] ?? '',
-      email: d['email'] ?? '',
-      role: parsedRole,
-      department: d['department'] as String?,
-      program: d['program'] as String?,
-      active: d['active'] as bool? ?? true,
-      lastLogin: d['lastLogin'] is Timestamp
-          ? (d['lastLogin'] as Timestamp)
-              .toDate()
-              .toIso8601String()
-              .substring(0, 16)
-              .replaceFirst('T', ' ')
-          : d['lastLogin'] as String? ?? '',
+      uid: d[UserFields.uid] as String? ?? doc.id,
+      name: d[UserFields.name] as String? ?? '',
+      email: d[UserFields.email] as String? ?? '',
+      role: UserRole.fromFirestore(d[UserFields.role] as String?),
+      programId: d[UserFields.programId] as String? ?? d['program'] as String?,
+      departmentId:
+          d[UserFields.departmentId] as String? ?? d['department'] as String?,
+      phoneNumber: d[UserFields.phoneNumber] as String?,
+      isActive: d[UserFields.isActive] as bool? ?? d['active'] as bool? ?? true,
+      createdAt: _readTimestamp(d[UserFields.createdAt]),
+      updatedAt: _readTimestamp(d[UserFields.updatedAt]) ??
+          _readTimestamp(d['lastLogin']),
     );
   }
 
@@ -612,4 +593,28 @@ class FirestoreService {
         'slotType': slot.slotType,
         'status': slot.status,
       };
+
+  Map<String, dynamic> _userToMap(AppUser user) => {
+        UserFields.uid: user.uid,
+        UserFields.name: user.name,
+        UserFields.email: user.email.toLowerCase(),
+        UserFields.role: user.role.firestoreValue,
+        UserFields.programId: user.programId,
+        UserFields.departmentId: user.departmentId,
+        UserFields.phoneNumber: user.phoneNumber,
+        UserFields.isActive: user.isActive,
+        UserFields.createdAt: user.createdAt ?? FieldValue.serverTimestamp(),
+        UserFields.updatedAt: FieldValue.serverTimestamp(),
+      };
+
+  String? _readTimestamp(Object? value) {
+    if (value is Timestamp) {
+      return value
+          .toDate()
+          .toIso8601String()
+          .substring(0, 16)
+          .replaceFirst('T', ' ');
+    }
+    return value as String?;
+  }
 }

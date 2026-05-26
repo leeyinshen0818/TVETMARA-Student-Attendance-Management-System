@@ -82,7 +82,7 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
     if (!_formKey.currentState!.validate()) return;
     final user = AppScope.of(context).currentUser!;
     final state = AppScope.of(context);
-    final canAddTimetable = user.role == UserRole.ketuaJabatan ||
+    final canAddTimetable = user.role == UserRole.ketua_jabatan ||
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     if (!canAddTimetable) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +154,7 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
     }
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final canAddTimetable = user.role == UserRole.ketuaJabatan ||
+    final canAddTimetable = user.role == UserRole.ketua_jabatan ||
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     if (!canAddTimetable) {
       return const Scaffold(
@@ -164,17 +164,17 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
         ),
       );
     }
-    final visiblePrograms = user.role == UserRole.ketuaProgram
-        ? _programs.where((program) => program.id == user.program).toList()
+    final visiblePrograms = user.role == UserRole.ketua_program
+        ? _programs.where((program) => program.id == user.programId).toList()
         : _programs
-            .where((program) => program.departmentId == user.department)
+            .where((program) => program.departmentId == user.departmentId)
             .toList();
-    final lecturers = user.role == UserRole.ketuaProgram
+    final lecturers = user.role == UserRole.ketua_program
         ? state.lecturers
-            .where((lecturer) => lecturer.id == 'L_${user.program}')
+            .where((lecturer) => lecturer.id == 'L_${user.programId}')
             .toList()
         : state.lecturers
-            .where((lecturer) => lecturer.department == user.department)
+            .where((lecturer) => lecturer.department == user.departmentId)
             .toList();
     if (visiblePrograms.isEmpty || lecturers.isEmpty) {
       return const Scaffold(
