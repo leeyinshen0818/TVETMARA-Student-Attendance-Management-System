@@ -314,6 +314,7 @@ class FirestoreService {
       for (final r in chunk) {
         final docId = r.name.replaceAll(RegExp(r'[/\\.]'), '_');
         batch.set(_roomsCol.doc(docId), {
+          'roomId': docId,
           'name': r.name,
           'block': r.block,
           'type': r.type,

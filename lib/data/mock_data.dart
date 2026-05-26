@@ -61,12 +61,102 @@ const List<ProgramCode> programs = [
 ];
 
 const roomResources = [
-  RoomResource(name: 'BILIK KULIAH 1', block: 'Utama', type: 'Kelas'),
-  RoomResource(name: 'BILIK KULIAH 2', block: 'Utama', type: 'Kelas'),
-  RoomResource(name: 'BILIK KULIAH 3', block: 'Utama', type: 'Kelas'),
-  RoomResource(name: 'MAKMAL KOMPUTER A', block: 'Komputer', type: 'Makmal'),
-  RoomResource(name: 'BENGKEL ELEKTRIK', block: 'Elektrik', type: 'Bengkel'),
-  RoomResource(name: 'BENGKEL MEKANIKAL', block: 'Mekanikal', type: 'Bengkel'),
+  RoomResource(name: 'BAS LAB', block: 'Workshop', type: 'Makmal'),
+  RoomResource(name: 'BENGKEL FABRIKASI', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(name: 'BILIK AIRCOND', block: 'Unknown', type: 'Bilik'),
+  RoomResource(name: 'BILIK BINCANG', block: 'Unknown', type: 'Bilik'),
+  RoomResource(name: 'BILIK ELEKTRIK', block: 'Elektrik', type: 'Bilik'),
+  RoomResource(name: 'BILIK FITTING', block: 'Unknown', type: 'Bengkel'),
+  RoomResource(name: 'BILIK KU PM', block: 'Unknown', type: 'Bilik'),
+  RoomResource(name: 'BILIK KULIAH DED 1', block: 'DED', type: 'Kelas'),
+  RoomResource(name: 'BILIK KULIAH DED 2', block: 'DED', type: 'Kelas'),
+  RoomResource(name: 'MAKMAL FIRE ALARM', block: 'Unknown', type: 'Makmal'),
+  RoomResource(name: 'BILIK KULIAH SPN', block: 'SPN', type: 'Kelas'),
+  RoomResource(name: 'BILIK SHIPBOARD', block: 'Unknown', type: 'Bilik'),
+  RoomResource(name: 'BILIK SIMULATOR', block: 'Unknown', type: 'Makmal'),
+  RoomResource(name: 'BK A', block: 'Unknown', type: 'Kelas'),
+  RoomResource(name: 'BK B', block: 'Unknown', type: 'Kelas'),
+  RoomResource(name: 'BK C', block: 'Unknown', type: 'Kelas'),
+  RoomResource(name: 'BK C1', block: 'Unknown', type: 'Kelas'),
+  RoomResource(name: 'BK SPN', block: 'SPN', type: 'Kelas'),
+  RoomResource(name: 'BK1 DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK2 DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK3 DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK3A DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK3B DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK4 DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'BK5 DPP', block: 'DPP', type: 'Kelas'),
+  RoomResource(name: 'COMP. LAB 1', block: 'ICT', type: 'Makmal'),
+  RoomResource(name: 'COMP. LAB 2', block: 'ICT', type: 'Makmal'),
+  RoomResource(name: 'COMPUTER LAB 2 SPN', block: 'SPN', type: 'Makmal'),
+  RoomResource(name: 'COMPUTER LAB1 SPN', block: 'SPN', type: 'Makmal'),
+  RoomResource(
+      name: 'ELEC AUTOCAD/ PLC LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(name: 'ELEC MACHINE LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(name: 'ELEC PRINCPLE LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(name: 'HYDRAULIC LAB', block: 'Workshop', type: 'Makmal'),
+  RoomResource(
+      name: 'KUE CLASSROOM INTERGRASI', block: 'Unknown', type: 'Room'),
+  RoomResource(name: 'LAB ICT', block: 'ICT', type: 'Makmal'),
+  RoomResource(name: 'PLC LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(name: 'PNEUMATIC LAB', block: 'Workshop', type: 'Makmal'),
+  RoomResource(name: 'POWER E LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(
+      name: 'RENEWABLE ENERGY LAB (RETTAC)', block: 'Workshop', type: 'Makmal'),
+  RoomResource(name: 'SLR 1A', block: 'SLR', type: 'Kelas'),
+  RoomResource(name: 'SLR 2A', block: 'SLR', type: 'Kelas'),
+  RoomResource(name: 'SLR 3A', block: 'SLR', type: 'Kelas'),
+  RoomResource(name: 'SLR BENGKEL GEGAS', block: 'SLR', type: 'Bengkel'),
+  RoomResource(name: 'SLR LAB 2', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SLR LAB 3', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SLR LAB 4', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SLR STUDIO 1', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SLR STUDIO 2', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SLR STUDIO 4', block: 'SLR', type: 'Makmal'),
+  RoomResource(name: 'SMART CLASSROOM', block: 'ICT', type: 'Makmal'),
+  RoomResource(name: 'SMI 1A', block: 'SMI', type: 'Kelas'),
+  RoomResource(name: 'SMI 3A', block: 'SMI', type: 'Kelas'),
+  RoomResource(name: 'SMI AUTOCAD LAB', block: 'SMI', type: 'Makmal'),
+  RoomResource(name: 'SMI BILIK KULIAH 1', block: 'SMI', type: 'Kelas'),
+  RoomResource(name: 'SMI BILIK KULIAH 2', block: 'SMI', type: 'Kelas'),
+  RoomResource(name: 'SMI BK 1', block: 'SMI', type: 'Room'),
+  RoomResource(name: 'SMI BK 2', block: 'SMI', type: 'Room'),
+  RoomResource(name: 'SMI CNC WORKSHOP', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI ELEC. BAY', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI ELECTRCAL BAY', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI FITTING WORKSHOP', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI FYP WORKSHOP', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI HYDRAULIC LAB.', block: 'SMI', type: 'Makmal'),
+  RoomResource(name: 'SMI MACHINE WORKSHOP', block: 'SMI', type: 'Bengkel'),
+  RoomResource(
+      name: 'SMI MAINTENANCE WORKSHOP 1', block: 'SMI', type: 'Bengkel'),
+  RoomResource(
+      name: 'SMI MAINTENANCE WORKSHOP 2', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SMI PLC LAB', block: 'SMI', type: 'Makmal'),
+  RoomResource(name: 'SMI PNEUMATIC LAB', block: 'SMI', type: 'Makmal'),
+  RoomResource(name: 'SMI WELDING BAY', block: 'SMI', type: 'Bengkel'),
+  RoomResource(name: 'SWITCHBOARD LAB', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(name: 'WORKSHOP FITTING', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(name: 'WORKSHOP GRINDING', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(name: 'WORKSHOP LATHE', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 1', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 2', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 3', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 4', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 5', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'BENGKEL PEPASANGAN 6', block: 'Workshop', type: 'Bengkel'),
+  RoomResource(
+      name: 'MAKMAL SYNCHCRONIZATION', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(
+      name: 'MAKMAL KOMPUTER ELEKTRIK', block: 'Elektrik', type: 'Makmal'),
+  RoomResource(
+      name: 'MAKMAL KOMPUTER DIGITAL', block: 'Unknown', type: 'Makmal'),
 ];
 
 final List<AppUser> users = [

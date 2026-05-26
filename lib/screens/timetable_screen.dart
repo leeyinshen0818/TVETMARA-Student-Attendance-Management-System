@@ -348,9 +348,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   void _downloadTemplate(AppState state) {
     final sampleProgramId = _sampleProgramId(state);
     final sampleLecturer = _sampleLecturer(state, sampleProgramId);
-    final sampleRoomName = state.roomResources.isNotEmpty
-        ? state.roomResources.first.name
-        : 'BILIK KULIAH 1';
+    final sampleRoomName = _sampleRoomName(state, sampleProgramId);
     final rows = [
       TimetableCsvTemplate.fullHeader,
       [
@@ -610,6 +608,33 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
     final user = state.currentUser;
     return '${user?.programId ?? 'DED'} 1A';
+  }
+
+  String _sampleRoomName(AppState state, String programId) {
+    final preferredNames = switch (programId) {
+      'DED' => const [
+          'BILIK KULIAH DED 1',
+          'ELEC MACHINE LAB',
+          'ELEC PRINCPLE LAB',
+        ],
+      'DGS' => const [
+          'SMART CLASSROOM',
+          'BK A',
+          'BAS LAB',
+        ],
+      _ => const [
+          'BILIK KULIAH DED 1',
+          'BK A',
+          'SMART CLASSROOM',
+        ],
+    };
+    for (final name in preferredNames) {
+      if (state.roomResources.any((room) => room.name == name)) {
+        return name;
+      }
+    }
+    if (state.roomResources.isNotEmpty) return state.roomResources.first.name;
+    return 'BILIK KULIAH DED 1';
   }
 
   String _roomIdForTemplate(String roomName) {
