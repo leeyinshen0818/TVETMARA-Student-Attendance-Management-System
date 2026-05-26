@@ -167,7 +167,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         )
                       : const Icon(Icons.cloud_upload_outlined),
                   label: Text(
-                    _importing ? 'Mengimport...' : 'Import Valid Rows',
+                    _importing ? 'Mengimport...' : 'Import Importable Rows',
                   ),
                 ),
               ],
@@ -352,7 +352,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final rows = [
       TimetableCsvTemplate.fullHeader,
       [
-        state.session,
+        TimetableCsvTemplate.defaultAcademicSessionId,
         sampleProgramId,
         _sampleSection(state),
         'DED10044',
@@ -845,8 +845,12 @@ class _PreviewTable extends StatelessWidget {
                   : '-')),
           DataCell(_RowStatusChip(row.status)),
           DataCell(SizedBox(
-            width: 280,
-            child: _RowMessages(errors: row.errors, warnings: row.warnings),
+            width: 220,
+            child: _RowMessages(
+              rowNumber: row.rowNumber,
+              errors: row.errors,
+              warnings: row.warnings,
+            ),
           )),
         ]);
       }).toList(),
@@ -892,8 +896,13 @@ class _RowStatusChip extends StatelessWidget {
 }
 
 class _RowMessages extends StatelessWidget {
-  const _RowMessages({required this.errors, required this.warnings});
+  const _RowMessages({
+    required this.rowNumber,
+    required this.errors,
+    required this.warnings,
+  });
 
+  final int rowNumber;
   final List<String> errors;
   final List<String> warnings;
 
@@ -902,16 +911,162 @@ class _RowMessages extends StatelessWidget {
     if (errors.isEmpty && warnings.isEmpty) {
       return const Text('-', style: TextStyle(color: Color(0xff64748b)));
     }
+
+    final color =
+        errors.isNotEmpty ? const Color(0xff991b1b) : const Color(0xff92400e);
+    final summary = _summaryText();
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          foregroundColor: color,
+          minimumSize: const Size(0, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        onPressed: () => _showDetails(context),
+        child: SizedBox(
+          width: 210,
+          child: Text(
+            '$summary\nView details',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _summaryText() {
+    if (errors.isNotEmpty) {
+      final errorLabel =
+          errors.length == 1 ? '1 error' : '${errors.length} errors';
+      if (warnings.isEmpty) return errorLabel;
+      final warningLabel =
+          warnings.length == 1 ? '1 warning' : '${warnings.length} warnings';
+      return '$errorLabel, $warningLabel';
+    }
+
+    final friendlyWarnings = warnings.map(_friendlyMessage).toSet().toList();
+    if (friendlyWarnings.length <= 2) {
+      return friendlyWarnings.join('; ');
+    }
+    return '${warnings.length} warnings';
+  }
+
+  String _friendlyMessage(String message) {
+    if (message.startsWith('subjectId ')) {
+      return 'New subject will be created';
+    }
+    if (message.startsWith('classId ')) {
+      return 'New class will be created';
+    }
+    if (message.startsWith('Academic session ')) {
+      return 'Academic session should be checked';
+    }
+    if (message.startsWith('lecturerName is blank')) {
+      return 'Lecturer name will be resolved';
+    }
+    if (message.startsWith('roomName is blank')) {
+      return 'Room name will be resolved';
+    }
+    return message;
+  }
+
+  void _showDetails(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Row $rowNumber Details'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (errors.isNotEmpty)
+                  _MessageDetailSection(
+                    title: 'Errors',
+                    color: const Color(0xff991b1b),
+                    messages: errors,
+                    friendlyMessage: _friendlyMessage,
+                  ),
+                if (errors.isNotEmpty && warnings.isNotEmpty)
+                  const SizedBox(height: 16),
+                if (warnings.isNotEmpty)
+                  _MessageDetailSection(
+                    title: 'Warnings',
+                    color: const Color(0xff92400e),
+                    messages: warnings,
+                    friendlyMessage: _friendlyMessage,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageDetailSection extends StatelessWidget {
+  const _MessageDetailSection({
+    required this.title,
+    required this.color,
+    required this.messages,
+    required this.friendlyMessage,
+  });
+
+  final String title;
+  final Color color;
+  final List<String> messages;
+  final String Function(String message) friendlyMessage;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final error in errors)
-          Text('Error: $error',
-              style: const TextStyle(color: Color(0xff991b1b), fontSize: 12)),
-        for (final warning in warnings)
-          Text('Warning: $warning',
-              style: const TextStyle(color: Color(0xff92400e), fontSize: 12)),
+        Text(
+          title,
+          style: TextStyle(color: color, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        for (final message in messages) ...[
+          Text(
+            friendlyMessage(message),
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (friendlyMessage(message) != message) ...[
+            const SizedBox(height: 2),
+            SelectableText(
+              message,
+              style: const TextStyle(
+                color: Color(0xff475569),
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+        ],
       ],
     );
   }

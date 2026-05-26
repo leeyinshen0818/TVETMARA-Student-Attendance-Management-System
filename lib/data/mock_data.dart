@@ -1,3 +1,4 @@
+import '../core/constants/timetable_template.dart';
 import '../models/app_models.dart';
 
 const List<ProgramCode> programs = [
@@ -263,7 +264,7 @@ void _generateMockData() {
       for (int i = 0; i < 2; i++) {
         timetable.add(TimetableSlot(
           id: 'T${slotIdCounter.toString().padLeft(3, "0")}',
-          session: 'Jan-Jun 2026',
+          session: TimetableCsvTemplate.defaultAcademicSessionId,
           semester: sectionSuffix.startsWith('1') ? 1 : 2,
           program: prog.name,
           section: sectionName,

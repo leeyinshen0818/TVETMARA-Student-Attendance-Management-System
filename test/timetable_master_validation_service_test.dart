@@ -167,6 +167,7 @@ void main() {
     ).preparePreview(_parse(_row()));
 
     expect(result.validRows, 1);
+    expect(result.previewRows.single.warnings, isEmpty);
     expect(result.canImport, isTrue);
     final draft = result.previewRows.single.slotDraft!;
     expect(draft.programId, 'DED');
@@ -269,7 +270,7 @@ void main() {
     expect(result.warningRows, 1);
     expect(result.errorRows, 0);
     expect(result.previewRows.single.warnings.single,
-        contains('academicSessionId'));
+        contains('Academic session'));
   });
 
   test('DGS programme allows null departmentId', () async {

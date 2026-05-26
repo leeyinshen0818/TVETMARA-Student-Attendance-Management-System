@@ -184,6 +184,20 @@ class Lecturer {
   final List<String> subjects;
 }
 
+class SubjectCourse {
+  const SubjectCourse({
+    required this.subjectId,
+    required this.programId,
+    required this.subjectCode,
+    required this.subjectName,
+  });
+
+  final String subjectId;
+  final String programId;
+  final String subjectCode;
+  final String subjectName;
+}
+
 class TimetableSlot {
   const TimetableSlot({
     required this.id,

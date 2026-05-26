@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tvetmara_student_attendance/core/constants/timetable_template.dart';
 import 'package:tvetmara_student_attendance/models/timetable_import_result.dart';
 import 'package:tvetmara_student_attendance/services/timetable_import_service.dart';
 
@@ -47,6 +48,10 @@ String _row({
 
 void main() {
   const service = TimetableImportService();
+
+  test('CSV template default academic session matches seeded session id', () {
+    expect(TimetableCsvTemplate.defaultAcademicSessionId, 'JAN_JUN_2026');
+  });
 
   test('parses a valid CSV row', () {
     final result = service.parseAndValidate('$_header\n${_row()}');
@@ -204,5 +209,19 @@ void main() {
     expect(draft.lecturerName, isNull);
     expect(draft.roomName, isNull);
     expect(draft.status, 'active');
+  });
+
+  test('blank subjectId uses safe normalized subject code', () {
+    final result = service.parseAndValidate(
+      '$_header\n${_row(
+        programId: 'DGS',
+        subjectCode: 'CUB2/31022',
+        subjectName: 'E-TECHNOPRENEUR 2',
+        subjectId: '',
+      )}',
+    );
+
+    expect(result.errorRows, 0);
+    expect(result.parsedRows.single.draft!.subjectId, 'DGS_CUB2_31022');
   });
 }

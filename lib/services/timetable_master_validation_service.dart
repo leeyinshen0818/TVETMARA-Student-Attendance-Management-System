@@ -291,7 +291,7 @@ class TimetableMasterValidationService {
         // blocking preview while the academic_sessions module is still partial.
         if (!existingSessions.contains(draft.academicSessionId)) {
           warnings.add(
-            'academicSessionId "${draft.academicSessionId}" does not exist. Verify or create it before final import.',
+            'Academic session "${draft.academicSessionId}" was not found. Please seed or create this session before import.',
           );
         }
 

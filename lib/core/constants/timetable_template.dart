@@ -5,6 +5,9 @@
 class TimetableCsvTemplate {
   TimetableCsvTemplate._();
 
+  static const defaultAcademicSessionId = 'JAN_JUN_2026';
+  static const defaultAcademicSessionName = 'Jan-Jun 2026';
+
   static const requiredColumns = [
     'academicSessionId',
     'programId',

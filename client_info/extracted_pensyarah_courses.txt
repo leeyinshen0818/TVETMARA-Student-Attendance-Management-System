@@ -1,0 +1,109 @@
+PENSYARAH - KOD KURSUS - NAMA KURSUS - KELAS - JAM - JUMLAH JAM - JUMLAH KURSUS - CATATAN
+Source: Pembahagian Jam dan Kursus Terkini Pensyarah dan Subjek yang di ajar 1-2026 Update.pdf
+
+1. Hairi bin Abd Rahman
+- MEB10042 | Electricity Supply Act and Regulations | DCB 1A | 4 jam
+- MEB10053 | Electrical Energy Management Operation | DCB 1A | 6 jam
+  Jumlah Jam: 8 | Jumlah Kursus: 2
+  Catatan: Sesi Pembelajaran Jan - Mac 2026 (Silibus Baru)
+- MEB10042 | Electricity Supply Act and Regulations | DCB 2A | 2 jam
+- MEB10053 | Electrical Energy Management Operation | DCB 2A | 5 jam
+  Jumlah Jam: 7 | Jumlah Kursus: 2
+  Catatan: Sesi Pembelajaran April - Jun 2026 (Silibus Lama)
+
+2. Mohd Dzahid bin Zakaria
+- MEB10011 | Electrical Competency Final project 1 | DCB 1A | 2 jam
+- MEB10022 | Diesel Engine Generator | DCB 1A | 7 jam
+- MEB10034 | Generation and Parallel Procedure | DCB 1A | 7 jam
+  Jumlah Jam: 16 | Jumlah Kursus: 3
+  Catatan: Sesi Pembelajaran Jan - Mac 2026 (Silibus Baru)
+- MEB10011 | Electrical Competency Final project | DCB 2A | 2 jam
+- MEB10022 | Diesel Engine Generator | DCB 2A | 3 jam
+- MEB10034 | Generation and Parallel Operation | DCB 2A | 8 jam
+  Jumlah Jam: 13 | Jumlah Kursus: 3
+  Catatan: Sesi Pembelajaran April - Jun 2026 (Silibus Lama)
+
+3. Osman bin Bakar
+- DED21064 | Electrical Industrial Installation Practice 1 | DED 2A | 7 jam
+- DEV31053 | Electrical Machine | DED 3A | 5 jam
+- DED60114 | Final Year Project | DED 6A | 2 jam
+  Jumlah Jam: 14 | Jumlah Kursus: 3
+  Catatan: Bagi FYP DED Guna sama bilik FYP Jabatan untuk buat FYP
+
+4. Azlihan bin Abd Aziz
+- MES10033 | Electrical Principles 1 | DCP 1A | 6 jam
+- MES10042 | Electricity Supply Act and Regulations 1 | DCP 1A | 2 jam
+- MEP60044 | Electrical Competency Final Project | DCP 6A | 2 jam
+- MEB10062 | Solar Installation and Maintenance | DCB 2A | 4 jam
+  Jumlah Jam: 14 | Jumlah Kursus: 4
+  Catatan: Bagi FYP DCP Guna sama bilik FYP Jabatan untuk buat FYP
+
+5. Norazhar bin Md Anuar
+- DEV20072 | Electricity Supply Act And Regulations | DED 2A | 2 jam
+- DED31082 | Electrical Industrial Installation 2 | DED 3A | 2 jam
+- DED31094 | Electrical Industrial Installation Practice 2 | DED 3A | 7 jam
+  Jumlah Jam: 11 | Jumlah Kursus: 3
+
+6. Norhatini binti Ibrahim
+- DEV10043 | Electric Circuit Theory 1 | DED 1A | 5 jam
+- DKV102133 | Engineering Science | DED 1A | 3 jam
+- DED30073 | Introduction to Digital Electronic | DED 3A | 5 jam
+  Jumlah Jam: 13 | Jumlah Kursus: 3
+
+7. Hisham bin Dollah
+- DEV40283 | Power Electronic And Devices | DED 4A | 5 jam
+- DKV40292 | Project Management | DED 6A | 3 jam
+- MES20044 | Electrical Motor Control | DCP 2A | 6 jam
+  Jumlah Jam: 14 | Jumlah Kursus: 3
+
+8. Syarifah binti Abdul Rahim
+- DED10044 | Electrical Installation | DED1A | 7 jam
+- DEV41253 | Electrical Circuit Theory 2 | DED 4A | 5 jam
+- MEP20012 | Worksite Project management | DCP 2A | 2 jam
+  Jumlah Jam: 14 | Jumlah Kursus: 3
+
+9. Norfaizal bin Borhan
+- DEV10052 | Electrical Drawing | DED 1A | 3 jam
+- DEV40242 | Advance Electrical Drawing | DED 4A | 3 jam
+- DEV40263 | Industrial Automotion | DED 4A | 5 jam
+- MEV10033 | Electrical Drawing | DCP 1A | 6 jam
+  Jumlah Jam: 17 | Jumlah Kursus: 4
+
+10. Mohd Ariff bin Yahaya
+- MEP40034 | Aeriel Line Practices | DCP 4A | 7 jam
+- MEP40044 | Electrical Maintenance | DCP 4A | 7 jam
+- MES41032 | Electricity Supply Act and Regulations 2 | DCP 6A | 2 jam
+  Jumlah Jam: 16 | Jumlah Kursus: 3
+
+11. Shamshul Annuar bin Ruslan
+- MEP40024 | Low Voltage Switchboard Practices | DCP 4A | 7 jam
+- MEP61014 | Electrical Industrial Inst and Maint 2 | DCP 6A | 7 jam
+  Jumlah Jam: 14 | Jumlah Kursus: 2
+  Catatan: Dikurangkan kursus disebabkan jurulatih WS 2026
+
+12. Mohd Shahriman bin Abdullah Sani
+- DEV40193 | Electrical Motor Control | DED 4A | 6 jam
+- DED61124 | Advance Electrical Installation | DED 6A | 7 jam
+- MES50033 | Electrical Building Automation System Inst | DCP 2A | 5 jam
+  Jumlah Jam: 18 | Jumlah Kursus: 3
+
+13. Jamal bin Muhamad
+- MEP20014 | Electrical Industrial Inst And Maintenance 1 | DCP 2A | 8 jam
+- MES21033 | Electrical Principles 2 | DCP 2A | 5 jam
+- MEV50053 | Industrial Automation | DCP 6A | 5 jam
+  Jumlah Jam: 18 | Jumlah Kursus: 3
+
+14. Mohamed Shah bin Khamis
+- MES10013 | Electrical Installation Theory | DCP 1A | 3 jam
+- MES10024 | Electrical Installation Practice | DCP 1A | 8 jam
+- MEP40014 | Underground Cable Practices | DCP 4A | 7 jam
+  Jumlah Jam: 18 | Jumlah Kursus: 3
+
+15. Zainul Idhan bin Komar
+- DED21052 | Electrical Industrial Installation 1 | DED 2A | 3 jam
+- DEV21083 | Analogue Electronics Fundamental | DED 2A | 8 jam
+- DED60133 | Renewable Energy | DED 6A | 7 jam
+  Jumlah Jam: 18 | Jumlah Kursus: 3
+
+Note:
+* Pembahagian Kursus dan Jam adalah diambil kira minimum jam/minggu dimana K. Jabatan = 8 jam/minggu, K.Program = 12 jam/minggu dan Pensyarah = 18 jam/minggu.

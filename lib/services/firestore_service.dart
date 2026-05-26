@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/firestore_constants.dart';
+import '../core/constants/timetable_template.dart';
 import '../data/mock_data.dart' as mock;
 import '../models/app_models.dart';
 
@@ -37,6 +38,10 @@ class FirestoreService {
       _db.collection(FirestoreCollections.departments);
   CollectionReference<Map<String, dynamic>> get _programsCol =>
       _db.collection(FirestoreCollections.programs);
+  CollectionReference<Map<String, dynamic>> get _academicSessionsCol =>
+      _db.collection(FirestoreCollections.academicSessions);
+  CollectionReference<Map<String, dynamic>> get _subjectsCol =>
+      _db.collection(FirestoreCollections.subjects);
 
   // ---------------------------------------------------------------------------
   // Account Registration
@@ -390,6 +395,39 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> seedAcademicSessions() async {
+    await _academicSessionsCol
+        .doc(TimetableCsvTemplate.defaultAcademicSessionId)
+        .set({
+      'academicSessionId': TimetableCsvTemplate.defaultAcademicSessionId,
+      'name': TimetableCsvTemplate.defaultAcademicSessionName,
+      'isActive': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> seedSubjects(List<SubjectCourse> subjects) async {
+    for (var i = 0; i < subjects.length; i += 400) {
+      final batch = _db.batch();
+      final chunk = subjects.sublist(
+          i, i + 400 > subjects.length ? subjects.length : i + 400);
+      for (final subject in chunk) {
+        batch.set(_subjectsCol.doc(subject.subjectId), {
+          'subjectId': subject.subjectId,
+          'programId': subject.programId,
+          'subjectCode': subject.subjectCode,
+          'subjectName': subject.subjectName,
+          'academicSessionId': TimetableCsvTemplate.defaultAcademicSessionId,
+          'isActive': true,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> migrateOldUsers() async {
     final snap = await _usersCol.get();
     final batch = _db.batch();
@@ -435,6 +473,7 @@ class FirestoreService {
     ];
 
     await seedHierarchy(depts, mock.programs);
+    await seedAcademicSessions();
   }
 
   // ---------------------------------------------------------------------------

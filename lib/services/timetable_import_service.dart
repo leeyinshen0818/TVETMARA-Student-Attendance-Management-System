@@ -1,4 +1,5 @@
 import '../core/constants/timetable_template.dart';
+import '../core/utils/subject_id_normalizer.dart';
 import '../models/timetable_import_result.dart';
 
 class TimetableImportService {
@@ -197,7 +198,7 @@ class TimetableImportService {
     if (errors.isNotEmpty) return null;
 
     final subjectId = (rawData['subjectId'] ?? '').trim().isEmpty
-        ? '${programId}_$subjectCode'
+        ? buildSubjectId(programId: programId, subjectCode: subjectCode)
         : rawData['subjectId']!.trim();
     final lecturerName = _optional(rawData, 'lecturerName');
     final roomName = _optional(rawData, 'roomName');

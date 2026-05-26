@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/constants/timetable_template.dart';
 import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
@@ -21,7 +22,7 @@ class AppState extends ChangeNotifier {
 
   int attendanceThreshold = 80;
   String reportFrequency = 'Weekly';
-  String session = 'Jan - Jun 2026';
+  String session = TimetableCsvTemplate.defaultAcademicSessionId;
   int semester = 2;
 
   bool _loading = true;
