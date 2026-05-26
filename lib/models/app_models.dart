@@ -187,6 +187,12 @@ class Lecturer {
 class TimetableSlot {
   const TimetableSlot({
     required this.id,
+    String? timetableSlotId,
+    this.academicSessionId,
+    this.programId,
+    this.departmentId,
+    this.classId,
+    this.subjectId,
     required this.session,
     required this.semester,
     required this.program,
@@ -195,19 +201,34 @@ class TimetableSlot {
     required this.subjectName,
     required this.lecturerId,
     required this.lecturerName,
+    this.roomId,
+    this.roomName,
     required this.day,
     required this.date,
+    this.dayOfWeek,
     required this.startTime,
     required this.endTime,
+    this.weekStart,
+    this.weekEnd,
     required this.room,
     required this.enrolled,
     required this.capacity,
     required this.classType,
     required this.slotType,
     required this.status,
-  });
+    this.sourceUploadId,
+    this.createdBy,
+    this.createdAt,
+    this.updatedAt,
+  }) : timetableSlotId = timetableSlotId ?? id;
 
   final String id;
+  final String timetableSlotId;
+  final String? academicSessionId;
+  final String? programId;
+  final String? departmentId;
+  final String? classId;
+  final String? subjectId;
   final String session;
   final int semester;
   final String program;
@@ -216,20 +237,35 @@ class TimetableSlot {
   final String subjectName;
   final String lecturerId;
   final String lecturerName;
+  final String? roomId;
+  final String? roomName;
   final String day;
   final String date;
+  final String? dayOfWeek;
   final String startTime;
   final String endTime;
+  final String? weekStart;
+  final String? weekEnd;
   final String room;
   final int enrolled;
   final int capacity;
   final String classType;
   final String slotType;
   final String status;
+  final String? sourceUploadId;
+  final String? createdBy;
+  final String? createdAt;
+  final String? updatedAt;
 
   TimetableSlot copyWith({String? status, String? slotType}) {
     return TimetableSlot(
       id: id,
+      timetableSlotId: timetableSlotId,
+      academicSessionId: academicSessionId,
+      programId: programId,
+      departmentId: departmentId,
+      classId: classId,
+      subjectId: subjectId,
       session: session,
       semester: semester,
       program: program,
@@ -238,16 +274,25 @@ class TimetableSlot {
       subjectName: subjectName,
       lecturerId: lecturerId,
       lecturerName: lecturerName,
+      roomId: roomId,
+      roomName: roomName,
       day: day,
       date: date,
+      dayOfWeek: dayOfWeek,
       startTime: startTime,
       endTime: endTime,
+      weekStart: weekStart,
+      weekEnd: weekEnd,
       room: room,
       enrolled: enrolled,
       capacity: capacity,
       classType: classType,
       slotType: slotType ?? this.slotType,
       status: status ?? this.status,
+      sourceUploadId: sourceUploadId,
+      createdBy: createdBy,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

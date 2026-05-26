@@ -118,9 +118,8 @@ class FirestoreService {
   }
 
   Future<void> updateTimetableSlot(TimetableSlot slot) async {
-    await _timetableCol
-        .doc(slot.id)
-        .set(_slotToMap(slot), SetOptions(merge: true));
+    await _timetableCol.doc(slot.id).set(
+        _slotToMap(slot, includeCreatedAt: false), SetOptions(merge: true));
   }
 
   Future<void> deleteTimetableSlot(String slotId) async {
@@ -497,26 +496,52 @@ class FirestoreService {
 
   TimetableSlot _docToSlot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
+    final timetableSlotId = d['timetableSlotId'] as String? ?? doc.id;
+    final academicSessionId =
+        d['academicSessionId'] as String? ?? d['session'] as String?;
+    final programId = d['programId'] as String? ?? d['program'] as String?;
+    final classId = d['classId'] as String? ?? d['section'] as String?;
+    final roomId = d['roomId'] as String? ?? d['room'] as String?;
+    final roomName = d['roomName'] as String? ?? d['room'] as String?;
+    final dayOfWeek = d['dayOfWeek'] as String? ?? d['day'] as String?;
+    final weekStart = d['weekStart'] as String? ?? d['date'] as String?;
+    final weekEnd = d['weekEnd'] as String? ?? d['date'] as String?;
+
     return TimetableSlot(
       id: doc.id,
-      session: d['session'] as String,
-      semester: d['semester'] as int,
-      program: d['program'] as String,
-      section: d['section'] as String,
-      subjectCode: d['subjectCode'] as String,
-      subjectName: d['subjectName'] as String,
-      lecturerId: d['lecturerId'] as String,
-      lecturerName: d['lecturerName'] as String,
-      day: d['day'] as String,
-      date: d['date'] as String,
-      startTime: d['startTime'] as String,
-      endTime: d['endTime'] as String,
-      room: d['room'] as String,
-      enrolled: d['enrolled'] as int,
-      capacity: d['capacity'] as int,
-      classType: d['classType'] as String,
-      slotType: d['slotType'] as String,
-      status: d['status'] as String,
+      timetableSlotId: timetableSlotId,
+      academicSessionId: academicSessionId,
+      programId: programId,
+      departmentId: d['departmentId'] as String?,
+      classId: classId,
+      subjectId: d['subjectId'] as String?,
+      session: academicSessionId ?? '',
+      semester: d['semester'] as int? ?? 1,
+      program: d['program'] as String? ?? programId ?? '',
+      section: d['section'] as String? ?? classId ?? '',
+      subjectCode: d['subjectCode'] as String? ?? '',
+      subjectName: d['subjectName'] as String? ?? '',
+      lecturerId: d['lecturerId'] as String? ?? '',
+      lecturerName: d['lecturerName'] as String? ?? '',
+      roomId: roomId,
+      roomName: roomName,
+      day: d['day'] as String? ?? dayOfWeek ?? '',
+      date: d['date'] as String? ?? weekStart ?? '',
+      dayOfWeek: dayOfWeek,
+      startTime: d['startTime'] as String? ?? '',
+      endTime: d['endTime'] as String? ?? '',
+      weekStart: weekStart,
+      weekEnd: weekEnd,
+      room: d['room'] as String? ?? roomName ?? roomId ?? '',
+      enrolled: d['enrolled'] as int? ?? 0,
+      capacity: d['capacity'] as int? ?? 0,
+      classType: d['classType'] as String? ?? '',
+      slotType: d['slotType'] as String? ?? 'Kelas Biasa',
+      status: d['status'] as String? ?? 'draft',
+      sourceUploadId: d['sourceUploadId'] as String?,
+      createdBy: d['createdBy'] as String?,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
     );
   }
 
@@ -573,26 +598,55 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // Model → Map converters
   // ---------------------------------------------------------------------------
-  Map<String, dynamic> _slotToMap(TimetableSlot slot) => {
-        'session': slot.session,
-        'semester': slot.semester,
-        'program': slot.program,
-        'section': slot.section,
-        'subjectCode': slot.subjectCode,
-        'subjectName': slot.subjectName,
-        'lecturerId': slot.lecturerId,
-        'lecturerName': slot.lecturerName,
-        'day': slot.day,
-        'date': slot.date,
-        'startTime': slot.startTime,
-        'endTime': slot.endTime,
-        'room': slot.room,
-        'enrolled': slot.enrolled,
-        'capacity': slot.capacity,
-        'classType': slot.classType,
-        'slotType': slot.slotType,
-        'status': slot.status,
-      };
+  Map<String, dynamic> _slotToMap(
+    TimetableSlot slot, {
+    bool includeCreatedAt = true,
+  }) {
+    final data = <String, dynamic>{
+      'timetableSlotId': slot.timetableSlotId,
+      'academicSessionId': slot.academicSessionId ?? slot.session,
+      'programId': slot.programId ?? slot.program,
+      'departmentId': slot.departmentId,
+      'classId': slot.classId ?? slot.section,
+      'subjectId': slot.subjectId,
+      'subjectCode': slot.subjectCode,
+      'subjectName': slot.subjectName,
+      'lecturerId': slot.lecturerId,
+      'lecturerName': slot.lecturerName,
+      'roomId': slot.roomId ?? slot.room,
+      'roomName': slot.roomName ?? slot.room,
+      'dayOfWeek': slot.dayOfWeek ?? slot.day,
+      'startTime': slot.startTime,
+      'endTime': slot.endTime,
+      'weekStart': slot.weekStart ?? slot.date,
+      'weekEnd': slot.weekEnd ?? slot.date,
+      'status': slot.status,
+      'sourceUploadId': slot.sourceUploadId,
+      'createdBy': slot.createdBy,
+      'updatedAt': FieldValue.serverTimestamp(),
+
+      // Temporary display aliases for existing timetable, attendance,
+      // booking, discipline, and reporting screens. Remove only after those
+      // modules read normalized timetable fields.
+      'session': slot.session,
+      'semester': slot.semester,
+      'program': slot.program,
+      'section': slot.section,
+      'day': slot.day,
+      'date': slot.date,
+      'room': slot.room,
+      'enrolled': slot.enrolled,
+      'capacity': slot.capacity,
+      'classType': slot.classType,
+      'slotType': slot.slotType,
+    };
+    if (includeCreatedAt) {
+      data['createdAt'] = slot.createdAt ?? FieldValue.serverTimestamp();
+    } else if (slot.createdAt != null) {
+      data['createdAt'] = slot.createdAt;
+    }
+    return data;
+  }
 
   Map<String, dynamic> _userToMap(AppUser user) => {
         UserFields.uid: user.uid,

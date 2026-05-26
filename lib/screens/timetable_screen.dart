@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
+import '../core/constants/timetable_template.dart';
 import '../models/app_models.dart';
+import '../models/timetable_import_result.dart';
+import '../models/timetable_import_write_result.dart';
+import '../models/timetable_master_validation_result.dart';
+import '../services/timetable_firestore_import_service.dart';
+import '../services/timetable_import_service.dart';
 import '../services/timetable_file_io.dart';
+import '../services/timetable_master_validation_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
@@ -17,8 +23,7 @@ class TimetableScreen extends StatefulWidget {
 }
 
 class _TimetableScreenState extends State<TimetableScreen> {
-  static const _uuid = Uuid();
-  static const _columns = [
+  static const _legacyExportColumns = [
     'id',
     'session',
     'semester',
@@ -40,10 +45,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
     'status',
   ];
 
-  List<TimetableSlot> _previewSlots = [];
+  TimetableMasterValidationResult? _previewResult;
   String? _previewFileName;
   String? _importError;
-  bool _savingImport = false;
+  TimetableImportWriteResult? _lastImportResult;
+  bool _processingImport = false;
+  bool _importing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +75,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ? 'Pengurusan Jadual Program'
               : 'Pengurusan Jadual Jabatan',
           subtitle:
-              'Muat naik CSV daripada Excel, semak pratonton, kemas kini slot, dan eksport jadual semasa.',
+              'Muat naik CSV, semak pratonton dan ralat, kemudian import pada fasa seterusnya.',
           trailing: Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -88,9 +95,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 label: const Text('Eksport CSV'),
               ),
               FilledButton.icon(
-                onPressed: () => _pickAndPreviewFile(state),
+                onPressed:
+                    _processingImport ? null : () => _pickAndPreviewFile(state),
                 icon: const Icon(Icons.upload_file),
-                label: const Text('Muat Naik'),
+                label: Text(_processingImport ? 'Memproses...' : 'Pilih CSV'),
               ),
               FilledButton.icon(
                 onPressed: () {
@@ -108,24 +116,22 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
         ),
         AppPanel(
-          title: 'Format Fail Jadual',
+          title: 'Format CSV Jadual',
           subtitle:
-              'Gunakan templat ini untuk jadual Ketua. Fail Excel perlu disimpan sebagai CSV sebelum dimuat naik.',
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _columns
-                .map((column) => Chip(
-                      label: Text(column),
-                      visualDensity: VisualDensity.compact,
-                    ))
-                .toList(),
-          ),
+              'CSV sahaja. Sediakan jadual dalam Excel jika perlu, kemudian export sebagai CSV sebelum dimuat naik.',
+          child: _TemplateHelper(),
         ),
         const SizedBox(height: 16),
+        if (_processingImport) ...[
+          const AppPanel(
+            title: 'Memproses CSV',
+            child: LinearProgressIndicator(),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (_importError != null) ...[
           AppPanel(
-            title: 'Ralat Import',
+            title: 'Ralat Fail',
             child: Text(
               _importError!,
               style: const TextStyle(color: Color(0xffb91c1c)),
@@ -133,37 +139,58 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        if (_previewSlots.isNotEmpty) ...[
+        if (_previewResult != null) ...[
+          _PreviewSummary(result: _previewResult!),
+          const SizedBox(height: 16),
           AppPanel(
-            title: 'Pratonton Import',
+            title: 'Pratonton CSV',
             subtitle:
-                '${_previewSlots.length} slot daripada ${_previewFileName ?? 'fail dipilih'}',
+                '${_previewResult!.totalRows} baris daripada ${_previewFileName ?? 'fail dipilih'}',
             trailing: Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: _savingImport ? null : _clearPreview,
+                  onPressed: _processingImport ? null : _clearPreview,
                   icon: const Icon(Icons.close),
-                  label: const Text('Batal'),
+                  label: const Text('Reset'),
                 ),
                 FilledButton.icon(
-                  onPressed: _savingImport ? null : () => _savePreview(state),
-                  icon: _savingImport
+                  onPressed: _canImportPreview
+                      ? () => _confirmAndImportPreview(state)
+                      : null,
+                  icon: _importing
                       ? const SizedBox(
-                          width: 18,
-                          height: 18,
+                          width: 16,
+                          height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.save),
-                  label: Text(_savingImport ? 'Menyimpan...' : 'Simpan Import'),
+                      : const Icon(Icons.cloud_upload_outlined),
+                  label: Text(
+                    _importing ? 'Mengimport...' : 'Import Valid Rows',
+                  ),
                 ),
               ],
             ),
-            child: _TimetableTable(
-              slots: _previewSlots,
-              preview: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_previewResult!.validationWarnings.isNotEmpty) ...[
+                  _MessageList(
+                    title: 'Amaran Fail',
+                    messages: _previewResult!.validationWarnings,
+                    color: const Color(0xff92400e),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                _PreviewTable(rows: _previewResult!.previewRows),
+              ],
             ),
           ),
+          const SizedBox(height: 16),
+        ],
+        if (_lastImportResult != null) ...[
+          _ImportSuccessPanel(result: _lastImportResult!),
           const SizedBox(height: 16),
         ],
         AppPanel(
@@ -179,75 +206,171 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
+  bool get _canImportPreview {
+    final result = _previewResult;
+    return !_processingImport &&
+        !_importing &&
+        result != null &&
+        result.importableRows > 0;
+  }
+
   void _clearPreview() {
     setState(() {
-      _previewSlots = [];
+      _previewResult = null;
       _previewFileName = null;
       _importError = null;
+      _lastImportResult = null;
     });
   }
 
   Future<void> _pickAndPreviewFile(AppState state) async {
     final file = await pickTimetableFile();
-    if (file == null) return;
+    if (file == null) {
+      setState(() {
+        _importError =
+            'Tiada fail dipilih. Pada Android, pemilihan fail belum tersedia dalam fasa ini.';
+      });
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setState(() {
+        _previewResult = null;
+        _previewFileName = file.name;
+        _importError =
+            'Hanya fail CSV disokong. Simpan fail Excel sebagai .csv dahulu.';
+        _lastImportResult = null;
+      });
+      return;
+    }
 
     try {
-      final slots = _parseSlots(file.content, state);
       setState(() {
-        _previewSlots = slots;
+        _processingImport = true;
+        _previewResult = null;
         _previewFileName = file.name;
         _importError = null;
+        _lastImportResult = null;
+      });
+      final parsed =
+          const TimetableImportService().parseAndValidate(file.content);
+      final preview = await TimetableMasterValidationService(
+        FirestoreTimetableMasterDataSource(),
+      ).preparePreview(parsed);
+      setState(() {
+        _previewResult = preview;
+        _previewFileName = file.name;
+        _importError = preview.validationErrors.isEmpty
+            ? null
+            : preview.validationErrors.join('\n');
       });
     } catch (e) {
       setState(() {
-        _previewSlots = [];
+        _previewResult = null;
         _previewFileName = file.name;
         _importError = e.toString().replaceFirst('Exception: ', '');
+        _lastImportResult = null;
       });
+    } finally {
+      if (mounted) setState(() => _processingImport = false);
     }
   }
 
-  Future<void> _savePreview(AppState state) async {
-    setState(() => _savingImport = true);
-    await state.upsertTimetableSlots(_previewSlots);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${_previewSlots.length} slot jadual disimpan.')),
+  Future<void> _confirmAndImportPreview(AppState state) async {
+    final preview = _previewResult;
+    final user = state.currentUser;
+    if (preview == null) return;
+    if (user == null) {
+      setState(() => _importError = 'Sesi pengguna tidak dijumpai.');
+      return;
+    }
+    if (preview.importableRows == 0) {
+      setState(() => _importError = 'Tiada baris valid untuk diimport.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import Jadual CSV'),
+        content: Text(
+          '${preview.importableRows} baris valid/warning akan diimport. '
+          '${preview.duplicateRows} duplicate dan ${preview.errorRows} error akan diskip.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true) return;
+
     setState(() {
-      _savingImport = false;
-      _previewSlots = [];
-      _previewFileName = null;
+      _importing = true;
+      _importError = null;
+      _lastImportResult = null;
     });
+
+    try {
+      final result = await TimetableFirestoreImportService().importPreview(
+        preview: preview,
+        fileName: _previewFileName ?? 'jadual.csv',
+        uploadedBy: user,
+      );
+      await state.loadData();
+      if (!mounted) return;
+      setState(() {
+        _lastImportResult = result;
+        _previewResult = null;
+        _previewFileName = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${result.slotsCreated} slot jadual berjaya diimport.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importError = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   void _downloadTemplate(AppState state) {
-    final sampleProgram = _sampleProgramName(state);
-    final sampleLecturer = _sampleLecturer(state, sampleProgram);
+    final sampleProgramId = _sampleProgramId(state);
+    final sampleLecturer = _sampleLecturer(state, sampleProgramId);
+    final sampleRoomName = state.roomResources.isNotEmpty
+        ? state.roomResources.first.name
+        : 'BILIK KULIAH 1';
     final rows = [
-      _columns,
+      TimetableCsvTemplate.fullHeader,
       [
-        '',
         state.session,
-        state.semester.toString(),
-        sampleProgram,
+        sampleProgramId,
         _sampleSection(state),
         'DED10044',
         'Wiring and Installation Practice',
-        sampleLecturer.id,
+        '${sampleProgramId}_DED10044',
+        sampleLecturer.email,
         sampleLecturer.name,
+        _roomIdForTemplate(sampleRoomName),
+        sampleRoomName,
         'Isnin',
-        '2026-05-18',
         '08:00',
         '12:00',
-        state.roomResources.isNotEmpty
-            ? state.roomResources.first.name
-            : 'WIRING BAY 3',
-        '25',
-        '30',
-        'Amali',
-        'Kelas Biasa',
-        'Upcoming',
+        '1',
+        '18',
+        'active',
+        '',
       ],
     ];
 
@@ -259,7 +382,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   void _exportTimetable(List<TimetableSlot> timetable) {
     final rows = [
-      _columns,
+      _legacyExportColumns,
       ...timetable.map((slot) => _slotToRow(slot)),
     ];
     downloadTextFile(
@@ -439,104 +562,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  List<TimetableSlot> _parseSlots(String content, AppState state) {
-    final rows = _parseCsv(content)
-        .where((row) => row.any((cell) => cell.trim().isNotEmpty))
-        .toList();
-    if (rows.length < 2) {
-      throw Exception(
-          'Fail mesti mempunyai baris tajuk dan sekurang-kurangnya satu baris jadual.');
-    }
-
-    final headers = rows.first.map((cell) => cell.trim()).toList();
-    final missing = _columns
-        .where((column) => column != 'id' && !headers.contains(column))
-        .toList();
-    if (missing.isNotEmpty) {
-      throw Exception('Kolum wajib tiada: ${missing.join(', ')}.');
-    }
-
-    final allowedPrograms = _allowedProgramNames(state);
-
-    return rows.skip(1).map((row) {
-      final item = <String, String>{};
-      for (var i = 0; i < headers.length; i++) {
-        item[headers[i]] = i < row.length ? row[i].trim() : '';
-      }
-      final program = item['program'] ?? '';
-      if (program.isEmpty || !allowedPrograms.contains(program)) {
-        throw Exception(
-            'Program "$program" tidak berada dalam skop akaun ini.');
-      }
-      final id = item['id'] ?? '';
-      return TimetableSlot(
-        id: id.isEmpty ? 'T${_uuid.v4()}' : id,
-        session: item['session']!,
-        semester: _readInt(item['semester'], 'semester'),
-        program: program,
-        section: item['section']!,
-        subjectCode: item['subjectCode']!,
-        subjectName: item['subjectName']!,
-        lecturerId: item['lecturerId']!,
-        lecturerName: item['lecturerName']!,
-        day: item['day']!,
-        date: item['date']!,
-        startTime: item['startTime']!,
-        endTime: item['endTime']!,
-        room: item['room']!,
-        enrolled: _readInt(item['enrolled'], 'enrolled'),
-        capacity: _readInt(item['capacity'], 'capacity'),
-        classType: item['classType']!,
-        slotType: item['slotType']!,
-        status: item['status']!,
-      );
-    }).toList();
-  }
-
-  int _readInt(String? value, String column) {
-    final parsed = int.tryParse(value ?? '');
-    if (parsed == null) {
-      throw Exception('Nilai "$column" mesti nombor.');
-    }
-    return parsed;
-  }
-
-  List<List<String>> _parseCsv(String content) {
-    final rows = <List<String>>[];
-    final row = <String>[];
-    final cell = StringBuffer();
-    var quoted = false;
-
-    for (var i = 0; i < content.length; i++) {
-      final char = content[i];
-      if (char == '"') {
-        if (quoted && i + 1 < content.length && content[i + 1] == '"') {
-          cell.write('"');
-          i++;
-        } else {
-          quoted = !quoted;
-        }
-      } else if (!quoted && (char == ',' || char == ';' || char == '\t')) {
-        row.add(cell.toString());
-        cell.clear();
-      } else if (!quoted && (char == '\n' || char == '\r')) {
-        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') {
-          i++;
-        }
-        row.add(cell.toString());
-        rows.add(List<String>.from(row));
-        row.clear();
-        cell.clear();
-      } else {
-        cell.write(char);
-      }
-    }
-
-    row.add(cell.toString());
-    rows.add(List<String>.from(row));
-    return rows;
-  }
-
   List<String> _slotToRow(TimetableSlot slot) {
     return [
       slot.id,
@@ -570,37 +595,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
         .join('\n');
   }
 
-  String _sampleProgramName(AppState state) {
-    if (state.scopedTimetable.isNotEmpty) {
-      return state.scopedTimetable.first.program;
-    }
+  String _sampleProgramId(AppState state) {
     final user = state.currentUser;
-    if (user?.role == UserRole.ketua_program) {
-      final program =
-          state.programs.where((p) => p.id == user!.programId).firstOrNull;
-      if (program != null) return program.name;
-    }
+    if (user?.programId != null) return user!.programId!;
     final departmentProgram = state.programs
         .where((program) => program.departmentId == user?.departmentId)
         .firstOrNull;
-    return departmentProgram?.name ??
-        'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DOMESTIK INDUSTRI) (DED)';
-  }
-
-  Set<String> _allowedProgramNames(AppState state) {
-    final user = state.currentUser;
-    if (user?.role == UserRole.ketua_program) {
-      final program =
-          state.programs.where((p) => p.id == user!.programId).firstOrNull;
-      if (program != null) return {program.name};
-    }
-    if (user?.role == UserRole.ketua_jabatan) {
-      return state.programs
-          .where((program) => program.departmentId == user!.departmentId)
-          .map((program) => program.name)
-          .toSet();
-    }
-    return state.scopedTimetable.map((slot) => slot.program).toSet();
+    return departmentProgram?.id ?? 'DED';
   }
 
   String _sampleSection(AppState state) {
@@ -611,7 +612,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return '${user?.programId ?? 'DED'} 1A';
   }
 
-  Lecturer _sampleLecturer(AppState state, String program) {
+  String _roomIdForTemplate(String roomName) {
+    return roomName.replaceAll(RegExp(r'[/\\.]'), '_');
+  }
+
+  Lecturer _sampleLecturer(AppState state, String programId) {
     final scopedLecturer = state.lecturers.where((lecturer) {
       final user = state.currentUser;
       if (user?.role == UserRole.ketua_jabatan) {
@@ -621,11 +626,338 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }).firstOrNull;
     if (scopedLecturer != null) return scopedLecturer;
     return Lecturer(
-      id: 'L_${state.currentUser?.programId ?? 'DED'}',
-      name: 'Pensyarah $program',
-      email: '',
+      id: 'L_$programId',
+      name: 'Pensyarah $programId',
+      email: 'pensyarah_${programId.toLowerCase()}@tvetmara.edu.my',
       department: state.currentUser?.departmentId ?? '',
       subjects: const [],
+    );
+  }
+}
+
+class _TemplateHelper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SelectableText(
+          TimetableCsvTemplate.fullHeader.join(','),
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Color(0xff334155),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            const _InfoPill('CSV sahaja'),
+            const _InfoPill('Excel export sebagai CSV'),
+            const _InfoPill('weekStart/weekEnd: 1-18'),
+            _InfoPill(
+                'dayOfWeek: ${TimetableCsvTemplate.allowedDayOfWeekValues.join(', ')}'),
+            const _InfoPill('time: ${TimetableCsvTemplate.expectedTimeFormat}'),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffcbd5e1)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xff334155)),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewSummary extends StatelessWidget {
+  const _PreviewSummary({required this.result});
+
+  final TimetableMasterValidationResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Ringkasan Pratonton',
+      subtitle: result.canImport
+          ? 'Baris valid dan warning boleh diimport pada Phase 5.'
+          : 'Tiada import dibuat dalam fasa ini.',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _SummaryTile('Total', result.totalRows, const Color(0xff334155)),
+          _SummaryTile('Valid', result.validRows, const Color(0xff166534)),
+          _SummaryTile('Warning', result.warningRows, const Color(0xff92400e)),
+          _SummaryTile(
+              'Duplicate', result.duplicateRows, const Color(0xff7c2d12)),
+          _SummaryTile('Error', result.errorRows, const Color(0xff991b1b)),
+          _SummaryTile(
+              'Importable', result.importableRows, const Color(0xff0f766e)),
+          _SummaryTile('Subject Draft', result.subjectUpsertDraftsCount,
+              const Color(0xff1d4ed8)),
+          _SummaryTile('Class Draft', result.classCreateDraftsCount,
+              const Color(0xff6d28d9)),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryTile extends StatelessWidget {
+  const _SummaryTile(this.label, this.value, this.color);
+
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 128,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$value',
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xff475569)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviewTable extends StatelessWidget {
+  const _PreviewTable({required this.rows});
+
+  final List<TimetablePreviewRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppDataTable(
+      columns: const [
+        DataColumn(label: Text('Row')),
+        DataColumn(label: Text('Program')),
+        DataColumn(label: Text('Class')),
+        DataColumn(label: Text('Kod')),
+        DataColumn(label: Text('Subjek')),
+        DataColumn(label: Text('Pensyarah')),
+        DataColumn(label: Text('Bilik')),
+        DataColumn(label: Text('Hari')),
+        DataColumn(label: Text('Masa')),
+        DataColumn(label: Text('Minggu')),
+        DataColumn(label: Text('Result')),
+        DataColumn(label: Text('Errors / Warnings')),
+      ],
+      rows: rows.map((row) {
+        final source = row.sourceRow.draft;
+        final draft = row.slotDraft;
+        return DataRow(cells: [
+          DataCell(Text('${row.rowNumber}')),
+          DataCell(Text(draft?.programId ?? source?.programId ?? '-')),
+          DataCell(Text(draft?.classId ?? source?.classId ?? '-')),
+          DataCell(Text(draft?.subjectCode ?? source?.subjectCode ?? '-')),
+          DataCell(SizedBox(
+            width: 180,
+            child: Text(draft?.subjectName ?? source?.subjectName ?? '-'),
+          )),
+          DataCell(SizedBox(
+            width: 160,
+            child: Text(draft?.lecturerName ??
+                source?.lecturerName ??
+                source?.lecturerEmail ??
+                '-'),
+          )),
+          DataCell(SizedBox(
+            width: 140,
+            child: Text(
+                draft?.roomName ?? source?.roomName ?? source?.roomId ?? '-'),
+          )),
+          DataCell(Text(draft?.dayOfWeek ?? source?.dayOfWeek ?? '-')),
+          DataCell(Text(
+              '${draft?.startTime ?? source?.startTime ?? '-'}-${draft?.endTime ?? source?.endTime ?? '-'}')),
+          DataCell(Text(draft != null
+              ? '${draft.weekStart}-${draft.weekEnd}'
+              : source != null
+                  ? '${source.weekStart}-${source.weekEnd}'
+                  : '-')),
+          DataCell(_RowStatusChip(row.status)),
+          DataCell(SizedBox(
+            width: 280,
+            child: _RowMessages(errors: row.errors, warnings: row.warnings),
+          )),
+        ]);
+      }).toList(),
+    );
+  }
+}
+
+class _RowStatusChip extends StatelessWidget {
+  const _RowStatusChip(this.status);
+
+  final TimetableImportRowStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      TimetableImportRowStatus.valid => ('Valid', const Color(0xff166534)),
+      TimetableImportRowStatus.warning => ('Warning', const Color(0xff92400e)),
+      TimetableImportRowStatus.duplicate => (
+          'Duplicate',
+          const Color(0xff7c2d12)
+        ),
+      TimetableImportRowStatus.error => ('Error', const Color(0xff991b1b)),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RowMessages extends StatelessWidget {
+  const _RowMessages({required this.errors, required this.warnings});
+
+  final List<String> errors;
+  final List<String> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    if (errors.isEmpty && warnings.isEmpty) {
+      return const Text('-', style: TextStyle(color: Color(0xff64748b)));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final error in errors)
+          Text('Error: $error',
+              style: const TextStyle(color: Color(0xff991b1b), fontSize: 12)),
+        for (final warning in warnings)
+          Text('Warning: $warning',
+              style: const TextStyle(color: Color(0xff92400e), fontSize: 12)),
+      ],
+    );
+  }
+}
+
+class _MessageList extends StatelessWidget {
+  const _MessageList({
+    required this.title,
+    required this.messages,
+    required this.color,
+  });
+
+  final String title;
+  final List<String> messages;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(color: color, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            for (final message in messages)
+              Text(message, style: TextStyle(color: color, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImportSuccessPanel extends StatelessWidget {
+  const _ImportSuccessPanel({required this.result});
+
+  final TimetableImportWriteResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Import Selesai',
+      subtitle: 'Upload ID: ${result.uploadId}',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _SummaryTile(
+              'Slots Created', result.slotsCreated, const Color(0xff166534)),
+          _SummaryTile('Subjects Upserted', result.subjectsUpserted,
+              const Color(0xff1d4ed8)),
+          _SummaryTile('Classes Created', result.classesCreated,
+              const Color(0xff6d28d9)),
+          _SummaryTile('Duplicates Skipped', result.duplicatesSkipped,
+              const Color(0xff7c2d12)),
+          _SummaryTile(
+              'Errors Skipped', result.errorsSkipped, const Color(0xff991b1b)),
+          _SummaryTile(
+              'Total Skipped', result.skippedRows, const Color(0xff475569)),
+        ],
+      ),
     );
   }
 }
@@ -635,31 +967,29 @@ class _TimetableTable extends StatelessWidget {
     required this.slots,
     this.onEdit,
     this.onDelete,
-    this.preview = false,
   });
 
   final List<TimetableSlot> slots;
   final void Function(TimetableSlot slot)? onEdit;
   final void Function(TimetableSlot slot)? onDelete;
-  final bool preview;
 
   @override
   Widget build(BuildContext context) {
     return AppDataTable(
-      columns: [
-        const DataColumn(label: Text('Kod')),
-        const DataColumn(label: Text('Subjek')),
-        const DataColumn(label: Text('Kelas')),
-        const DataColumn(label: Text('Program')),
-        const DataColumn(label: Text('Sesi')),
-        const DataColumn(label: Text('Hari')),
-        const DataColumn(label: Text('Tarikh')),
-        const DataColumn(label: Text('Masa')),
-        const DataColumn(label: Text('Bilik')),
-        const DataColumn(label: Text('Kapasiti')),
-        const DataColumn(label: Text('Jenis')),
-        const DataColumn(label: Text('Status')),
-        if (!preview) const DataColumn(label: Text('Tindakan')),
+      columns: const [
+        DataColumn(label: Text('Kod')),
+        DataColumn(label: Text('Subjek')),
+        DataColumn(label: Text('Kelas')),
+        DataColumn(label: Text('Program')),
+        DataColumn(label: Text('Sesi')),
+        DataColumn(label: Text('Hari')),
+        DataColumn(label: Text('Tarikh')),
+        DataColumn(label: Text('Masa')),
+        DataColumn(label: Text('Bilik')),
+        DataColumn(label: Text('Kapasiti')),
+        DataColumn(label: Text('Jenis')),
+        DataColumn(label: Text('Status')),
+        DataColumn(label: Text('Tindakan')),
       ],
       rows: slots.map((slot) {
         return DataRow(cells: [
@@ -675,22 +1005,21 @@ class _TimetableTable extends StatelessWidget {
           DataCell(Text('${slot.enrolled}/${slot.capacity}')),
           DataCell(StatusChip(slot.slotType)),
           DataCell(StatusChip(slot.status)),
-          if (!preview)
-            DataCell(Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Kemas kini',
-                  onPressed: onEdit == null ? null : () => onEdit!(slot),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Padam',
-                  onPressed: onDelete == null ? null : () => onDelete!(slot),
-                  icon: const Icon(Icons.delete_outline),
-                ),
-              ],
-            )),
+          DataCell(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Kemas kini',
+                onPressed: onEdit == null ? null : () => onEdit!(slot),
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              IconButton(
+                tooltip: 'Padam',
+                onPressed: onDelete == null ? null : () => onDelete!(slot),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          )),
         ]);
       }).toList(),
     );
