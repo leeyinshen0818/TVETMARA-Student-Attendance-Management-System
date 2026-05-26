@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../data/mock_data.dart' as mock;
+import '../data/subject_seed_data.dart' as subject_seed;
 import '../models/app_models.dart';
 import '../services/firestore_service.dart';
 
@@ -28,6 +29,8 @@ Future<bool> seedFirestore() async {
     'bookings',
     'departments',
     'programs',
+    'academic_sessions',
+    'subjects',
     'attendance_records'
   ];
   for (final col in cols) {
@@ -144,6 +147,7 @@ Future<bool> seedFirestore() async {
   await fs.seedStudents(mock.students);
   await fs.seedLecturers(seededLecturers);
   await fs.seedRooms(mock.roomResources);
+  await fs.seedSubjects(subject_seed.subjectSeedData);
   await fs.seedTimetable(seededTimetable);
   await fs.seedDisciplineReports(mock.disciplineReports);
   await fs.seedBookings(seededBookings);

@@ -14,8 +14,7 @@ class PickedTextFile {
 }
 
 Future<PickedTextFile?> pickTimetableFile() async {
-  final input = html.FileUploadInputElement()
-    ..accept = '.csv,.tsv,.txt,.xls,.xlsx';
+  final input = html.FileUploadInputElement()..accept = '.csv,text/csv';
   input.click();
 
   final change = await input.onChange.first;

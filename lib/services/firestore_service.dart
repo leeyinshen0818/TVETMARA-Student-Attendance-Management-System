@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/firestore_constants.dart';
+import '../core/constants/timetable_template.dart';
 import '../data/mock_data.dart' as mock;
 import '../models/app_models.dart';
 
@@ -39,6 +40,10 @@ class FirestoreService {
       _db.collection(FirestoreCollections.departments);
   CollectionReference<Map<String, dynamic>> get _programsCol =>
       _db.collection(FirestoreCollections.programs);
+  CollectionReference<Map<String, dynamic>> get _academicSessionsCol =>
+      _db.collection(FirestoreCollections.academicSessions);
+  CollectionReference<Map<String, dynamic>> get _subjectsCol =>
+      _db.collection(FirestoreCollections.subjects);
 
   // ---------------------------------------------------------------------------
   // Account Registration
@@ -120,9 +125,8 @@ class FirestoreService {
   }
 
   Future<void> updateTimetableSlot(TimetableSlot slot) async {
-    await _timetableCol
-        .doc(slot.id)
-        .set(_slotToMap(slot), SetOptions(merge: true));
+    await _timetableCol.doc(slot.id).set(
+        _slotToMap(slot, includeCreatedAt: false), SetOptions(merge: true));
   }
 
   Future<void> deleteTimetableSlot(String slotId) async {
@@ -535,6 +539,7 @@ class FirestoreService {
       for (final r in chunk) {
         final docId = r.name.replaceAll(RegExp(r'[/\\.]'), '_');
         batch.set(_roomsCol.doc(docId), {
+          'roomId': docId,
           'name': r.name,
           'block': r.block,
           'type': r.type,
@@ -610,6 +615,39 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> seedAcademicSessions() async {
+    await _academicSessionsCol
+        .doc(TimetableCsvTemplate.defaultAcademicSessionId)
+        .set({
+      'academicSessionId': TimetableCsvTemplate.defaultAcademicSessionId,
+      'name': TimetableCsvTemplate.defaultAcademicSessionName,
+      'isActive': true,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> seedSubjects(List<SubjectCourse> subjects) async {
+    for (var i = 0; i < subjects.length; i += 400) {
+      final batch = _db.batch();
+      final chunk = subjects.sublist(
+          i, i + 400 > subjects.length ? subjects.length : i + 400);
+      for (final subject in chunk) {
+        batch.set(_subjectsCol.doc(subject.subjectId), {
+          'subjectId': subject.subjectId,
+          'programId': subject.programId,
+          'subjectCode': subject.subjectCode,
+          'subjectName': subject.subjectName,
+          'academicSessionId': TimetableCsvTemplate.defaultAcademicSessionId,
+          'isActive': true,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> migrateOldUsers() async {
     final snap = await _usersCol.get();
     final batch = _db.batch();
@@ -655,6 +693,7 @@ class FirestoreService {
     ];
 
     await seedHierarchy(depts, mock.programs);
+    await seedAcademicSessions();
   }
 
   // ---------------------------------------------------------------------------
@@ -717,26 +756,52 @@ class FirestoreService {
 
   TimetableSlot _docToSlot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
+    final timetableSlotId = d['timetableSlotId'] as String? ?? doc.id;
+    final academicSessionId =
+        d['academicSessionId'] as String? ?? d['session'] as String?;
+    final programId = d['programId'] as String? ?? d['program'] as String?;
+    final classId = d['classId'] as String? ?? d['section'] as String?;
+    final roomId = d['roomId'] as String? ?? d['room'] as String?;
+    final roomName = d['roomName'] as String? ?? d['room'] as String?;
+    final dayOfWeek = d['dayOfWeek'] as String? ?? d['day'] as String?;
+    final weekStart = d['weekStart'] as String? ?? d['date'] as String?;
+    final weekEnd = d['weekEnd'] as String? ?? d['date'] as String?;
+
     return TimetableSlot(
       id: doc.id,
-      session: d['session'] as String,
-      semester: d['semester'] as int,
-      program: d['program'] as String,
-      section: d['section'] as String,
-      subjectCode: d['subjectCode'] as String,
-      subjectName: d['subjectName'] as String,
-      lecturerId: d['lecturerId'] as String,
-      lecturerName: d['lecturerName'] as String,
-      day: d['day'] as String,
-      date: d['date'] as String,
-      startTime: d['startTime'] as String,
-      endTime: d['endTime'] as String,
-      room: d['room'] as String,
-      enrolled: d['enrolled'] as int,
-      capacity: d['capacity'] as int,
-      classType: d['classType'] as String,
-      slotType: d['slotType'] as String,
-      status: d['status'] as String,
+      timetableSlotId: timetableSlotId,
+      academicSessionId: academicSessionId,
+      programId: programId,
+      departmentId: d['departmentId'] as String?,
+      classId: classId,
+      subjectId: d['subjectId'] as String?,
+      session: academicSessionId ?? '',
+      semester: d['semester'] as int? ?? 1,
+      program: d['program'] as String? ?? programId ?? '',
+      section: d['section'] as String? ?? classId ?? '',
+      subjectCode: d['subjectCode'] as String? ?? '',
+      subjectName: d['subjectName'] as String? ?? '',
+      lecturerId: d['lecturerId'] as String? ?? '',
+      lecturerName: d['lecturerName'] as String? ?? '',
+      roomId: roomId,
+      roomName: roomName,
+      day: d['day'] as String? ?? dayOfWeek ?? '',
+      date: d['date'] as String? ?? weekStart ?? '',
+      dayOfWeek: dayOfWeek,
+      startTime: d['startTime'] as String? ?? '',
+      endTime: d['endTime'] as String? ?? '',
+      weekStart: weekStart,
+      weekEnd: weekEnd,
+      room: d['room'] as String? ?? roomName ?? roomId ?? '',
+      enrolled: d['enrolled'] as int? ?? 0,
+      capacity: d['capacity'] as int? ?? 0,
+      classType: d['classType'] as String? ?? '',
+      slotType: d['slotType'] as String? ?? 'Kelas Biasa',
+      status: d['status'] as String? ?? 'draft',
+      sourceUploadId: d['sourceUploadId'] as String?,
+      createdBy: d['createdBy'] as String?,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
     );
   }
 
@@ -874,26 +939,55 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // Model → Map converters
   // ---------------------------------------------------------------------------
-  Map<String, dynamic> _slotToMap(TimetableSlot slot) => {
-        'session': slot.session,
-        'semester': slot.semester,
-        'program': slot.program,
-        'section': slot.section,
-        'subjectCode': slot.subjectCode,
-        'subjectName': slot.subjectName,
-        'lecturerId': slot.lecturerId,
-        'lecturerName': slot.lecturerName,
-        'day': slot.day,
-        'date': slot.date,
-        'startTime': slot.startTime,
-        'endTime': slot.endTime,
-        'room': slot.room,
-        'enrolled': slot.enrolled,
-        'capacity': slot.capacity,
-        'classType': slot.classType,
-        'slotType': slot.slotType,
-        'status': slot.status,
-      };
+  Map<String, dynamic> _slotToMap(
+    TimetableSlot slot, {
+    bool includeCreatedAt = true,
+  }) {
+    final data = <String, dynamic>{
+      'timetableSlotId': slot.timetableSlotId,
+      'academicSessionId': slot.academicSessionId ?? slot.session,
+      'programId': slot.programId ?? slot.program,
+      'departmentId': slot.departmentId,
+      'classId': slot.classId ?? slot.section,
+      'subjectId': slot.subjectId,
+      'subjectCode': slot.subjectCode,
+      'subjectName': slot.subjectName,
+      'lecturerId': slot.lecturerId,
+      'lecturerName': slot.lecturerName,
+      'roomId': slot.roomId ?? slot.room,
+      'roomName': slot.roomName ?? slot.room,
+      'dayOfWeek': slot.dayOfWeek ?? slot.day,
+      'startTime': slot.startTime,
+      'endTime': slot.endTime,
+      'weekStart': slot.weekStart ?? slot.date,
+      'weekEnd': slot.weekEnd ?? slot.date,
+      'status': slot.status,
+      'sourceUploadId': slot.sourceUploadId,
+      'createdBy': slot.createdBy,
+      'updatedAt': FieldValue.serverTimestamp(),
+
+      // Temporary display aliases for existing timetable, attendance,
+      // booking, discipline, and reporting screens. Remove only after those
+      // modules read normalized timetable fields.
+      'session': slot.session,
+      'semester': slot.semester,
+      'program': slot.program,
+      'section': slot.section,
+      'day': slot.day,
+      'date': slot.date,
+      'room': slot.room,
+      'enrolled': slot.enrolled,
+      'capacity': slot.capacity,
+      'classType': slot.classType,
+      'slotType': slot.slotType,
+    };
+    if (includeCreatedAt) {
+      data['createdAt'] = slot.createdAt ?? FieldValue.serverTimestamp();
+    } else if (slot.createdAt != null) {
+      data['createdAt'] = slot.createdAt;
+    }
+    return data;
+  }
 
   Map<String, dynamic> _attendanceSessionToMap(
     AttendanceSession session, {

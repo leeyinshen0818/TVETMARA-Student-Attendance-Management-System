@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/constants/timetable_template.dart';
 import '../models/app_models.dart';
 import '../services/firestore_service.dart';
 import '../state/app_scope.dart';
@@ -15,7 +16,8 @@ class AddTimetableScreen extends StatefulWidget {
 class _AddTimetableScreenState extends State<AddTimetableScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _sessionCtrl = TextEditingController(text: 'Jan - Jun 2026');
+  final _sessionCtrl = TextEditingController(
+      text: TimetableCsvTemplate.defaultAcademicSessionId);
   final _semesterCtrl = TextEditingController(text: '1');
   final _sectionCtrl = TextEditingController(text: 'A');
   final _subjectCodeCtrl = TextEditingController();
