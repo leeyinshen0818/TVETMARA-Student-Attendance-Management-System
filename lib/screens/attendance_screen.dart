@@ -14,6 +14,8 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   String? slotId;
+  String? sessionDate;
+  int weekNo = 1;
   var records = <AttendanceRecord>[];
   String? loadedSlotId;
 
@@ -38,10 +40,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final slots = state.scopedTimetable;
     final slot = slots.where((item) => item.id == slotId).firstOrNull;
     if (slot == null) return const Text('Tiada slot jadual ditetapkan.');
+    sessionDate ??= slot.date;
     if (loadedSlotId != slot.id) {
       records =
           List.of(state.attendance[slot.id] ?? _defaultRecords(slot, state));
       loadedSlotId = slot.id;
+      sessionDate = slot.date;
     }
     final students = state.students
         .where((student) => student.section == slot.section)
@@ -61,26 +65,74 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           subtitle:
               '${slot.section} | ${slot.date} | ${slot.startTime}-${slot.endTime} | ${slot.room}',
           trailing: FilledButton.icon(
-            onPressed: () {
-              state.saveAttendance(slot.id, records);
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Kehadiran telah dihantar.')));
+            onPressed: () async {
+              try {
+                await state.saveAttendance(
+                  slot.id,
+                  records,
+                  sessionDate: sessionDate ?? slot.date,
+                  weekNo: weekNo,
+                );
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Kehadiran telah dihantar.')));
+              } catch (_) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text(
+                      'Kehadiran untuk slot, tarikh dan minggu ini sudah wujud.'),
+                ));
+              }
             },
             icon: const Icon(Icons.send),
             label: const Text('Hantar'),
           ),
-          child: DropdownButtonFormField<String>(
-            initialValue: slot.id,
-            decoration: const InputDecoration(labelText: 'Sesi Kelas'),
-            items: slots
-                .map((item) => DropdownMenuItem(
-                    value: item.id,
-                    child: Text('${item.subjectCode} - ${item.section}')))
-                .toList(),
-            onChanged: (value) => setState(() {
-              slotId = value;
-              loadedSlotId = null;
-            }),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: DropdownButtonFormField<String>(
+                  initialValue: slot.id,
+                  decoration: const InputDecoration(labelText: 'Sesi Kelas'),
+                  items: slots
+                      .map((item) => DropdownMenuItem(
+                          value: item.id,
+                          child: Text('${item.subjectCode} - ${item.section}')))
+                      .toList(),
+                  onChanged: (value) => setState(() {
+                    slotId = value;
+                    loadedSlotId = null;
+                    sessionDate = null;
+                  }),
+                ),
+              ),
+              SizedBox(
+                width: 190,
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickSessionDate(slot),
+                  icon: const Icon(Icons.event),
+                  label: Text(sessionDate ?? slot.date),
+                ),
+              ),
+              SizedBox(
+                width: 150,
+                child: DropdownButtonFormField<int>(
+                  initialValue: weekNo,
+                  decoration: const InputDecoration(labelText: 'Minggu'),
+                  items: List.generate(18, (index) => index + 1)
+                      .map((week) => DropdownMenuItem(
+                          value: week, child: Text('Minggu $week')))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => weekNo = value);
+                  },
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -142,8 +194,52 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             }).toList(),
           ),
         ),
+        const SizedBox(height: 16),
+        AppPanel(
+          title: 'Paparan 18 Minggu',
+          subtitle:
+              'Ringkasan mingguan untuk pelajar dalam kelas yang dipilih.',
+          child: AppDataTable(
+            columns: [
+              const DataColumn(label: Text('ID Pelajar')),
+              const DataColumn(label: Text('Nama')),
+              for (var week = 1; week <= 18; week++)
+                DataColumn(label: Text('M$week')),
+            ],
+            rows: students.map((student) {
+              final weekly = state.weeklyAttendanceForStudent(student);
+              return DataRow(cells: [
+                DataCell(Text(student.id)),
+                DataCell(Text(student.name)),
+                for (final summary in weekly)
+                  DataCell(Text(summary.denominator == 0 &&
+                          summary.mc == 0 &&
+                          summary.ck == 0
+                      ? '-'
+                      : '${summary.percentage}%')),
+              ]);
+            }).toList(),
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _pickSessionDate(TimetableSlot slot) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _dateFromText(sessionDate ?? slot.date),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (selected == null) return;
+    setState(() {
+      sessionDate = selected.toIso8601String().substring(0, 10);
+    });
+  }
+
+  DateTime _dateFromText(String value) {
+    return DateTime.tryParse(value) ?? DateTime.now();
   }
 }
 

@@ -27,6 +27,8 @@ class FirestoreService {
       _db.collection(FirestoreCollections.rooms);
   CollectionReference<Map<String, dynamic>> get _timetableCol =>
       _db.collection(FirestoreCollections.timetableSlots);
+  CollectionReference<Map<String, dynamic>> get _attendanceSessionsCol =>
+      _db.collection(FirestoreCollections.attendanceSessions);
   CollectionReference<Map<String, dynamic>> get _attendanceCol =>
       _db.collection(FirestoreCollections.attendanceRecords);
   CollectionReference<Map<String, dynamic>> get _disciplineCol =>
@@ -153,6 +155,173 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // Attendance
   // ---------------------------------------------------------------------------
+  String attendanceSessionIdFor({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+  }) {
+    return '${_safeDocSegment(slotId)}_${_safeDocSegment(sessionDate)}_W$weekNo';
+  }
+
+  String attendanceDuplicateKey({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+  }) {
+    return '$slotId|$sessionDate|$weekNo';
+  }
+
+  Future<AttendanceSession?> getAttendanceSessionById(String sessionId) async {
+    final snap = await _attendanceSessionsCol.doc(sessionId).get();
+    if (!snap.exists) return null;
+    return _docToAttendanceSession(snap);
+  }
+
+  Future<AttendanceSession?> getAttendanceSessionForSlotDateWeek({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+  }) async {
+    final sessionId = attendanceSessionIdFor(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    return getAttendanceSessionById(sessionId);
+  }
+
+  Future<void> saveAttendanceSessionWithRecords({
+    required AttendanceSession session,
+    required List<AttendanceRecord> records,
+    bool preventOverwrite = false,
+  }) async {
+    final expectedId = attendanceSessionIdFor(
+      slotId: session.slotId,
+      sessionDate: session.sessionDate,
+      weekNo: session.weekNo,
+    );
+    final sessionId = session.id == expectedId ? session.id : expectedId;
+    final sessionRef = _attendanceSessionsCol.doc(sessionId);
+
+    await _db.runTransaction((transaction) async {
+      final existing = await transaction.get(sessionRef);
+      if (preventOverwrite && existing.exists) {
+        throw StateError(
+            'Attendance session already exists for this slot, date, and week.');
+      }
+
+      final recordWrites = <_AttendanceRecordWrite>[];
+      for (final record in records) {
+        final recordId =
+            record.id ?? '${_safeDocSegment(sessionId)}_${record.studentId}';
+        final ref = _attendanceCol.doc(recordId);
+        final existingRecord = await transaction.get(ref);
+        final enriched = record.copyWith(
+          id: recordId,
+          sessionId: sessionId,
+          slotId: session.slotId,
+          programId: record.programId ?? session.programId,
+          programName: record.programName ?? session.programName,
+          departmentId: record.departmentId ?? session.departmentId,
+          section: record.section ?? session.section,
+          weekNo: record.weekNo ?? session.weekNo,
+          sessionDate: record.sessionDate ?? session.sessionDate,
+          createdBy: record.createdBy ?? session.createdBy,
+        );
+        recordWrites.add(_AttendanceRecordWrite(
+          ref: ref,
+          record: enriched,
+          exists: existingRecord.exists,
+        ));
+      }
+
+      transaction.set(
+        sessionRef,
+        _attendanceSessionToMap(
+          session,
+          id: sessionId,
+          existing: existing.exists,
+        ),
+        SetOptions(merge: true),
+      );
+
+      for (final write in recordWrites) {
+        transaction.set(
+          write.ref,
+          _attendanceRecordToMap(write.record, existing: write.exists),
+          SetOptions(merge: true),
+        );
+      }
+    });
+  }
+
+  Future<void> saveAttendanceSession(
+    AttendanceSession session, {
+    bool preventOverwrite = false,
+  }) async {
+    final sessionId = attendanceSessionIdFor(
+      slotId: session.slotId,
+      sessionDate: session.sessionDate,
+      weekNo: session.weekNo,
+    );
+    final sessionRef = _attendanceSessionsCol.doc(sessionId);
+
+    await _db.runTransaction((transaction) async {
+      final existing = await transaction.get(sessionRef);
+      if (preventOverwrite && existing.exists) {
+        throw StateError(
+            'Attendance session already exists for this slot, date, and week.');
+      }
+      transaction.set(
+        sessionRef,
+        _attendanceSessionToMap(
+          session,
+          id: sessionId,
+          existing: existing.exists,
+        ),
+        SetOptions(merge: true),
+      );
+    });
+  }
+
+  Future<List<AttendanceRecord>> getAttendanceRecordsForSession(
+      String sessionId) async {
+    final snap =
+        await _attendanceCol.where('sessionId', isEqualTo: sessionId).get();
+    return snap.docs.map(_docToAttendanceRecord).toList();
+  }
+
+  Future<List<AttendanceSession>> getAttendanceSessionsForSlot(
+      String slotId) async {
+    final snap = await _attendanceSessionsCol
+        .where('slotId', isEqualTo: slotId)
+        .orderBy('weekNo')
+        .get();
+    return snap.docs.map(_docToAttendanceSession).toList();
+  }
+
+  Future<List<AttendanceSession>> getAttendanceSessions() async {
+    final snap = await _attendanceSessionsCol.get();
+    return snap.docs.map(_docToAttendanceSession).toList();
+  }
+
+  Future<Map<String, List<AttendanceRecord>>>
+      getAllSessionAttendanceRecords() async {
+    final snap = await _attendanceCol.get();
+    final result = <String, List<AttendanceRecord>>{};
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      if (!data.containsKey('sessionId') || !data.containsKey('status')) {
+        continue;
+      }
+      final record = _docToAttendanceRecord(doc);
+      final sessionId = record.sessionId;
+      if (sessionId == null || sessionId.isEmpty) continue;
+      result.putIfAbsent(sessionId, () => []).add(record);
+    }
+    return result;
+  }
+
   Future<Map<String, List<AttendanceRecord>>> getAllAttendance() async {
     final snap = await _attendanceCol.get();
     final result = <String, List<AttendanceRecord>>{};
@@ -193,6 +362,63 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
   // Discipline reports
   // ---------------------------------------------------------------------------
+  Future<List<String>> reviewerIdsForProgram({
+    required String programId,
+    String? departmentId,
+  }) async {
+    final reviewers = await reviewerRoutingForProgram(
+      programId: programId,
+      departmentId: departmentId,
+    );
+    return reviewers.map((user) => user.uid).toList();
+  }
+
+  Future<List<AppUser>> reviewerRoutingForProgram({
+    required String programId,
+    String? departmentId,
+  }) async {
+    final users = await getUsers();
+    final reviewers = <AppUser>[];
+
+    reviewers.addAll(users.where(
+      (user) =>
+          user.role == UserRole.ketua_program &&
+          user.programId == programId &&
+          user.isActive,
+    ));
+
+    if (departmentId != null && departmentId.isNotEmpty) {
+      reviewers.addAll(users.where(
+        (user) =>
+            user.role == UserRole.ketua_jabatan &&
+            user.departmentId == departmentId &&
+            user.isActive,
+      ));
+    }
+
+    final unique = <String, AppUser>{};
+    for (final reviewer in reviewers) {
+      unique[reviewer.uid] = reviewer;
+    }
+    return unique.values.toList();
+  }
+
+  Future<DisciplineReport> prepareDisciplineReportRouting(
+      DisciplineReport report) async {
+    final programId = report.programId;
+    if (programId == null || programId.isEmpty) return report;
+
+    final reviewers = await reviewerRoutingForProgram(
+      programId: programId,
+      departmentId: report.departmentId,
+    );
+    return report.copyWith(
+      assignedReviewerIds: reviewers.map((user) => user.uid).toList(),
+      assignedReviewerRoles:
+          reviewers.map((user) => user.role.firestoreValue).toSet().toList(),
+    );
+  }
+
   Future<List<DisciplineReport>> getDisciplineReports() async {
     final snap = await _disciplineCol.orderBy('date', descending: true).get();
     return snap.docs.map(_docToReport).toList();
@@ -206,23 +432,17 @@ class FirestoreService {
   }
 
   Future<void> addDisciplineReport(DisciplineReport report) async {
-    await _disciplineCol.doc(report.id).set({
-      'studentId': report.studentId,
-      'studentName': report.studentName,
-      'section': report.section,
-      'subject': report.subject,
-      'lecturer': report.lecturer,
-      'date': report.date,
-      'issueType': report.issueType,
-      'severity': report.severity,
-      'description': report.description,
-      'followUp': report.followUp,
-      'status': report.status,
-    });
+    final routed = await prepareDisciplineReportRouting(report);
+    await _disciplineCol
+        .doc(routed.id)
+        .set(_disciplineReportToMap(routed, existing: false));
   }
 
   Future<void> updateDisciplineStatus(String id, String status) async {
-    await _disciplineCol.doc(id).update({'status': status});
+    await _disciplineCol.doc(id).update({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -532,21 +752,102 @@ class FirestoreService {
     );
   }
 
+  AttendanceSession _docToAttendanceSession(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return AttendanceSession(
+      id: d['id'] as String? ?? doc.id,
+      slotId: d['slotId'] as String? ?? '',
+      sessionDate: d['sessionDate'] as String? ?? '',
+      weekNo: d['weekNo'] as int? ?? 0,
+      academicSession: d['academicSession'] as String? ?? '',
+      semester: d['semester'] as int? ?? 0,
+      programId: d['programId'] as String? ?? '',
+      programName: d['programName'] as String? ?? d['program'] as String? ?? '',
+      departmentId: d['departmentId'] as String?,
+      section: d['section'] as String? ?? '',
+      subjectCode: d['subjectCode'] as String? ?? '',
+      subjectName: d['subjectName'] as String? ?? '',
+      lecturerId: d['lecturerId'] as String? ?? '',
+      lecturerName: d['lecturerName'] as String? ?? '',
+      status: d['status'] as String? ?? 'submitted',
+      totalStudents: d['totalStudents'] as int? ?? 0,
+      presentCount: d['presentCount'] as int? ?? 0,
+      lateCount: d['lateCount'] as int? ?? 0,
+      absentCount: d['absentCount'] as int? ?? 0,
+      mcCount: d['mcCount'] as int? ?? 0,
+      ckCount: d['ckCount'] as int? ?? 0,
+      attendancePercentage: d['attendancePercentage'] as int? ?? 100,
+      duplicateKey: d['duplicateKey'] as String? ??
+          attendanceDuplicateKey(
+            slotId: d['slotId'] as String? ?? '',
+            sessionDate: d['sessionDate'] as String? ?? '',
+            weekNo: d['weekNo'] as int? ?? 0,
+          ),
+      createdBy: d['createdBy'] as String? ?? '',
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
+      submittedAt: _readTimestamp(d['submittedAt']),
+    );
+  }
+
+  AttendanceRecord _docToAttendanceRecord(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return AttendanceRecord(
+      id: d['id'] as String? ?? doc.id,
+      sessionId: d['sessionId'] as String?,
+      slotId: d['slotId'] as String? ?? '',
+      studentId: d['studentId'] as String? ?? doc.id,
+      studentName: d['studentName'] as String?,
+      programId: d['programId'] as String?,
+      programName: d['programName'] as String?,
+      departmentId: d['departmentId'] as String?,
+      section: d['section'] as String?,
+      weekNo: d['weekNo'] as int?,
+      sessionDate: d['sessionDate'] as String?,
+      status: AttendanceStatus.values.byName(d['status'] as String),
+      checkIn: d['checkIn'] as String? ?? '',
+      remarks: d['remarks'] as String? ?? d['remark'] as String? ?? '',
+      createdBy: d['createdBy'] as String?,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
+    );
+  }
+
   DisciplineReport _docToReport(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     return DisciplineReport(
       id: doc.id,
       studentId: d['studentId'] as String,
       studentName: d['studentName'] as String,
+      programId: d['programId'] as String?,
+      programName: d['programName'] as String?,
+      departmentId: d['departmentId'] as String?,
       section: d['section'] as String,
       subject: d['subject'] as String,
+      subjectCode: d['subjectCode'] as String?,
+      subjectName: d['subjectName'] as String?,
+      slotId: d['slotId'] as String?,
       lecturer: d['lecturer'] as String,
+      createdBy: d['createdBy'] as String?,
+      createdByName: d['createdByName'] as String?,
+      assignedReviewerIds:
+          List<String>.from(d['assignedReviewerIds'] as List? ?? const []),
+      assignedReviewerRoles:
+          List<String>.from(d['assignedReviewerRoles'] as List? ?? const []),
       date: d['date'] as String,
       issueType: d['issueType'] as String,
       severity: d['severity'] as String,
       description: d['description'] as String,
       followUp: d['followUp'] as bool,
       status: d['status'] as String,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
+      reviewedAt: _readTimestamp(d['reviewedAt']),
+      reviewedBy: d['reviewedBy'] as String?,
+      actionTakenAt: _readTimestamp(d['actionTakenAt']),
+      closedAt: _readTimestamp(d['closedAt']),
     );
   }
 
@@ -594,6 +895,107 @@ class FirestoreService {
         'status': slot.status,
       };
 
+  Map<String, dynamic> _attendanceSessionToMap(
+    AttendanceSession session, {
+    required String id,
+    required bool existing,
+  }) =>
+      {
+        'id': id,
+        'slotId': session.slotId,
+        'sessionDate': session.sessionDate,
+        'weekNo': session.weekNo,
+        'academicSession': session.academicSession,
+        'semester': session.semester,
+        'programId': session.programId,
+        'programName': session.programName,
+        'departmentId': session.departmentId,
+        'section': session.section,
+        'subjectCode': session.subjectCode,
+        'subjectName': session.subjectName,
+        'lecturerId': session.lecturerId,
+        'lecturerName': session.lecturerName,
+        'status': session.status,
+        'totalStudents': session.totalStudents,
+        'presentCount': session.presentCount,
+        'lateCount': session.lateCount,
+        'absentCount': session.absentCount,
+        'mcCount': session.mcCount,
+        'ckCount': session.ckCount,
+        'attendancePercentage': session.attendancePercentage,
+        'duplicateKey': attendanceDuplicateKey(
+          slotId: session.slotId,
+          sessionDate: session.sessionDate,
+          weekNo: session.weekNo,
+        ),
+        'createdBy': session.createdBy,
+        if (!existing) 'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (session.submittedAt != null) 'submittedAt': session.submittedAt,
+      };
+
+  Map<String, dynamic> _attendanceRecordToMap(
+    AttendanceRecord record, {
+    required bool existing,
+  }) =>
+      {
+        'id': record.id,
+        'sessionId': record.sessionId,
+        'slotId': record.slotId,
+        'studentId': record.studentId,
+        'studentName': record.studentName,
+        'programId': record.programId,
+        'programName': record.programName,
+        'departmentId': record.departmentId,
+        'section': record.section,
+        'weekNo': record.weekNo,
+        'sessionDate': record.sessionDate,
+        'status': record.status.name,
+        'checkIn': record.checkIn,
+        'remarks': record.remarks,
+        'remark': record.remarks,
+        'countsAsAttended': record.countsAsAttended,
+        'countsInDenominator': record.countsInDenominator,
+        'isExempt': record.isExempt,
+        'createdBy': record.createdBy,
+        if (!existing) 'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+  Map<String, dynamic> _disciplineReportToMap(
+    DisciplineReport report, {
+    required bool existing,
+  }) =>
+      {
+        'studentId': report.studentId,
+        'studentName': report.studentName,
+        'programId': report.programId,
+        'programName': report.programName,
+        'departmentId': report.departmentId,
+        'section': report.section,
+        'subject': report.subject,
+        'subjectCode': report.subjectCode,
+        'subjectName': report.subjectName,
+        'slotId': report.slotId,
+        'lecturer': report.lecturer,
+        'createdBy': report.createdBy,
+        'createdByName': report.createdByName,
+        'assignedReviewerIds': report.assignedReviewerIds,
+        'assignedReviewerRoles': report.assignedReviewerRoles,
+        'date': report.date,
+        'issueType': report.issueType,
+        'severity': report.severity,
+        'description': report.description,
+        'followUp': report.followUp,
+        'status': report.status,
+        if (!existing) 'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (report.reviewedAt != null) 'reviewedAt': report.reviewedAt,
+        if (report.reviewedBy != null) 'reviewedBy': report.reviewedBy,
+        if (report.actionTakenAt != null) 'actionTakenAt': report.actionTakenAt,
+        if (report.closedAt != null) 'closedAt': report.closedAt,
+      };
+
   Map<String, dynamic> _userToMap(AppUser user) => {
         UserFields.uid: user.uid,
         UserFields.name: user.name,
@@ -617,4 +1019,20 @@ class FirestoreService {
     }
     return value as String?;
   }
+
+  String _safeDocSegment(String value) {
+    return value.replaceAll(RegExp(r'[/\\\s]+'), '_');
+  }
+}
+
+class _AttendanceRecordWrite {
+  const _AttendanceRecordWrite({
+    required this.ref,
+    required this.record,
+    required this.exists,
+  });
+
+  final DocumentReference<Map<String, dynamic>> ref;
+  final AttendanceRecord record;
+  final bool exists;
 }

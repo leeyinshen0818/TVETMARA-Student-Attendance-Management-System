@@ -12,9 +12,11 @@ class AppState extends ChangeNotifier {
   List<Lecturer> lecturers = [];
   List<RoomResource> roomResources = [];
   List<TimetableSlot> timetable = [];
+  List<AttendanceSession> attendanceSessions = [];
   List<DisciplineReport> disciplineReports = [];
   List<BookingRequest> bookings = [];
   final attendance = <String, List<AttendanceRecord>>{};
+  final sessionAttendance = <String, List<AttendanceRecord>>{};
 
   List<ProgramCode> programs = [];
   List<Department> departments = [];
@@ -54,6 +56,8 @@ class AppState extends ChangeNotifier {
         _fs.getAllAttendance(),
         _fs.getPrograms(),
         _fs.getDepartments(),
+        _fs.getAttendanceSessions(),
+        _fs.getAllSessionAttendanceRecords(),
       ]);
 
       users = results[0] as List<AppUser>;
@@ -71,6 +75,13 @@ class AppState extends ChangeNotifier {
 
       programs = results[8] as List<ProgramCode>;
       departments = results[9] as List<Department>;
+      attendanceSessions = results[10] as List<AttendanceSession>;
+
+      final sessionAttendanceMap =
+          results[11] as Map<String, List<AttendanceRecord>>;
+      sessionAttendance
+        ..clear()
+        ..addAll(sessionAttendanceMap);
     } catch (e) {
       _error = e.toString();
       debugPrint('=== ERROR LOADING DATA ===');
@@ -266,18 +277,47 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> saveAttendance(
-      String slotId, List<AttendanceRecord> records) async {
-    attendance[slotId] = records;
+    String slotId,
+    List<AttendanceRecord> records, {
+    String? sessionDate,
+    int? weekNo,
+  }) async {
     final index = timetable.indexWhere((slot) => slot.id == slotId);
+    final slot = index == -1 ? null : timetable[index];
+
+    if (slot != null) {
+      final session = _buildAttendanceSession(
+        slot,
+        records,
+        sessionDate: sessionDate,
+        weekNo: weekNo,
+      );
+      final enrichedRecords = records
+          .map((record) => _buildAttendanceRecord(
+                record: record,
+                slot: slot,
+                session: session,
+              ))
+          .toList();
+
+      await _fs.saveAttendanceSessionWithRecords(
+        session: session,
+        records: enrichedRecords,
+        preventOverwrite: true,
+      );
+      _upsertAttendanceSession(session, enrichedRecords);
+    }
+
+    // Keep the legacy write path for screens/reports still reading old data.
+    await _fs.saveAttendance(slotId, records);
+    await _fs.updateSlotStatus(slotId, 'Attendance Completed');
+
+    attendance[slotId] = records;
     if (index != -1) {
       timetable[index] =
           timetable[index].copyWith(status: 'Attendance Completed');
     }
     notifyListeners();
-
-    // Persist to Firestore
-    await _fs.saveAttendance(slotId, records);
-    await _fs.updateSlotStatus(slotId, 'Attendance Completed');
   }
 
   Future<void> upsertTimetableSlot(TimetableSlot slot) async {
@@ -314,9 +354,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addDiscipline(DisciplineReport report) async {
-    disciplineReports.insert(0, report);
+    final enriched = _buildDisciplineReport(report);
+    final routed = await _fs.prepareDisciplineReportRouting(enriched);
+    disciplineReports.insert(0, routed);
     notifyListeners();
-    await _fs.addDisciplineReport(report);
+    await _fs.addDisciplineReport(routed);
   }
 
   Future<void> updateDiscipline(String id, String status) async {
@@ -409,16 +451,7 @@ class AppState extends ChangeNotifier {
   }
 
   AttendanceSummary attendanceSummaryForStudent(Student student) {
-    const historicalDenominator = 10;
-    final historicalAttended =
-        ((student.attendance / 100) * historicalDenominator).round();
-    var summary = AttendanceSummary(
-      present: historicalAttended,
-      late: 0,
-      absent: historicalDenominator - historicalAttended,
-      mc: 0,
-      ck: 0,
-    );
+    var summary = sessionAttendanceSummaryForStudent(student);
 
     for (final records in attendance.values) {
       for (final record
@@ -427,6 +460,44 @@ class AppState extends ChangeNotifier {
       }
     }
     return summary;
+  }
+
+  AttendanceSummary sessionAttendanceSummaryForStudent(Student student) {
+    var summary =
+        const AttendanceSummary(present: 0, late: 0, absent: 0, mc: 0, ck: 0);
+    for (final records in sessionAttendance.values) {
+      for (final record
+          in records.where((record) => record.studentId == student.id)) {
+        summary = summary.add(record.status);
+      }
+    }
+    return summary;
+  }
+
+  List<AttendanceSummary> weeklyAttendanceForStudent(Student student) {
+    return List.generate(18, (index) {
+      final weekNo = index + 1;
+      var summary =
+          const AttendanceSummary(present: 0, late: 0, absent: 0, mc: 0, ck: 0);
+      for (final records in sessionAttendance.values) {
+        for (final record in records.where((record) =>
+            record.studentId == student.id && record.weekNo == weekNo)) {
+          summary = summary.add(record.status);
+        }
+      }
+      return summary;
+    });
+  }
+
+  AttendanceSummary attendanceSummaryForStudentWeek(
+    Student student,
+    int weekNo,
+  ) {
+    if (weekNo < 1 || weekNo > 18) {
+      return const AttendanceSummary(
+          present: 0, late: 0, absent: 0, mc: 0, ck: 0);
+    }
+    return weeklyAttendanceForStudent(student)[weekNo - 1];
   }
 
   int attendancePercentageForStudent(Student student) {
@@ -488,5 +559,159 @@ class AppState extends ChangeNotifier {
     final parts = text.split(':');
     if (parts.length != 2) return 0;
     return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+  }
+
+  AttendanceSession _buildAttendanceSession(
+    TimetableSlot slot,
+    List<AttendanceRecord> records, {
+    String? sessionDate,
+    int? weekNo,
+  }) {
+    final summary = _summaryForRecords(records);
+    final program = _programForName(slot.program);
+    final resolvedWeekNo = weekNo ?? _weekNoForSlot(slot);
+    final resolvedSessionDate = sessionDate ?? slot.date;
+    final sessionId = _fs.attendanceSessionIdFor(
+      slotId: slot.id,
+      sessionDate: resolvedSessionDate,
+      weekNo: resolvedWeekNo,
+    );
+
+    return AttendanceSession(
+      id: sessionId,
+      slotId: slot.id,
+      sessionDate: resolvedSessionDate,
+      weekNo: resolvedWeekNo,
+      academicSession: slot.session,
+      semester: slot.semester,
+      programId: program?.id ?? slot.program,
+      programName: program?.name ?? slot.program,
+      departmentId: program?.departmentId,
+      section: slot.section,
+      subjectCode: slot.subjectCode,
+      subjectName: slot.subjectName,
+      lecturerId: slot.lecturerId,
+      lecturerName: slot.lecturerName,
+      status: 'submitted',
+      totalStudents: records.length,
+      presentCount: summary.present,
+      lateCount: summary.late,
+      absentCount: summary.absent,
+      mcCount: summary.mc,
+      ckCount: summary.ck,
+      attendancePercentage: summary.percentage,
+      duplicateKey: _fs.attendanceDuplicateKey(
+        slotId: slot.id,
+        sessionDate: resolvedSessionDate,
+        weekNo: resolvedWeekNo,
+      ),
+      createdBy: currentUser?.uid ?? slot.lecturerId,
+    );
+  }
+
+  AttendanceRecord _buildAttendanceRecord({
+    required AttendanceRecord record,
+    required TimetableSlot slot,
+    required AttendanceSession session,
+  }) {
+    final student =
+        students.where((student) => student.id == record.studentId).firstOrNull;
+    return record.copyWith(
+      id: '${session.id}_${record.studentId}',
+      sessionId: session.id,
+      slotId: slot.id,
+      studentName: student?.name,
+      programId: session.programId,
+      programName: session.programName,
+      departmentId: session.departmentId,
+      section: student?.section ?? session.section,
+      weekNo: session.weekNo,
+      sessionDate: session.sessionDate,
+      createdBy: currentUser?.uid ?? session.createdBy,
+    );
+  }
+
+  void _upsertAttendanceSession(
+    AttendanceSession session,
+    List<AttendanceRecord> records,
+  ) {
+    final index = attendanceSessions.indexWhere((item) => item.id == session.id);
+    if (index == -1) {
+      attendanceSessions.add(session);
+    } else {
+      attendanceSessions[index] = session;
+    }
+    sessionAttendance[session.id] = records;
+  }
+
+  AttendanceSummary _summaryForRecords(List<AttendanceRecord> records) {
+    var summary =
+        const AttendanceSummary(present: 0, late: 0, absent: 0, mc: 0, ck: 0);
+    for (final record in records) {
+      summary = summary.add(record.status);
+    }
+    return summary;
+  }
+
+  DisciplineReport _buildDisciplineReport(DisciplineReport report) {
+    final user = currentUser;
+    final student =
+        students.where((student) => student.id == report.studentId).firstOrNull;
+    final slot = _slotForDisciplineReport(report, student);
+    final programName = report.programName ??
+        student?.program ??
+        slot?.program ??
+        _programForId(user?.programId)?.name;
+    final program = _programForName(programName) ??
+        _programForId(report.programId) ??
+        _programForId(user?.programId);
+
+    return report.copyWith(
+      programId: report.programId ?? program?.id,
+      programName: programName ?? program?.name,
+      departmentId: report.departmentId ?? program?.departmentId,
+      subjectCode: report.subjectCode ?? slot?.subjectCode,
+      subjectName: report.subjectName ??
+          (report.subject == '-' ? slot?.subjectName : report.subject),
+      slotId: report.slotId ?? slot?.id,
+      createdBy: report.createdBy ?? user?.uid,
+      createdByName: report.createdByName ?? user?.name ?? report.lecturer,
+      createdAt: report.createdAt,
+      updatedAt: report.updatedAt,
+    );
+  }
+
+  TimetableSlot? _slotForDisciplineReport(
+    DisciplineReport report,
+    Student? student,
+  ) {
+    if (report.slotId != null) {
+      final byId =
+          timetable.where((slot) => slot.id == report.slotId).firstOrNull;
+      if (byId != null) return byId;
+    }
+    final user = currentUser;
+    final section = student?.section ?? report.section;
+    return timetable
+        .where((slot) =>
+            slot.section == section &&
+            (user == null || slot.lecturerId == user.uid))
+        .firstOrNull;
+  }
+
+  ProgramCode? _programForName(String? programName) {
+    if (programName == null || programName.isEmpty) return null;
+    return programs.where((program) => program.name == programName).firstOrNull;
+  }
+
+  ProgramCode? _programForId(String? programId) {
+    if (programId == null || programId.isEmpty) return null;
+    return programs.where((program) => program.id == programId).firstOrNull;
+  }
+
+  int _weekNoForSlot(TimetableSlot slot) {
+    // TODO: Replace this fallback when the timetable/academic calendar provides
+    // a real week number for the 18-week attendance view.
+    return 1;
   }
 }

@@ -75,6 +75,69 @@ class AttendanceSummary {
   }
 }
 
+class AttendanceSession {
+  const AttendanceSession({
+    required this.id,
+    required this.slotId,
+    required this.sessionDate,
+    required this.weekNo,
+    required this.academicSession,
+    required this.semester,
+    required this.programId,
+    required this.programName,
+    this.departmentId,
+    required this.section,
+    required this.subjectCode,
+    required this.subjectName,
+    required this.lecturerId,
+    required this.lecturerName,
+    required this.status,
+    required this.totalStudents,
+    required this.presentCount,
+    required this.lateCount,
+    required this.absentCount,
+    required this.mcCount,
+    required this.ckCount,
+    required this.attendancePercentage,
+    required this.duplicateKey,
+    required this.createdBy,
+    this.createdAt,
+    this.updatedAt,
+    this.submittedAt,
+  });
+
+  final String id;
+  final String slotId;
+  final String sessionDate;
+  final int weekNo;
+  final String academicSession;
+  final int semester;
+  final String programId;
+  final String programName;
+  final String? departmentId;
+  final String section;
+  final String subjectCode;
+  final String subjectName;
+  final String lecturerId;
+  final String lecturerName;
+  final String status;
+  final int totalStudents;
+  final int presentCount;
+  final int lateCount;
+  final int absentCount;
+  final int mcCount;
+  final int ckCount;
+  final int attendancePercentage;
+  final String duplicateKey;
+  final String createdBy;
+  final String? createdAt;
+  final String? updatedAt;
+  final String? submittedAt;
+
+  int get attendedCount => presentCount + lateCount;
+  int get denominator => presentCount + lateCount + absentCount;
+}
+
 class Department {
   const Department({
     required this.id,
@@ -259,25 +322,79 @@ class AttendanceRecord {
     required this.status,
     required this.checkIn,
     required this.remarks,
+    this.id,
+    this.sessionId,
+    this.studentName,
+    this.programId,
+    this.programName,
+    this.departmentId,
+    this.section,
+    this.weekNo,
+    this.sessionDate,
+    this.createdBy,
+    this.createdAt,
+    this.updatedAt,
   });
 
+  final String? id;
+  final String? sessionId;
   final String slotId;
   final String studentId;
+  final String? studentName;
+  final String? programId;
+  final String? programName;
+  final String? departmentId;
+  final String? section;
+  final int? weekNo;
+  final String? sessionDate;
   final AttendanceStatus status;
   final String checkIn;
   final String remarks;
+  final String? createdBy;
+  final String? createdAt;
+  final String? updatedAt;
+
+  bool get countsAsAttended => status.countsAsAttended;
+  bool get countsInDenominator => status.countsInDenominator;
+  bool get isExempt => status.isExempt;
 
   AttendanceRecord copyWith({
+    String? id,
+    String? sessionId,
+    String? slotId,
+    String? studentId,
+    String? studentName,
+    String? programId,
+    String? programName,
+    String? departmentId,
+    String? section,
+    int? weekNo,
+    String? sessionDate,
     AttendanceStatus? status,
     String? checkIn,
     String? remarks,
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
   }) {
     return AttendanceRecord(
-      slotId: slotId,
-      studentId: studentId,
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      slotId: slotId ?? this.slotId,
+      studentId: studentId ?? this.studentId,
+      studentName: studentName ?? this.studentName,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      departmentId: departmentId ?? this.departmentId,
+      section: section ?? this.section,
+      weekNo: weekNo ?? this.weekNo,
+      sessionDate: sessionDate ?? this.sessionDate,
       status: status ?? this.status,
       checkIn: checkIn ?? this.checkIn,
       remarks: remarks ?? this.remarks,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
@@ -296,35 +413,103 @@ class DisciplineReport {
     required this.description,
     required this.followUp,
     required this.status,
+    this.programId,
+    this.programName,
+    this.departmentId,
+    this.subjectCode,
+    this.subjectName,
+    this.slotId,
+    this.createdBy,
+    this.createdByName,
+    this.assignedReviewerIds = const [],
+    this.assignedReviewerRoles = const [],
+    this.createdAt,
+    this.updatedAt,
+    this.reviewedAt,
+    this.reviewedBy,
+    this.actionTakenAt,
+    this.closedAt,
   });
 
   final String id;
   final String studentId;
   final String studentName;
+  final String? programId;
+  final String? programName;
+  final String? departmentId;
   final String section;
   final String subject;
+  final String? subjectCode;
+  final String? subjectName;
+  final String? slotId;
   final String lecturer;
+  final String? createdBy;
+  final String? createdByName;
+  final List<String> assignedReviewerIds;
+  final List<String> assignedReviewerRoles;
   final String date;
   final String issueType;
   final String severity;
   final String description;
   final bool followUp;
   final String status;
+  final String? createdAt;
+  final String? updatedAt;
+  final String? reviewedAt;
+  final String? reviewedBy;
+  final String? actionTakenAt;
+  final String? closedAt;
 
-  DisciplineReport copyWith({String? status}) {
+  DisciplineReport copyWith({
+    String? status,
+    String? programId,
+    String? programName,
+    String? departmentId,
+    String? subjectCode,
+    String? subjectName,
+    String? slotId,
+    String? createdBy,
+    String? createdByName,
+    List<String>? assignedReviewerIds,
+    List<String>? assignedReviewerRoles,
+    String? createdAt,
+    String? updatedAt,
+    String? reviewedAt,
+    String? reviewedBy,
+    String? actionTakenAt,
+    String? closedAt,
+  }) {
     return DisciplineReport(
       id: id,
       studentId: studentId,
       studentName: studentName,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      departmentId: departmentId ?? this.departmentId,
       section: section,
       subject: subject,
+      subjectCode: subjectCode ?? this.subjectCode,
+      subjectName: subjectName ?? this.subjectName,
+      slotId: slotId ?? this.slotId,
       lecturer: lecturer,
+      createdBy: createdBy ?? this.createdBy,
+      createdByName: createdByName ?? this.createdByName,
+      assignedReviewerIds:
+          assignedReviewerIds ?? List<String>.from(this.assignedReviewerIds),
+      assignedReviewerRoles: assignedReviewerRoles ??
+          List<String>.from(this.assignedReviewerRoles),
       date: date,
       issueType: issueType,
       severity: severity,
       description: description,
       followUp: followUp,
       status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      actionTakenAt: actionTakenAt ?? this.actionTakenAt,
+      closedAt: closedAt ?? this.closedAt,
     );
   }
 }
