@@ -634,6 +634,8 @@ class BookingRequest {
     required this.id,
     required this.lecturerId,
     required this.lecturerName,
+    this.programId,
+    this.departmentId,
     required this.subject,
     required this.section,
     required this.originalDate,
@@ -641,15 +643,21 @@ class BookingRequest {
     required this.replacementDate,
     required this.replacementStart,
     required this.replacementEnd,
+    this.roomId,
+    this.roomName,
     required this.room,
     required this.reason,
     required this.remarks,
     required this.status,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
   final String lecturerId;
   final String lecturerName;
+  final String? programId;
+  final String? departmentId;
   final String subject;
   final String section;
   final String originalDate;
@@ -657,16 +665,22 @@ class BookingRequest {
   final String replacementDate;
   final String replacementStart;
   final String replacementEnd;
+  final String? roomId;
+  final String? roomName;
   final String room;
   final String reason;
   final String remarks;
   final String status;
+  final String? createdAt;
+  final String? updatedAt;
 
   BookingRequest copyWith({String? status}) {
     return BookingRequest(
       id: id,
       lecturerId: lecturerId,
       lecturerName: lecturerName,
+      programId: programId,
+      departmentId: departmentId,
       subject: subject,
       section: section,
       originalDate: originalDate,
@@ -674,10 +688,14 @@ class BookingRequest {
       replacementDate: replacementDate,
       replacementStart: replacementStart,
       replacementEnd: replacementEnd,
+      roomId: roomId,
+      roomName: roomName,
       room: room,
       reason: reason,
       remarks: remarks,
       status: status ?? this.status,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

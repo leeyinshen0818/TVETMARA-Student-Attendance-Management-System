@@ -5,8 +5,8 @@ import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/status_chip.dart';
 
-/// Tempahan Bilik screen — Pensyarah creates room booking requests,
-/// KP reviews / approves them.
+/// Tempahan Bilik screen — Pensyarah creates room booking requests, while
+/// Ketua Program and Ketua Jabatan review them according to hierarchy scope.
 class TempahanScreen extends StatefulWidget {
   const TempahanScreen({super.key});
 
@@ -39,12 +39,13 @@ class _TempahanScreenState extends State<TempahanScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
-    final canApproveBookings = user.role == UserRole.ketua_program;
+    final canApproveBookings = user.role == UserRole.ketua_program ||
+        user.role == UserRole.ketua_jabatan;
     if (!isPensyarah && !canApproveBookings) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
-            'Hanya Pensyarah boleh memohon tempahan dan Ketua Program boleh meluluskan tempahan.',
+            'Hanya Pensyarah boleh memohon tempahan, manakala Ketua Program dan Ketua Jabatan boleh meluluskan tempahan mengikut skop.',
       );
     }
     final visibleBookings = state.scopedBookings;
@@ -76,7 +77,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
               : 'Kelulusan Tempahan Bilik',
           subtitle: isPensyarah
               ? 'Mohon bilik kelas ganti berdasarkan ruang yang tersedia.'
-              : 'Semak dan luluskan permohonan kelas ganti.',
+              : 'Semak dan luluskan permohonan kelas ganti mengikut skop anda.',
           trailing: StatusChip('${visibleBookings.length} permohonan'),
         ),
 
@@ -200,6 +201,8 @@ class _TempahanScreenState extends State<TempahanScreen> {
                       id: 'B${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
                       lecturerId: user.uid,
                       lecturerName: user.name,
+                      programId: selected?.programId ?? user.programId,
+                      departmentId: selected?.departmentId ?? user.departmentId,
                       subject: selected?.subjectName ?? _subjectCtrl.text,
                       section: selected?.section ?? _sectionCtrl.text,
                       originalDate: selected?.date ?? date,
@@ -209,6 +212,8 @@ class _TempahanScreenState extends State<TempahanScreen> {
                       replacementDate: date,
                       replacementStart: start,
                       replacementEnd: end,
+                      roomId: _roomId(room),
+                      roomName: room,
                       room: room,
                       reason: reason,
                       remarks: '',
@@ -284,4 +289,7 @@ class _TempahanScreenState extends State<TempahanScreen> {
       ],
     );
   }
+
+  String _roomId(String roomName) =>
+      roomName.replaceAll(RegExp(r'[/\\.]'), '_');
 }

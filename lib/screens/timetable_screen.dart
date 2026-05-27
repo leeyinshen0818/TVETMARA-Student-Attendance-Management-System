@@ -373,7 +373,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         fileName: _previewFileName ?? 'jadual.csv',
         uploadedBy: user,
       );
-      await state.loadData();
+      await state.refreshTimetableData();
       if (!mounted) return;
       setState(() {
         _lastImportResult = result;

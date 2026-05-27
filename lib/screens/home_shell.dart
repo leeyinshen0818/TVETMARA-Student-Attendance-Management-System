@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
+import '../state/app_state.dart';
 import 'admin/register_user_screen.dart';
 import 'attendance_screen.dart';
 import 'tempahan_screen.dart';
@@ -21,6 +22,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
+  String? _lastRequestedScope;
 
   @override
   Widget build(BuildContext context) {
@@ -39,36 +41,43 @@ class _HomeShellState extends State<HomeShell> {
     final items = <_NavItem>[
       // Dashboard is global to all users, but its interior will shape-shift later
       const _NavItem(
-          'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen()),
+          'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen(),
+          dataScope: _DataScope.dashboard),
 
       // Option A: only Pensyarah takes attendance.
       if (isPensyarah)
         const _NavItem(
-            'Kehadiran', Icons.fact_check_outlined, AttendanceScreen()),
+            'Kehadiran', Icons.fact_check_outlined, AttendanceScreen(),
+            dataScope: _DataScope.attendance),
 
       // Option A: KJ uploads timetable; KP inherits this if program has no KJ.
       if (isKetuaJabatan || isKetuaProgramWithoutKj)
         const _NavItem(
-            'Jadual', Icons.calendar_month_outlined, TimetableScreen()),
+            'Jadual', Icons.calendar_month_outlined, TimetableScreen(),
+            dataScope: _DataScope.timetable),
 
       // Option A: KJ reviews department reports, KP reviews program reports.
       if (isKetuaJabatan || isKetuaProgram)
-        const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen()),
+        const _NavItem('Laporan', Icons.bar_chart_outlined, ReportsScreen(),
+            dataScope: _DataScope.records),
 
-      // Option A: Pensyarah requests, KP approves.
-      if (isPensyarah || isKetuaProgram)
+      // Pensyarah requests; KP and KJ approve according to programme hierarchy.
+      if (isPensyarah || isKetuaProgram || isKetuaJabatan)
         const _NavItem(
-            'Tempahan Bilik', Icons.meeting_room_outlined, TempahanScreen()),
+            'Tempahan Bilik', Icons.meeting_room_outlined, TempahanScreen(),
+            dataScope: _DataScope.booking),
 
       // Option A: Pensyarah reports, KJ oversees; KP inherits if program has no KJ.
       if (isPensyarah || isKetuaJabatan || isKetuaProgramWithoutKj)
         const _NavItem(
-            'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen()),
+            'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen(),
+            dataScope: _DataScope.discipline),
 
       // Option A: KJ/KP view attendance through scoped student records.
       if (isKetuaJabatan || isKetuaProgram)
         const _NavItem(
-            'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen()),
+            'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen(),
+            dataScope: _DataScope.records),
 
       // Admin Only Modules
       if (isAdmin)
@@ -79,6 +88,8 @@ class _HomeShellState extends State<HomeShell> {
             'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
     ];
     if (index >= items.length) index = 0;
+    final activeItem = items[index];
+    _requestDataFor(activeItem, state);
     final compact = MediaQuery.sizeOf(context).width < 780;
 
     return Scaffold(
@@ -155,9 +166,14 @@ class _HomeShellState extends State<HomeShell> {
                                     style: const TextStyle(color: Colors.red)),
                               ),
                             )
-                          : state.loading
-                              ? const Center(child: CircularProgressIndicator())
-                              : items[index].screen,
+                          : _isWaitingForInitialScreenData(activeItem, state)
+                              ? const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              : activeItem.screen,
                     ),
                   ),
                 ),
@@ -181,6 +197,38 @@ class _HomeShellState extends State<HomeShell> {
         ],
       ),
     );
+  }
+
+  void _requestDataFor(_NavItem item, AppState state) {
+    if (_lastRequestedScope == item.dataScope.name) return;
+    _lastRequestedScope = item.dataScope.name;
+    Future.microtask(() => switch (item.dataScope) {
+          _DataScope.dashboard => state.loadDashboardDataIfNeeded(),
+          _DataScope.timetable => state.loadTimetableDataIfNeeded(),
+          _DataScope.attendance => state.loadAttendanceDataIfNeeded(),
+          _DataScope.booking => state.loadBookingDataIfNeeded(),
+          _DataScope.discipline => state.loadDisciplineDataIfNeeded(),
+          _DataScope.records => state.loadStudentRecordDataIfNeeded(),
+          _DataScope.none => Future<void>.value(),
+        }).catchError((_) {});
+  }
+
+  bool _isWaitingForInitialScreenData(_NavItem item, AppState state) {
+    return switch (item.dataScope) {
+      _DataScope.dashboard =>
+        !state.isDashboardDataLoaded && state.isCollectionLoading('students'),
+      _DataScope.timetable =>
+        !state.isTimetableDataLoaded && state.isCollectionLoading('timetable'),
+      _DataScope.attendance =>
+        !state.isAttendanceDataLoaded && state.isCollectionLoading('timetable'),
+      _DataScope.booking =>
+        !state.isBookingDataLoaded && state.isCollectionLoading('bookings'),
+      _DataScope.discipline => !state.isDisciplineDataLoaded &&
+          state.isCollectionLoading('discipline'),
+      _DataScope.records => !state.isStudentRecordDataLoaded &&
+          state.isCollectionLoading('students'),
+      _DataScope.none => false,
+    };
   }
 }
 
@@ -288,8 +336,20 @@ class _BrandMark extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.icon, this.screen);
+  const _NavItem(this.label, this.icon, this.screen,
+      {this.dataScope = _DataScope.none});
   final String label;
   final IconData icon;
   final Widget screen;
+  final _DataScope dataScope;
+}
+
+enum _DataScope {
+  none,
+  dashboard,
+  timetable,
+  attendance,
+  booking,
+  discipline,
+  records,
 }

@@ -132,6 +132,8 @@ Future<bool> seedFirestore() async {
             lecturerId:
                 authUidByMockId[booking.lecturerId] ?? booking.lecturerId,
             lecturerName: booking.lecturerName,
+            programId: booking.programId,
+            departmentId: booking.departmentId,
             subject: booking.subject,
             section: booking.section,
             originalDate: booking.originalDate,
@@ -139,10 +141,14 @@ Future<bool> seedFirestore() async {
             replacementDate: booking.replacementDate,
             replacementStart: booking.replacementStart,
             replacementEnd: booking.replacementEnd,
+            roomId: booking.roomId,
+            roomName: booking.roomName,
             room: booking.room,
             reason: booking.reason,
             remarks: booking.remarks,
             status: booking.status,
+            createdAt: booking.createdAt,
+            updatedAt: booking.updatedAt,
           ))
       .toList();
 

@@ -29,7 +29,7 @@ class AppState extends ChangeNotifier {
   String session = TimetableCsvTemplate.defaultAcademicSessionId;
   int semester = 2;
 
-  bool _loading = true;
+  bool _loading = false;
   bool get loading => _loading;
 
   String? _error;
@@ -39,6 +39,32 @@ class AppState extends ChangeNotifier {
   String? get loginError => _loginError;
 
   late final FirestoreService _fs = FirestoreService.instance;
+  final _loadedCollections = <String>{};
+  final _loadingCollections = <String>{};
+  final _pendingLoads = <String, Future<void>>{};
+
+  bool isCollectionLoading(String key) => _loadingCollections.contains(key);
+
+  bool get isBootstrapLoaded =>
+      _loadedCollections.containsAll(['programs', 'departments', 'sessions']);
+
+  bool get isTimetableDataLoaded =>
+      _loadedCollections.containsAll(['timetable', 'uploads', 'rooms']);
+
+  bool get isBookingDataLoaded =>
+      _loadedCollections.containsAll(['bookings', 'rooms', 'timetable']);
+
+  bool get isDisciplineDataLoaded =>
+      _loadedCollections.containsAll(['discipline', 'students', 'timetable']);
+
+  bool get isStudentRecordDataLoaded =>
+      _loadedCollections.containsAll(['students', 'timetable', 'lecturers']);
+
+  bool get isAttendanceDataLoaded => _loadedCollections.containsAll(
+      ['students', 'timetable', 'attendance', 'sessionAttendance']);
+
+  bool get isDashboardDataLoaded => _loadedCollections.containsAll(
+      ['students', 'timetable', 'bookings', 'discipline', 'sessionAttendance']);
 
   /// Load all data from Firestore.
   /// Call once after Firebase is initialised and the user is authenticated.
@@ -89,6 +115,22 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(sessionAttendanceMap);
       academicSessions = results[13] as List<AcademicSession>;
+      _loadedCollections.addAll([
+        'users',
+        'students',
+        'lecturers',
+        'rooms',
+        'timetable',
+        'uploads',
+        'discipline',
+        'bookings',
+        'attendance',
+        'programs',
+        'departments',
+        'attendanceSessions',
+        'sessionAttendance',
+        'sessions',
+      ]);
     } catch (e) {
       _error = e.toString();
       debugPrint('=== ERROR LOADING DATA ===');
@@ -98,6 +140,180 @@ class AppState extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadBootstrapDataIfNeeded() async {
+    await Future.wait([
+      _loadCollection(
+          'programs', () async => programs = await _fs.getPrograms()),
+      _loadCollection(
+          'departments', () async => departments = await _fs.getDepartments()),
+      _loadCollection('sessions',
+          () async => academicSessions = await _fs.getAcademicSessions()),
+    ]);
+  }
+
+  Future<void> loadDashboardDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadTimetableIfNeeded(),
+      loadStudentsIfNeeded(),
+      loadBookingsIfNeeded(),
+      loadDisciplineIfNeeded(),
+      loadSessionAttendanceIfNeeded(),
+    ]);
+  }
+
+  Future<void> loadTimetableDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadTimetableIfNeeded(),
+      loadTimetableUploadsIfNeeded(),
+      loadRoomsIfNeeded(),
+      loadLecturersIfNeeded(),
+    ]);
+  }
+
+  Future<void> loadAttendanceDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadTimetableIfNeeded(),
+      loadStudentsIfNeeded(),
+      loadLegacyAttendanceIfNeeded(),
+      loadAttendanceSessionsIfNeeded(),
+      loadSessionAttendanceIfNeeded(),
+    ]);
+  }
+
+  Future<void> loadBookingDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadTimetableIfNeeded(),
+      loadBookingsIfNeeded(),
+      loadRoomsIfNeeded(),
+    ]);
+  }
+
+  Future<void> loadDisciplineDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadDisciplineIfNeeded(),
+      loadStudentsIfNeeded(),
+      loadTimetableIfNeeded(),
+    ]);
+  }
+
+  Future<void> loadStudentRecordDataIfNeeded() async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadStudentsIfNeeded(),
+      loadTimetableIfNeeded(),
+      loadLecturersIfNeeded(),
+      loadSessionAttendanceIfNeeded(),
+    ]);
+  }
+
+  Future<void> refreshTimetableData() async {
+    _loadedCollections.removeAll(['timetable', 'uploads', 'rooms']);
+    await loadTimetableDataIfNeeded();
+  }
+
+  Future<void> refreshBookings() async {
+    _loadedCollections.remove('bookings');
+    await loadBookingsIfNeeded();
+  }
+
+  Future<void> loadUsersIfNeeded() =>
+      _loadCollection('users', () async => users = await _fs.getUsers());
+
+  Future<void> loadStudentsIfNeeded() => _loadCollection(
+      'students', () async => students = await _fs.getStudents());
+
+  Future<void> loadLecturersIfNeeded() => _loadCollection(
+      'lecturers', () async => lecturers = await _fs.getLecturers());
+
+  Future<void> loadRoomsIfNeeded() => _loadCollection(
+      'rooms', () async => roomResources = await _fs.getRoomResources());
+
+  Future<void> loadTimetableIfNeeded() => _loadCollection(
+      'timetable', () async => timetable = await _fs.getTimetableSlots());
+
+  Future<void> loadTimetableUploadsIfNeeded() => _loadCollection('uploads',
+      () async => timetableUploads = await _fs.getTimetableUploads());
+
+  Future<void> loadDisciplineIfNeeded() => _loadCollection('discipline',
+      () async => disciplineReports = await _fs.getDisciplineReports());
+
+  Future<void> loadBookingsIfNeeded() => _loadCollection(
+      'bookings', () async => bookings = await _fs.getBookings());
+
+  Future<void> loadLegacyAttendanceIfNeeded() =>
+      _loadCollection('attendance', () async {
+        final attendanceMap = await _fs.getAllAttendance();
+        attendance
+          ..clear()
+          ..addAll(attendanceMap);
+      });
+
+  Future<void> loadAttendanceSessionsIfNeeded() => _loadCollection(
+      'attendanceSessions',
+      () async => attendanceSessions = await _fs.getAttendanceSessions());
+
+  Future<void> loadSessionAttendanceIfNeeded() =>
+      _loadCollection('sessionAttendance', () async {
+        final sessionAttendanceMap = await _fs.getAllSessionAttendanceRecords();
+        sessionAttendance
+          ..clear()
+          ..addAll(sessionAttendanceMap);
+      });
+
+  Future<void> _loadCollection(
+    String key,
+    Future<void> Function() loader,
+  ) {
+    if (_loadedCollections.contains(key)) return Future.value();
+    final pending = _pendingLoads[key];
+    if (pending != null) return pending;
+
+    _loadingCollections.add(key);
+    notifyListeners();
+
+    final future = loader().then((_) {
+      _loadedCollections.add(key);
+    }).catchError((Object e) {
+      _error = e.toString();
+      debugPrint('=== ERROR LOADING $key ===');
+      debugPrint('$e');
+      debugPrint('==========================');
+      throw e;
+    }).whenComplete(() {
+      _loadingCollections.remove(key);
+      _pendingLoads.remove(key);
+      notifyListeners();
+    });
+    _pendingLoads[key] = future;
+    return future;
+  }
+
+  void clearDataCache() {
+    users = [];
+    students = [];
+    lecturers = [];
+    roomResources = [];
+    timetable = [];
+    timetableUploads = [];
+    attendanceSessions = [];
+    disciplineReports = [];
+    bookings = [];
+    attendance.clear();
+    sessionAttendance.clear();
+    programs = [];
+    departments = [];
+    academicSessions = [];
+    _loadedCollections.clear();
+    _loadingCollections.clear();
+    _pendingLoads.clear();
+    _error = null;
   }
 
   /// Authenticate with Firebase Auth, then look up the matching AppUser
@@ -126,9 +342,10 @@ class AppState extends ChangeNotifier {
         return false;
       }
 
+      clearDataCache();
       currentUser = appUser;
       await _fs.updateLastLogin(appUser.uid);
-      await loadData();
+      await loadBootstrapDataIfNeeded();
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
@@ -159,6 +376,7 @@ class AppState extends ChangeNotifier {
   void logout() {
     AuthService.instance.signOut();
     currentUser = null;
+    clearDataCache();
     notifyListeners();
   }
 
@@ -271,13 +489,22 @@ class AppState extends ChangeNotifier {
     final user = currentUser;
     if (user == null || user.role == UserRole.pentadbir) return [];
 
-    // Option A: KP can see/approve bookings for their program scope.
-    if (user.role == UserRole.ketua_program) {
-      final validSections = scopedTimetable.map((t) => t.section).toSet();
-      return bookings.where((b) => validSections.contains(b.section)).toList();
+    if (user.role == UserRole.ketua_jabatan) {
+      final deptProgramIds = programs
+          .where((program) => program.departmentId == user.departmentId)
+          .map((program) => program.id)
+          .toSet();
+      return bookings
+          .where((booking) =>
+              deptProgramIds.contains(_programIdForBooking(booking)))
+          .toList();
     }
 
-    if (user.role == UserRole.ketua_jabatan) return [];
+    if (user.role == UserRole.ketua_program) {
+      return bookings
+          .where((booking) => _programIdForBooking(booking) == user.programId)
+          .toList();
+    }
 
     // Pensyarah
     return bookings.where((b) => b.lecturerId == user.uid).toList();
@@ -715,6 +942,20 @@ class AppState extends ChangeNotifier {
   ProgramCode? _programForId(String? programId) {
     if (programId == null || programId.isEmpty) return null;
     return programs.where((program) => program.id == programId).firstOrNull;
+  }
+
+  String? _programIdForBooking(BookingRequest booking) {
+    if (booking.programId != null && booking.programId!.isNotEmpty) {
+      return booking.programId;
+    }
+    final sectionPrefix = booking.section.split(' ').firstOrNull;
+    if (programs.any((program) => program.id == sectionPrefix)) {
+      return sectionPrefix;
+    }
+    final matchingSlot =
+        timetable.where((slot) => slot.section == booking.section).firstOrNull;
+    return matchingSlot?.programId ??
+        _programForName(matchingSlot?.program)?.id;
   }
 
   int _weekNoForSlot(TimetableSlot slot) {

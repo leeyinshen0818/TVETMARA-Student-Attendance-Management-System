@@ -67,10 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
     if (confirmed != true) return;
+    if (!mounted) return;
 
     setState(() => _seedingDemo = true);
+    final appState = AppScope.of(context);
     try {
       await seedFirestore();
+      appState.clearDataCache();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

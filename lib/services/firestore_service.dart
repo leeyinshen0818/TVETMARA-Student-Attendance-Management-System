@@ -481,6 +481,8 @@ class FirestoreService {
     await _bookingsCol.doc(booking.id).set({
       'lecturerId': booking.lecturerId,
       'lecturerName': booking.lecturerName,
+      'programId': booking.programId,
+      'departmentId': booking.departmentId,
       'subject': booking.subject,
       'section': booking.section,
       'originalDate': booking.originalDate,
@@ -488,15 +490,22 @@ class FirestoreService {
       'replacementDate': booking.replacementDate,
       'replacementStart': booking.replacementStart,
       'replacementEnd': booking.replacementEnd,
+      'roomId': booking.roomId,
+      'roomName': booking.roomName ?? booking.room,
       'room': booking.room,
       'reason': booking.reason,
       'remarks': booking.remarks,
       'status': booking.status,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
   Future<void> updateBookingStatus(String id, String status) async {
-    await _bookingsCol.doc(id).update({'status': status});
+    await _bookingsCol.doc(id).update({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -619,6 +628,8 @@ class FirestoreService {
       batch.set(_bookingsCol.doc(b.id), {
         'lecturerId': b.lecturerId,
         'lecturerName': b.lecturerName,
+        'programId': b.programId,
+        'departmentId': b.departmentId,
         'subject': b.subject,
         'section': b.section,
         'originalDate': b.originalDate,
@@ -626,10 +637,15 @@ class FirestoreService {
         'replacementDate': b.replacementDate,
         'replacementStart': b.replacementStart,
         'replacementEnd': b.replacementEnd,
+        'roomId': b.roomId,
+        'roomName': b.roomName ?? b.room,
         'room': b.room,
         'reason': b.reason,
         'remarks': b.remarks,
         'status': b.status,
+        'dataSource': 'generated_demo',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
     await batch.commit();
@@ -995,6 +1011,8 @@ class FirestoreService {
       id: doc.id,
       lecturerId: d['lecturerId'] as String,
       lecturerName: d['lecturerName'] as String,
+      programId: d['programId'] as String?,
+      departmentId: d['departmentId'] as String?,
       subject: d['subject'] as String,
       section: d['section'] as String,
       originalDate: d['originalDate'] as String,
@@ -1002,10 +1020,14 @@ class FirestoreService {
       replacementDate: d['replacementDate'] as String,
       replacementStart: d['replacementStart'] as String,
       replacementEnd: d['replacementEnd'] as String,
+      roomId: d['roomId'] as String?,
+      roomName: d['roomName'] as String?,
       room: d['room'] as String,
       reason: d['reason'] as String,
       remarks: d['remarks'] as String,
       status: d['status'] as String,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
     );
   }
 

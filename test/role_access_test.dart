@@ -23,7 +23,7 @@ AppUser _user(String email) {
 }
 
 void main() {
-  test('Ketua Jabatan sees department data and discipline, not bookings', () {
+  test('Ketua Jabatan sees department data, discipline, and bookings', () {
     final state = _stateFor(_user('kj_elektrik@tvetmara.edu.my'));
     final electricPrograms = mock.programs
         .where((program) => program.departmentId == 'elektrik')
@@ -38,7 +38,33 @@ void main() {
     );
     expect(state.scopedDisciplineReports.map((report) => report.id),
         contains('D001'));
-    expect(state.scopedBookings, isEmpty);
+    expect(state.scopedBookings.map((booking) => booking.id),
+        containsAll(['B001', 'B002', 'B003']));
+    expect(state.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B004')));
+  });
+
+  test('Ketua Jabatan booking scope follows own department only', () {
+    final mekanikal = _stateFor(_user('kj_mekanikal@tvetmara.edu.my'));
+    final automotif = _stateFor(_user('kj_automotif@tvetmara.edu.my'));
+
+    expect(mekanikal.scopedBookings.map((booking) => booking.id),
+        contains('B005'));
+    expect(mekanikal.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B001')));
+    expect(mekanikal.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B004')));
+    expect(mekanikal.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B006')));
+
+    expect(automotif.scopedBookings.map((booking) => booking.id),
+        contains('B006'));
+    expect(automotif.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B001')));
+    expect(automotif.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B004')));
+    expect(automotif.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B005')));
   });
 
   test('Ketua Program sees program data and bookings, not discipline', () {
@@ -74,6 +100,9 @@ void main() {
           .every((student) => student.section.startsWith('DGS')),
       isTrue,
     );
+    expect(state.scopedBookings.map((booking) => booking.id), contains('B004'));
+    expect(state.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B001')));
   });
 
   test(
