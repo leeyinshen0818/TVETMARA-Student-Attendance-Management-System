@@ -13,6 +13,7 @@ class AppState extends ChangeNotifier {
   List<Lecturer> lecturers = [];
   List<RoomResource> roomResources = [];
   List<TimetableSlot> timetable = [];
+  List<TimetableUploadRecord> timetableUploads = [];
   List<AttendanceSession> attendanceSessions = [];
   List<DisciplineReport> disciplineReports = [];
   List<BookingRequest> bookings = [];
@@ -21,6 +22,7 @@ class AppState extends ChangeNotifier {
 
   List<ProgramCode> programs = [];
   List<Department> departments = [];
+  List<AcademicSession> academicSessions = [];
 
   int attendanceThreshold = 80;
   String reportFrequency = 'Weekly';
@@ -52,6 +54,7 @@ class AppState extends ChangeNotifier {
         _fs.getLecturers(),
         _fs.getRoomResources(),
         _fs.getTimetableSlots(),
+        _fs.getTimetableUploads(),
         _fs.getDisciplineReports(),
         _fs.getBookings(),
         _fs.getAllAttendance(),
@@ -59,6 +62,7 @@ class AppState extends ChangeNotifier {
         _fs.getDepartments(),
         _fs.getAttendanceSessions(),
         _fs.getAllSessionAttendanceRecords(),
+        _fs.getAcademicSessions(),
       ]);
 
       users = results[0] as List<AppUser>;
@@ -66,23 +70,25 @@ class AppState extends ChangeNotifier {
       lecturers = results[2] as List<Lecturer>;
       roomResources = results[3] as List<RoomResource>;
       timetable = results[4] as List<TimetableSlot>;
-      disciplineReports = results[5] as List<DisciplineReport>;
-      bookings = results[6] as List<BookingRequest>;
+      timetableUploads = results[5] as List<TimetableUploadRecord>;
+      disciplineReports = results[6] as List<DisciplineReport>;
+      bookings = results[7] as List<BookingRequest>;
 
-      final attendanceMap = results[7] as Map<String, List<AttendanceRecord>>;
+      final attendanceMap = results[8] as Map<String, List<AttendanceRecord>>;
       attendance
         ..clear()
         ..addAll(attendanceMap);
 
-      programs = results[8] as List<ProgramCode>;
-      departments = results[9] as List<Department>;
-      attendanceSessions = results[10] as List<AttendanceSession>;
+      programs = results[9] as List<ProgramCode>;
+      departments = results[10] as List<Department>;
+      attendanceSessions = results[11] as List<AttendanceSession>;
 
       final sessionAttendanceMap =
-          results[11] as Map<String, List<AttendanceRecord>>;
+          results[12] as Map<String, List<AttendanceRecord>>;
       sessionAttendance
         ..clear()
         ..addAll(sessionAttendanceMap);
+      academicSessions = results[13] as List<AcademicSession>;
     } catch (e) {
       _error = e.toString();
       debugPrint('=== ERROR LOADING DATA ===');
@@ -636,7 +642,8 @@ class AppState extends ChangeNotifier {
     AttendanceSession session,
     List<AttendanceRecord> records,
   ) {
-    final index = attendanceSessions.indexWhere((item) => item.id == session.id);
+    final index =
+        attendanceSessions.indexWhere((item) => item.id == session.id);
     if (index == -1) {
       attendanceSessions.add(session);
     } else {

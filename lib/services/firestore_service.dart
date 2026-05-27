@@ -28,6 +28,8 @@ class FirestoreService {
       _db.collection(FirestoreCollections.rooms);
   CollectionReference<Map<String, dynamic>> get _timetableCol =>
       _db.collection(FirestoreCollections.timetableSlots);
+  CollectionReference<Map<String, dynamic>> get _timetableUploadsCol =>
+      _db.collection(FirestoreCollections.timetableUploads);
   CollectionReference<Map<String, dynamic>> get _attendanceSessionsCol =>
       _db.collection(FirestoreCollections.attendanceSessions);
   CollectionReference<Map<String, dynamic>> get _attendanceCol =>
@@ -110,6 +112,13 @@ class FirestoreService {
     return snap.docs.map(_docToSlot).toList();
   }
 
+  Future<List<TimetableUploadRecord>> getTimetableUploads() async {
+    final snap = await _timetableUploadsCol
+        .orderBy('uploadedAt', descending: true)
+        .get();
+    return snap.docs.map(_docToTimetableUpload).toList();
+  }
+
   Stream<List<TimetableSlot>> timetableStream() {
     return _timetableCol.snapshots().map(
           (snap) => snap.docs.map(_docToSlot).toList(),
@@ -154,6 +163,11 @@ class FirestoreService {
         departmentId: d['departmentId'] as String?,
       );
     }).toList();
+  }
+
+  Future<List<AcademicSession>> getAcademicSessions() async {
+    final snap = await _academicSessionsCol.get();
+    return snap.docs.map(_docToAcademicSession).toList();
   }
 
   // ---------------------------------------------------------------------------
@@ -754,6 +768,20 @@ class FirestoreService {
     );
   }
 
+  AcademicSession _docToAcademicSession(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return AcademicSession(
+      academicSessionId: d['academicSessionId'] as String? ?? doc.id,
+      name: d['name'] as String? ?? doc.id,
+      isActive: d['isActive'] as bool? ?? true,
+      startDate: d['startDate'] as String?,
+      endDate: d['endDate'] as String?,
+      createdAt: _readTimestamp(d['createdAt']),
+      updatedAt: _readTimestamp(d['updatedAt']),
+    );
+  }
+
   TimetableSlot _docToSlot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data()!;
     final timetableSlotId = d['timetableSlotId'] as String? ?? doc.id;
@@ -802,6 +830,30 @@ class FirestoreService {
       createdBy: d['createdBy'] as String?,
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
+    );
+  }
+
+  TimetableUploadRecord _docToTimetableUpload(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return TimetableUploadRecord(
+      uploadId: d['uploadId'] as String? ?? doc.id,
+      fileName: d['fileName'] as String? ?? '-',
+      academicSessionId: d['academicSessionId'] as String? ?? 'unknown',
+      uploadedBy: d['uploadedBy'] as String? ?? '',
+      uploadedByName: d['uploadedByName'] as String? ?? '-',
+      uploadedAt: _readTimestamp(d['uploadedAt']) ?? '-',
+      status: d['status'] as String? ?? 'unknown',
+      totalRows: d['totalRows'] as int? ?? 0,
+      successRows: d['successRows'] as int? ?? 0,
+      skippedRows: d['skippedRows'] as int? ?? 0,
+      duplicateRows: d['duplicateRows'] as int? ?? 0,
+      errorRows: d['errorRows'] as int? ?? 0,
+      warningRows: d['warningRows'] as int? ?? 0,
+      validationErrors:
+          List<String>.from(d['validationErrors'] as List? ?? const []),
+      validationWarnings:
+          List<String>.from(d['validationWarnings'] as List? ?? const []),
     );
   }
 

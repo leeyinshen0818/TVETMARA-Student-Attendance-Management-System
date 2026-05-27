@@ -160,6 +160,26 @@ class ProgramCode {
   final String? departmentId;
 }
 
+class AcademicSession {
+  const AcademicSession({
+    required this.academicSessionId,
+    required this.name,
+    required this.isActive,
+    this.startDate,
+    this.endDate,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final String academicSessionId;
+  final String name;
+  final bool isActive;
+  final String? startDate;
+  final String? endDate;
+  final String? createdAt;
+  final String? updatedAt;
+}
+
 class AppUser {
   const AppUser({
     required this.uid,
@@ -372,6 +392,42 @@ class TimetableSlot {
       updatedAt: updatedAt,
     );
   }
+}
+
+class TimetableUploadRecord {
+  const TimetableUploadRecord({
+    required this.uploadId,
+    required this.fileName,
+    required this.academicSessionId,
+    required this.uploadedBy,
+    required this.uploadedByName,
+    required this.uploadedAt,
+    required this.status,
+    required this.totalRows,
+    required this.successRows,
+    required this.skippedRows,
+    required this.duplicateRows,
+    required this.errorRows,
+    required this.warningRows,
+    required this.validationErrors,
+    required this.validationWarnings,
+  });
+
+  final String uploadId;
+  final String fileName;
+  final String academicSessionId;
+  final String uploadedBy;
+  final String uploadedByName;
+  final String uploadedAt;
+  final String status;
+  final int totalRows;
+  final int successRows;
+  final int skippedRows;
+  final int duplicateRows;
+  final int errorRows;
+  final int warningRows;
+  final List<String> validationErrors;
+  final List<String> validationWarnings;
 }
 
 class AttendanceRecord {
