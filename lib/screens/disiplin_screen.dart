@@ -32,17 +32,17 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
     final canApproveDiscipline = user.role == UserRole.ketua_jabatan ||
-        state.currentKetuaProgramInheritsKetuaJabatanTasks;
+        user.role == UserRole.ketua_program;
     if (!isPensyarah && !canApproveDiscipline) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
-            'Hanya Pensyarah boleh melapor disiplin. Ketua Jabatan atau Ketua Program tanpa Ketua Jabatan boleh membuat semakan disiplin.',
+            'Hanya Pensyarah boleh melapor disiplin. Ketua Jabatan dan Ketua Program boleh membuat semakan mengikut skop.',
       );
     }
     final visibleDiscipline = state.scopedDisciplineReports;
 
-    // For Pensyarah: use scopedStudents (which now has a fallback)
+    // For Pensyarah: use students from the classes they teach.
     final studentsList = state.scopedStudents;
 
     return Column(

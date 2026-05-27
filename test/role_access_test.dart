@@ -25,17 +25,21 @@ AppUser _user(String email) {
 void main() {
   test('Ketua Jabatan sees department data, discipline, and bookings', () {
     final state = _stateFor(_user('kj_elektrik@tvetmara.edu.my'));
-    final electricPrograms = mock.programs
+    final electricProgramIds = mock.programs
         .where((program) => program.departmentId == 'elektrik')
-        .map((program) => program.name)
+        .map((program) => program.id)
         .toSet();
 
     expect(state.scopedTimetable, isNotEmpty);
+    expect(state.scopedPrograms.map((program) => program.id),
+        containsAll(['DED', 'DCP', 'DCB']));
     expect(
       state.scopedTimetable
-          .every((slot) => electricPrograms.contains(slot.program)),
+          .every((slot) => electricProgramIds.contains(slot.programId)),
       isTrue,
     );
+    expect(state.scopedTimetable.map((slot) => slot.programId),
+        isNot(contains('DGS')));
     expect(state.scopedDisciplineReports.map((report) => report.id),
         contains('D001'));
     expect(state.scopedBookings.map((booking) => booking.id),
@@ -67,19 +71,40 @@ void main() {
         isNot(contains('B005')));
   });
 
-  test('Ketua Program sees program data and bookings, not discipline', () {
+  test('Ketua Jabatan scoped programmes follow client hierarchy', () {
+    final elektrik = _stateFor(_user('kj_elektrik@tvetmara.edu.my'));
+    final mekanikal = _stateFor(_user('kj_mekanikal@tvetmara.edu.my'));
+    final automotif = _stateFor(_user('kj_automotif@tvetmara.edu.my'));
+
+    expect(elektrik.scopedPrograms.map((program) => program.id).toSet(),
+        equals({'DED', 'DCP', 'DCB'}));
+    expect(mekanikal.scopedPrograms.map((program) => program.id).toSet(),
+        equals({'ITW', 'SLR', 'SMI'}));
+    expect(automotif.scopedPrograms.map((program) => program.id).toSet(),
+        equals({'IMF', 'SMM', 'DMM'}));
+  });
+
+  test('Ketua Program sees own program data, bookings, and discipline', () {
     final state = _stateFor(_user('kp_ded@tvetmara.edu.my'));
 
     expect(state.currentProgramHasKetuaJabatan, isTrue);
     expect(state.currentKetuaProgramInheritsKetuaJabatanTasks, isFalse);
+    expect(state.scopedPrograms.map((program) => program.id), ['DED']);
     expect(state.scopedStudents, isNotEmpty);
     expect(
       state.scopedStudents
           .every((student) => student.section.startsWith('DED')),
       isTrue,
     );
+    expect(
+      state.scopedTimetable.every((slot) => slot.programId == 'DED'),
+      isTrue,
+    );
     expect(state.scopedBookings.map((booking) => booking.id), contains('B001'));
-    expect(state.scopedDisciplineReports, isEmpty);
+    expect(state.scopedDisciplineReports.map((report) => report.id),
+        contains('D001'));
+    expect(state.scopedBookings.map((booking) => booking.id),
+        isNot(contains('B003')));
   });
 
   test(
@@ -89,9 +114,10 @@ void main() {
 
     expect(state.currentProgramHasKetuaJabatan, isFalse);
     expect(state.currentKetuaProgramInheritsKetuaJabatanTasks, isTrue);
+    expect(state.scopedPrograms.map((program) => program.id), ['DGS']);
     expect(state.scopedTimetable, isNotEmpty);
     expect(
-      state.scopedTimetable.every((slot) => slot.section.startsWith('DGS')),
+      state.scopedTimetable.every((slot) => slot.programId == 'DGS'),
       isTrue,
     );
     expect(state.scopedStudents, isNotEmpty);
@@ -103,6 +129,8 @@ void main() {
     expect(state.scopedBookings.map((booking) => booking.id), contains('B004'));
     expect(state.scopedBookings.map((booking) => booking.id),
         isNot(contains('B001')));
+    expect(state.scopedDisciplineReports.map((report) => report.id),
+        contains('D002'));
   });
 
   test(
@@ -118,5 +146,23 @@ void main() {
     expect(state.scopedBookings.map((booking) => booking.id), contains('B001'));
     expect(state.scopedDisciplineReports.map((report) => report.id),
         contains('D001'));
+    final taughtSections =
+        state.scopedTimetable.map((slot) => slot.section).toSet();
+    expect(
+      state.scopedStudents
+          .every((student) => taughtSections.contains(student.section)),
+      isTrue,
+    );
+  });
+
+  test(
+      'Pentadbir sees all student and lecturer records but no operational scope',
+      () {
+    final state = _stateFor(_user('admin@tvetmara.edu.my'));
+
+    expect(state.scopedStudents.length, mock.students.length);
+    expect(state.scopedPrograms.length, mock.programs.length);
+    expect(state.scopedTimetable, isEmpty);
+    expect(state.scopedBookings, isEmpty);
   });
 }

@@ -12,26 +12,30 @@ class RecordsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
+    final isAdmin = user.role == UserRole.pentadbir;
     final isManagement = user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program;
-    if (!isManagement) {
+    if (!isAdmin && !isManagement) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
-            'Hanya Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
+            'Hanya Pentadbir, Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
       );
     }
     final students = state.scopedStudents;
     final validLecturerIds =
         state.scopedTimetable.map((t) => t.lecturerId).toSet();
-    final visibleLecturers =
-        state.lecturers.where((l) => validLecturerIds.contains(l.id)).toList();
+    final visibleLecturers = isAdmin
+        ? state.lecturers
+        : state.lecturers
+            .where((l) => validLecturerIds.contains(l.id))
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: isManagement ? 'Rekod Pelajar & Pensyarah' : 'Pelajar Saya',
+          title: 'Rekod Pelajar & Pensyarah',
           subtitle: 'Kedudukan kehadiran pelajar dan tugasan pensyarah-kursus.',
           trailing: StatusChip('${students.length} pelajar'),
         ),

@@ -138,8 +138,34 @@ class FirestoreService {
         _slotToMap(slot, includeCreatedAt: false), SetOptions(merge: true));
   }
 
+  Future<void> updateTimetableSlotsStatus(
+    List<String> slotIds,
+    String status,
+  ) async {
+    for (final chunk in _chunks(slotIds, 450)) {
+      final batch = _db.batch();
+      for (final slotId in chunk) {
+        batch.update(_timetableCol.doc(slotId), {
+          'status': status,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> deleteTimetableSlot(String slotId) async {
     await _timetableCol.doc(slotId).delete();
+  }
+
+  Future<void> deleteTimetableSlots(List<String> slotIds) async {
+    for (final chunk in _chunks(slotIds, 450)) {
+      final batch = _db.batch();
+      for (final slotId in chunk) {
+        batch.delete(_timetableCol.doc(slotId));
+      }
+      await batch.commit();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1211,6 +1237,13 @@ class FirestoreService {
 
   String _safeDocSegment(String value) {
     return value.replaceAll(RegExp(r'[/\\\s]+'), '_');
+  }
+
+  Iterable<List<T>> _chunks<T>(List<T> items, int size) sync* {
+    for (var i = 0; i < items.length; i += size) {
+      final end = i + size > items.length ? items.length : i + size;
+      yield items.sublist(i, end);
+    }
   }
 }
 

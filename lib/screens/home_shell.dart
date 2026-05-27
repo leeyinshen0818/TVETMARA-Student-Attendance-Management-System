@@ -67,14 +67,14 @@ class _HomeShellState extends State<HomeShell> {
             'Tempahan Bilik', Icons.meeting_room_outlined, TempahanScreen(),
             dataScope: _DataScope.booking),
 
-      // Option A: Pensyarah reports, KJ oversees; KP inherits if program has no KJ.
-      if (isPensyarah || isKetuaJabatan || isKetuaProgramWithoutKj)
+      // Pensyarah submits reports; KJ/KP review according to scoped hierarchy.
+      if (isPensyarah || isKetuaJabatan || isKetuaProgram)
         const _NavItem(
             'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen(),
             dataScope: _DataScope.discipline),
 
-      // Option A: KJ/KP view attendance through scoped student records.
-      if (isKetuaJabatan || isKetuaProgram)
+      // Admin sees all records; KJ/KP see records within their own scope.
+      if (isAdmin || isKetuaJabatan || isKetuaProgram)
         const _NavItem(
             'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen(),
             dataScope: _DataScope.records),

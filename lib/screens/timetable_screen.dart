@@ -51,8 +51,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
   TimetableImportWriteResult? _lastImportResult;
   bool _processingImport = false;
   bool _importing = false;
+  bool _batchProcessing = false;
   int _selectedSection = 0;
   final _searchCtrl = TextEditingController();
+  final Set<String> _selectedSlotKeys = <String>{};
   String? _dayFilter;
   String? _statusFilter;
   String? _programFilter;
@@ -103,7 +105,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           academicSessionOptions: sessionOptions,
           onAcademicSessionChanged: (value) {
             if (value == null) return;
-            setState(() => _academicSessionFilter = value);
+            _updateFilters(() => _academicSessionFilter = value);
           },
         ),
         const SizedBox(height: 12),
@@ -139,15 +141,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
             classFilter: _classFilter,
             lecturerFilter: _lecturerFilter,
             roomFilter: _roomFilter,
-            onSearchChanged: (_) => setState(() {}),
-            onDayChanged: (value) => setState(() => _dayFilter = value),
-            onStatusChanged: (value) => setState(() => _statusFilter = value),
-            onProgramChanged: (value) => setState(() => _programFilter = value),
-            onClassChanged: (value) => setState(() => _classFilter = value),
+            selectedSlotKeys: _selectedSlotKeys,
+            batchProcessing: _batchProcessing,
+            onSearchChanged: (_) => _updateFilters(() {}),
+            onDayChanged: (value) => _updateFilters(() => _dayFilter = value),
+            onStatusChanged: (value) =>
+                _updateFilters(() => _statusFilter = value),
+            onProgramChanged: (value) =>
+                _updateFilters(() => _programFilter = value),
+            onClassChanged: (value) =>
+                _updateFilters(() => _classFilter = value),
             onLecturerChanged: (value) =>
-                setState(() => _lecturerFilter = value),
-            onRoomChanged: (value) => setState(() => _roomFilter = value),
+                _updateFilters(() => _lecturerFilter = value),
+            onRoomChanged: (value) => _updateFilters(() => _roomFilter = value),
             onResetFilters: _resetFilters,
+            onToggleSelectAllVisible: () =>
+                _toggleSelectAllVisible(filteredTimetable),
+            onClearSelection: _clearSelection,
+            onExportSelected: () => _exportSelected(filteredTimetable),
+            onBatchInactive: () =>
+                _confirmBatchInactive(state, filteredTimetable),
+            onBatchDelete: () => _confirmBatchDelete(state, filteredTimetable),
+            onSelectionChanged: _setSlotSelection,
             onDetails: (slot) => _showSlotDetails(state, slot),
             onEdit: (slot) => _showEditDialog(state, slot),
             onDelete: (slot) => _confirmDelete(state, slot),
@@ -175,6 +190,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
       ],
     );
+  }
+
+  void _updateFilters(VoidCallback update) {
+    setState(() {
+      update();
+      _selectedSlotKeys.clear();
+    });
   }
 
   List<TimetableSlot> _filteredTimetable(
@@ -224,6 +246,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       _lecturerFilter = null;
       _roomFilter = null;
       _academicSessionFilter = null;
+      _selectedSlotKeys.clear();
     });
   }
 
@@ -428,15 +451,174 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  void _exportTimetable(List<TimetableSlot> timetable) {
+  void _exportTimetable(
+    List<TimetableSlot> timetable, {
+    String? filename,
+  }) {
     final rows = [
       _legacyExportColumns,
       ...timetable.map((slot) => _slotToRow(slot)),
     ];
     downloadTextFile(
-      filename: 'eksport_jadual_${DateTime.now().millisecondsSinceEpoch}.csv',
+      filename: filename ??
+          'eksport_jadual_${DateTime.now().millisecondsSinceEpoch}.csv',
       content: _toCsv(rows),
     );
+  }
+
+  void _exportSelected(List<TimetableSlot> visibleSlots) {
+    final selected = _selectedVisibleSlots(visibleSlots);
+    if (selected.isEmpty) return;
+    _exportTimetable(
+      selected,
+      filename: 'jadual_selected_${_dateStamp()}.csv',
+    );
+  }
+
+  Future<void> _confirmBatchInactive(
+    AppState state,
+    List<TimetableSlot> visibleSlots,
+  ) async {
+    final selected = _selectedVisibleSlots(visibleSlots);
+    if (selected.isEmpty || _batchProcessing) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nyahaktifkan Slot Jadual?'),
+        content: Text(
+          'Tindakan ini akan menetapkan ${selected.length} slot jadual sebagai Tidak Aktif. Slot ini tidak akan dipadam.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Nyahaktifkan'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _batchProcessing = true);
+    try {
+      await state.updateTimetableSlotsStatus(
+        selected.map((slot) => slot.id).toList(),
+        'inactive',
+      );
+      await state.refreshTimetableData();
+      if (!mounted) return;
+      setState(() => _selectedSlotKeys.clear());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${selected.length} slot jadual dinyahaktifkan.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal menyahaktifkan slot jadual: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _batchProcessing = false);
+    }
+  }
+
+  Future<void> _confirmBatchDelete(
+    AppState state,
+    List<TimetableSlot> visibleSlots,
+  ) async {
+    final selected = _selectedVisibleSlots(visibleSlots);
+    if (selected.isEmpty || _batchProcessing) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Padam Slot Jadual Dipilih?'),
+        content: Text(
+          'Tindakan ini akan memadam ${selected.length} slot jadual daripada rekod rasmi. Tindakan ini tidak boleh dibuat asal.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Padam'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _batchProcessing = true);
+    try {
+      await state
+          .deleteTimetableSlots(selected.map((slot) => slot.id).toList());
+      await state.refreshTimetableData();
+      if (!mounted) return;
+      setState(() => _selectedSlotKeys.clear());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${selected.length} slot jadual dipadam.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gagal memadam slot jadual: ${e.toString().replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _batchProcessing = false);
+    }
+  }
+
+  void _toggleSelectAllVisible(List<TimetableSlot> visibleSlots) {
+    if (visibleSlots.isEmpty || _batchProcessing) return;
+    final visibleKeys = visibleSlots.map(_slotSelectionKey).toSet();
+    final allVisibleSelected =
+        visibleKeys.every((key) => _selectedSlotKeys.contains(key));
+    setState(() {
+      if (allVisibleSelected) {
+        _selectedSlotKeys.removeAll(visibleKeys);
+      } else {
+        _selectedSlotKeys.addAll(visibleKeys);
+      }
+    });
+  }
+
+  void _setSlotSelection(TimetableSlot slot, bool selected) {
+    final key = _slotSelectionKey(slot);
+    setState(() {
+      if (selected) {
+        _selectedSlotKeys.add(key);
+      } else {
+        _selectedSlotKeys.remove(key);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(() => _selectedSlotKeys.clear());
+  }
+
+  List<TimetableSlot> _selectedVisibleSlots(List<TimetableSlot> visibleSlots) {
+    return visibleSlots
+        .where((slot) => _selectedSlotKeys.contains(_slotSelectionKey(slot)))
+        .toList();
+  }
+
+  String _dateStamp() {
+    final now = DateTime.now();
+    return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _showEditDialog(AppState state, TimetableSlot slot) async {
@@ -1105,6 +1287,8 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.classFilter,
     required this.lecturerFilter,
     required this.roomFilter,
+    required this.selectedSlotKeys,
+    required this.batchProcessing,
     required this.onSearchChanged,
     required this.onDayChanged,
     required this.onStatusChanged,
@@ -1113,6 +1297,12 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.onLecturerChanged,
     required this.onRoomChanged,
     required this.onResetFilters,
+    required this.onToggleSelectAllVisible,
+    required this.onClearSelection,
+    required this.onExportSelected,
+    required this.onBatchInactive,
+    required this.onBatchDelete,
+    required this.onSelectionChanged,
     required this.onDetails,
     required this.onEdit,
     required this.onDelete,
@@ -1128,6 +1318,8 @@ class _OfficialTimetableSection extends StatelessWidget {
   final String? classFilter;
   final String? lecturerFilter;
   final String? roomFilter;
+  final Set<String> selectedSlotKeys;
+  final bool batchProcessing;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?> onDayChanged;
   final ValueChanged<String?> onStatusChanged;
@@ -1136,6 +1328,12 @@ class _OfficialTimetableSection extends StatelessWidget {
   final ValueChanged<String?> onLecturerChanged;
   final ValueChanged<String?> onRoomChanged;
   final VoidCallback onResetFilters;
+  final VoidCallback onToggleSelectAllVisible;
+  final VoidCallback onClearSelection;
+  final VoidCallback onExportSelected;
+  final VoidCallback onBatchInactive;
+  final VoidCallback onBatchDelete;
+  final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
   final void Function(TimetableSlot slot) onDetails;
   final void Function(TimetableSlot slot) onEdit;
   final void Function(TimetableSlot slot) onDelete;
@@ -1172,13 +1370,190 @@ class _OfficialTimetableSection extends StatelessWidget {
           const SizedBox(height: 16),
           _ConflictReviewPanel(slots: slots),
           const SizedBox(height: 16),
+          if (slots.isNotEmpty) ...[
+            _SelectionToolbar(
+              visibleCount: slots.length,
+              selectedCount: _selectedVisibleCount(slots, selectedSlotKeys),
+              allVisibleSelected: _allVisibleSelected(slots, selectedSlotKeys),
+              batchProcessing: batchProcessing,
+              onToggleSelectAllVisible: onToggleSelectAllVisible,
+              onClearSelection: onClearSelection,
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (_selectedVisibleCount(slots, selectedSlotKeys) > 0) ...[
+            _BatchActionBar(
+              selectedCount: _selectedVisibleCount(slots, selectedSlotKeys),
+              batchProcessing: batchProcessing,
+              onExportSelected: onExportSelected,
+              onBatchInactive: onBatchInactive,
+              onBatchDelete: onBatchDelete,
+              onClearSelection: onClearSelection,
+            ),
+            const SizedBox(height: 12),
+          ],
           _TimetableTable(
             slots: slots,
+            selectedSlotKeys: selectedSlotKeys,
+            batchProcessing: batchProcessing,
+            onSelectionChanged: onSelectionChanged,
             onDetails: onDetails,
             onEdit: onEdit,
             onDelete: onDelete,
           ),
         ],
+      ),
+    );
+  }
+}
+
+int _selectedVisibleCount(
+  List<TimetableSlot> slots,
+  Set<String> selectedSlotKeys,
+) {
+  return slots
+      .where((slot) => selectedSlotKeys.contains(_slotSelectionKey(slot)))
+      .length;
+}
+
+bool _allVisibleSelected(
+  List<TimetableSlot> slots,
+  Set<String> selectedSlotKeys,
+) {
+  if (slots.isEmpty) return false;
+  return slots
+      .every((slot) => selectedSlotKeys.contains(_slotSelectionKey(slot)));
+}
+
+class _SelectionToolbar extends StatelessWidget {
+  const _SelectionToolbar({
+    required this.visibleCount,
+    required this.selectedCount,
+    required this.allVisibleSelected,
+    required this.batchProcessing,
+    required this.onToggleSelectAllVisible,
+    required this.onClearSelection,
+  });
+
+  final int visibleCount;
+  final int selectedCount;
+  final bool allVisibleSelected;
+  final bool batchProcessing;
+  final VoidCallback onToggleSelectAllVisible;
+  final VoidCallback onClearSelection;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Tooltip(
+          message: 'Pilih semua slot yang sedang dipaparkan',
+          child: OutlinedButton.icon(
+            onPressed: batchProcessing ? null : onToggleSelectAllVisible,
+            icon: Icon(allVisibleSelected
+                ? Icons.check_box
+                : Icons.check_box_outline_blank),
+            label: Text(
+              allVisibleSelected ? 'Kosongkan Paparan' : 'Pilih Semua Paparan',
+            ),
+          ),
+        ),
+        Text(
+          selectedCount == 0
+              ? '$visibleCount slot dipaparkan'
+              : '$selectedCount daripada $visibleCount slot dipilih',
+          style: const TextStyle(
+            color: Color(0xff475569),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (selectedCount > 0)
+          TextButton.icon(
+            onPressed: batchProcessing ? null : onClearSelection,
+            icon: const Icon(Icons.close),
+            label: const Text('Batal Pilihan'),
+          ),
+      ],
+    );
+  }
+}
+
+class _BatchActionBar extends StatelessWidget {
+  const _BatchActionBar({
+    required this.selectedCount,
+    required this.batchProcessing,
+    required this.onExportSelected,
+    required this.onBatchInactive,
+    required this.onBatchDelete,
+    required this.onClearSelection,
+  });
+
+  final int selectedCount;
+  final bool batchProcessing;
+  final VoidCallback onExportSelected;
+  final VoidCallback onBatchInactive;
+  final VoidCallback onBatchDelete;
+  final VoidCallback onClearSelection;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xffeff6ff),
+        border: Border.all(color: const Color(0xffbfdbfe)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            StatusChip('$selectedCount slot dipilih'),
+            Tooltip(
+              message: 'Export slot dipilih',
+              child: OutlinedButton.icon(
+                onPressed: batchProcessing ? null : onExportSelected,
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Export Dipilih'),
+              ),
+            ),
+            Tooltip(
+              message: 'Nyahaktifkan slot dipilih',
+              child: OutlinedButton.icon(
+                onPressed: batchProcessing ? null : onBatchInactive,
+                icon: batchProcessing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.visibility_off_outlined),
+                label: const Text('Nyahaktifkan'),
+              ),
+            ),
+            Tooltip(
+              message: 'Padam slot dipilih',
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xffb91c1c),
+                ),
+                onPressed: batchProcessing ? null : onBatchDelete,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Padam'),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: batchProcessing ? null : onClearSelection,
+              icon: const Icon(Icons.close),
+              label: const Text('Batal Pilihan'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2751,12 +3126,18 @@ class _ImportSuccessPanel extends StatelessWidget {
 class _TimetableTable extends StatelessWidget {
   const _TimetableTable({
     required this.slots,
+    required this.selectedSlotKeys,
+    required this.batchProcessing,
+    required this.onSelectionChanged,
     this.onDetails,
     this.onEdit,
     this.onDelete,
   });
 
   final List<TimetableSlot> slots;
+  final Set<String> selectedSlotKeys;
+  final bool batchProcessing;
+  final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
   final void Function(TimetableSlot slot)? onDetails;
   final void Function(TimetableSlot slot)? onEdit;
   final void Function(TimetableSlot slot)? onDelete;
@@ -2773,6 +3154,7 @@ class _TimetableTable extends StatelessWidget {
 
     return AppDataTable(
       columns: const [
+        DataColumn(label: Text('Pilih')),
         DataColumn(label: Text('Kod')),
         DataColumn(label: Text('Subjek')),
         DataColumn(label: Text('Kelas')),
@@ -2785,7 +3167,19 @@ class _TimetableTable extends StatelessWidget {
         DataColumn(label: Text('Tindakan')),
       ],
       rows: slots.map((slot) {
+        final selected = selectedSlotKeys.contains(_slotSelectionKey(slot));
         return DataRow(cells: [
+          DataCell(
+            Tooltip(
+              message: 'Pilih slot',
+              child: Checkbox(
+                value: selected,
+                onChanged: batchProcessing
+                    ? null
+                    : (value) => onSelectionChanged(slot, value ?? false),
+              ),
+            ),
+          ),
           DataCell(Text(
             slot.subjectCode,
             style: const TextStyle(fontWeight: FontWeight.w800),
@@ -2977,6 +3371,12 @@ String _statusLabel(String status) {
     'attendance completed' => 'Kehadiran Selesai',
     _ => status,
   };
+}
+
+String _slotSelectionKey(TimetableSlot slot) {
+  final timetableSlotId = slot.timetableSlotId.trim();
+  if (timetableSlotId.isNotEmpty) return timetableSlotId;
+  return slot.id;
 }
 
 String _uploadStatusLabel(String status) {

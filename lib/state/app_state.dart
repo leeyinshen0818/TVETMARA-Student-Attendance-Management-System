@@ -395,94 +395,102 @@ class AppState extends ChangeNotifier {
         !currentProgramHasKetuaJabatan;
   }
 
+  List<ProgramCode> get scopedPrograms {
+    final user = currentUser;
+    if (user == null) return [];
+    if (user.role == UserRole.pentadbir) return programs.toList();
+    if (user.role == UserRole.ketua_jabatan) {
+      return programs
+          .where((program) => program.departmentId == user.departmentId)
+          .toList();
+    }
+    if (user.role == UserRole.ketua_program && user.programId != null) {
+      return programs.where((program) => program.id == user.programId).toList();
+    }
+    if (user.role == UserRole.pensyarah && user.programId != null) {
+      return programs.where((program) => program.id == user.programId).toList();
+    }
+    return [];
+  }
+
   List<TimetableSlot> get scopedTimetable {
     final user = currentUser;
     if (user == null || user.role == UserRole.pentadbir) return [];
 
     if (user.role == UserRole.ketua_jabatan) {
-      final deptPrograms = programs
-          .where((p) => p.departmentId == user.departmentId)
-          .map((p) => p.name)
-          .toSet();
+      final deptProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
       return timetable
-          .where((slot) => deptPrograms.contains(slot.program))
+          .where((slot) =>
+              deptProgramIds.contains(_programIdForTimetableSlot(slot)))
           .toList();
     }
 
     if (user.role == UserRole.ketua_program) {
-      final kpProgram =
-          programs.where((p) => p.id == user.programId).firstOrNull?.name;
-      if (kpProgram == null) return [];
-      return timetable.where((slot) => slot.program == kpProgram).toList();
+      return timetable
+          .where((slot) => _programIdForTimetableSlot(slot) == user.programId)
+          .toList();
     }
 
     // Pensyarah
-    return timetable.where((slot) => slot.lecturerId == user.uid).toList();
+    return timetable
+        .where((slot) =>
+            slot.lecturerId == user.uid || slot.lecturerName == user.name)
+        .toList();
   }
 
   List<Student> get scopedStudents {
     final user = currentUser;
-    if (user == null || user.role == UserRole.pentadbir) return [];
+    if (user == null) return [];
+    if (user.role == UserRole.pentadbir) return students.toList();
 
     if (user.role == UserRole.ketua_jabatan) {
-      final deptPrograms = programs
-          .where((p) => p.departmentId == user.departmentId)
-          .map((p) => p.name)
-          .toSet();
+      final deptProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
       return students
-          .where((student) => deptPrograms.contains(student.program))
+          .where((student) =>
+              deptProgramIds.contains(_programIdForStudent(student)))
           .toList();
     }
 
     if (user.role == UserRole.ketua_program) {
-      final kpProgram =
-          programs.where((p) => p.id == user.programId).firstOrNull?.name;
-      if (kpProgram == null) return [];
-      return students.where((student) => student.program == kpProgram).toList();
+      return students
+          .where((student) => _programIdForStudent(student) == user.programId)
+          .toList();
     }
 
     // Pensyarah sees students from sections they teach
     final sections = scopedTimetable.map((slot) => slot.section).toSet();
-    if (sections.isNotEmpty) {
-      return students
-          .where((student) => sections.contains(student.section))
-          .toList();
-    }
-    // Fallback: if no timetable slots found, show students from same department
-    final deptPrograms = programs
-        .where((p) => p.departmentId == user.departmentId)
-        .map((p) => p.name)
-        .toSet();
-    if (deptPrograms.isNotEmpty) {
-      return students
-          .where((student) => deptPrograms.contains(student.program))
-          .toList();
-    }
-    // Last resort: return all students
-    return students.toList();
+    return students
+        .where((student) => sections.contains(student.section))
+        .toList();
   }
 
   List<DisciplineReport> get scopedDisciplineReports {
     final user = currentUser;
     if (user == null || user.role == UserRole.pentadbir) return [];
 
-    if (user.role == UserRole.ketua_jabatan) {
-      final validStudents = scopedStudents.map((s) => s.id).toSet();
+    if (user.role == UserRole.ketua_jabatan ||
+        user.role == UserRole.ketua_program) {
+      final scopedProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
+      final scopedStudentIds =
+          scopedStudents.map((student) => student.id).toSet();
       return disciplineReports
-          .where((r) => validStudents.contains(r.studentId))
-          .toList();
-    }
-
-    if (user.role == UserRole.ketua_program) {
-      if (!currentKetuaProgramInheritsKetuaJabatanTasks) return [];
-      final validStudents = scopedStudents.map((s) => s.id).toSet();
-      return disciplineReports
-          .where((r) => validStudents.contains(r.studentId))
+          .where((report) =>
+              scopedProgramIds
+                  .contains(_programIdForDisciplineReport(report)) ||
+              scopedStudentIds.contains(report.studentId))
           .toList();
     }
 
     // Pensyarah
-    return disciplineReports.where((r) => r.lecturer == user.name).toList();
+    return disciplineReports
+        .where((report) =>
+            report.createdBy == user.uid ||
+            report.createdByName == user.name ||
+            report.lecturer == user.name)
+        .toList();
   }
 
   List<BookingRequest> get scopedBookings {
@@ -508,6 +516,23 @@ class AppState extends ChangeNotifier {
 
     // Pensyarah
     return bookings.where((b) => b.lecturerId == user.uid).toList();
+  }
+
+  List<AttendanceSession> get scopedAttendanceSessions {
+    final user = currentUser;
+    if (user == null) return [];
+    if (user.role == UserRole.pentadbir) return attendanceSessions.toList();
+    if (user.role == UserRole.ketua_jabatan ||
+        user.role == UserRole.ketua_program) {
+      final scopedProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
+      return attendanceSessions
+          .where((session) => scopedProgramIds.contains(session.programId))
+          .toList();
+    }
+    return attendanceSessions
+        .where((session) => session.lecturerId == user.uid)
+        .toList();
   }
 
   Future<void> saveAttendance(
@@ -580,11 +605,36 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<void> updateTimetableSlotsStatus(
+    List<String> slotIds,
+    String status,
+  ) async {
+    final idSet = slotIds.toSet();
+    for (var i = 0; i < timetable.length; i++) {
+      final slot = timetable[i];
+      if (idSet.contains(slot.id)) {
+        timetable[i] = slot.copyWith(status: status);
+      }
+    }
+    notifyListeners();
+    await _fs.updateTimetableSlotsStatus(slotIds, status);
+  }
+
   Future<void> deleteTimetableSlot(String slotId) async {
     timetable.removeWhere((slot) => slot.id == slotId);
     attendance.remove(slotId);
     notifyListeners();
     await _fs.deleteTimetableSlot(slotId);
+  }
+
+  Future<void> deleteTimetableSlots(List<String> slotIds) async {
+    final idSet = slotIds.toSet();
+    timetable.removeWhere((slot) => idSet.contains(slot.id));
+    for (final slotId in slotIds) {
+      attendance.remove(slotId);
+    }
+    notifyListeners();
+    await _fs.deleteTimetableSlots(slotIds);
   }
 
   Future<void> addDiscipline(DisciplineReport report) async {
@@ -944,18 +994,52 @@ class AppState extends ChangeNotifier {
     return programs.where((program) => program.id == programId).firstOrNull;
   }
 
+  String? _programIdForTimetableSlot(TimetableSlot slot) {
+    if (slot.programId != null && slot.programId!.isNotEmpty) {
+      return slot.programId;
+    }
+    final sectionProgram = _programIdFromSection(slot.section);
+    if (sectionProgram != null) return sectionProgram;
+    return _programForName(slot.program)?.id;
+  }
+
+  String? _programIdForStudent(Student student) {
+    final sectionProgram = _programIdFromSection(student.section);
+    if (sectionProgram != null) return sectionProgram;
+    return _programForName(student.program)?.id;
+  }
+
+  String? _programIdForDisciplineReport(DisciplineReport report) {
+    if (report.programId != null && report.programId!.isNotEmpty) {
+      return report.programId;
+    }
+    final sectionProgram = _programIdFromSection(report.section);
+    if (sectionProgram != null) return sectionProgram;
+    final student =
+        students.where((student) => student.id == report.studentId).firstOrNull;
+    if (student != null) return _programIdForStudent(student);
+    return _programForName(report.programName)?.id;
+  }
+
   String? _programIdForBooking(BookingRequest booking) {
     if (booking.programId != null && booking.programId!.isNotEmpty) {
       return booking.programId;
     }
-    final sectionPrefix = booking.section.split(' ').firstOrNull;
-    if (programs.any((program) => program.id == sectionPrefix)) {
-      return sectionPrefix;
-    }
+    final sectionProgram = _programIdFromSection(booking.section);
+    if (sectionProgram != null) return sectionProgram;
     final matchingSlot =
         timetable.where((slot) => slot.section == booking.section).firstOrNull;
     return matchingSlot?.programId ??
         _programForName(matchingSlot?.program)?.id;
+  }
+
+  String? _programIdFromSection(String? section) {
+    if (section == null || section.trim().isEmpty) return null;
+    final sectionPrefix = section.trim().split(RegExp(r'\s+')).firstOrNull;
+    if (programs.any((program) => program.id == sectionPrefix)) {
+      return sectionPrefix;
+    }
+    return null;
   }
 
   int _weekNoForSlot(TimetableSlot slot) {
