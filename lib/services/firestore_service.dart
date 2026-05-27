@@ -517,15 +517,23 @@ class FirestoreService {
       final chunk = students.sublist(
           i, i + 400 > students.length ? students.length : i + 400);
       for (final s in chunk) {
+        final programId = s.section.split(' ').first;
         batch.set(_studentsCol.doc(s.id), {
+          'studentId': s.id,
           'name': s.name,
           'email': s.email,
           'phone': s.phone,
           'program': s.program,
+          'programId': programId,
           'semester': s.semester,
           'section': s.section,
+          'classId': s.section,
           'attendance': s.attendance,
           'active': s.active,
+          'isActive': s.active,
+          'dataSource': 'generated_demo',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
       await batch.commit();
@@ -578,15 +586,28 @@ class FirestoreService {
       batch.set(_disciplineCol.doc(r.id), {
         'studentId': r.studentId,
         'studentName': r.studentName,
+        'programId': r.programId,
+        'programName': r.programName,
+        'departmentId': r.departmentId,
         'section': r.section,
         'subject': r.subject,
+        'subjectCode': r.subjectCode,
+        'subjectName': r.subjectName,
+        'slotId': r.slotId,
         'lecturer': r.lecturer,
+        'createdBy': r.createdBy,
+        'createdByName': r.createdByName,
+        'assignedReviewerIds': r.assignedReviewerIds,
+        'assignedReviewerRoles': r.assignedReviewerRoles,
         'date': r.date,
         'issueType': r.issueType,
         'severity': r.severity,
         'description': r.description,
         'followUp': r.followUp,
         'status': r.status,
+        'dataSource': 'generated_demo',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
     await batch.commit();

@@ -1,7 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../data/mock_data.dart' as mock;
-import '../data/subject_seed_data.dart' as subject_seed;
 import '../models/app_models.dart';
 import '../services/firestore_service.dart';
 
@@ -31,7 +31,13 @@ Future<bool> seedFirestore() async {
     'programs',
     'academic_sessions',
     'subjects',
-    'attendance_records'
+    'classes',
+    'attendance_sessions',
+    'attendance_records',
+    'timetable_uploads',
+    'booking_requests',
+    'lecturer_course_assignments',
+    'notifications',
   ];
   for (final col in cols) {
     final snap = await fs.db.collection(col).get();
@@ -147,16 +153,24 @@ Future<bool> seedFirestore() async {
   await fs.seedStudents(mock.students);
   await fs.seedLecturers(seededLecturers);
   await fs.seedRooms(mock.roomResources);
-  await fs.seedSubjects(subject_seed.subjectSeedData);
+  await fs.seedSubjects(mock.subjectsForSeed);
+  await _seedClasses(fs, mock.demoClasses);
   await fs.seedTimetable(seededTimetable);
   await fs.seedDisciplineReports(mock.disciplineReports);
   await fs.seedBookings(seededBookings);
 
-  // Seed attendance for completed slots.
-  for (final slot
-      in seededTimetable.where((s) => s.status == 'Attendance Completed')) {
-    final records = mock.attendanceForSlot(slot);
-    await fs.saveAttendance(slot.id, records);
+  // Seed normalized attendance sessions for reporting plus a compatible
+  // legacy attendance snapshot for existing attendance views.
+  for (final slot in seededTimetable) {
+    final bundles = mock.attendanceBundlesForSlot(slot);
+    if (bundles.isEmpty) continue;
+    for (final bundle in bundles) {
+      await fs.saveAttendanceSessionWithRecords(
+        session: bundle.session,
+        records: bundle.records,
+      );
+    }
+    await fs.saveAttendance(slot.id, bundles.first.records);
   }
 
   // Sign out after creating accounts.
@@ -171,4 +185,30 @@ Future<bool> seedFirestore() async {
       .set({'seededAt': DateTime.now().toIso8601String()});
 
   return true; // seeding was performed
+}
+
+Future<void> _seedClasses(
+  FirestoreService fs,
+  List<mock.DemoClass> classes,
+) async {
+  for (var i = 0; i < classes.length; i += 400) {
+    final batch = fs.db.batch();
+    final chunk =
+        classes.sublist(i, i + 400 > classes.length ? classes.length : i + 400);
+    for (final item in chunk) {
+      batch.set(fs.db.collection('classes').doc(item.classId), {
+        'classId': item.classId,
+        'programId': item.programId,
+        'academicSessionId': item.academicSessionId,
+        'semester': item.semester,
+        'section': item.section,
+        'displayName': item.displayName,
+        'isActive': item.isActive,
+        'dataSource': 'generated_demo',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
 }
