@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../data/lecturer_seed_data.dart';
 import '../data/mock_data.dart' as mock;
 import '../models/app_models.dart';
 import '../services/firestore_service.dart';
@@ -58,7 +59,7 @@ Future<bool> seedFirestore() async {
   // 3. Create Firebase Auth accounts and align users/{uid}
   // ------------------------------------------------------------------
   final authUidByMockId = <String, String>{};
-  for (final user in mock.users) {
+  for (final user in mock.demoAuthUsers) {
     final password =
         user.role == UserRole.pentadbir ? 'admin123' : 'password123';
     UserCredential credential;
@@ -106,6 +107,12 @@ Future<bool> seedFirestore() async {
   final seededTimetable = mock.timetable
       .map((slot) => TimetableSlot(
             id: slot.id,
+            timetableSlotId: slot.timetableSlotId,
+            academicSessionId: slot.academicSessionId,
+            programId: slot.programId,
+            departmentId: slot.departmentId,
+            classId: slot.classId,
+            subjectId: slot.subjectId,
             session: slot.session,
             semester: slot.semester,
             program: slot.program,
@@ -114,16 +121,25 @@ Future<bool> seedFirestore() async {
             subjectName: slot.subjectName,
             lecturerId: authUidByMockId[slot.lecturerId] ?? slot.lecturerId,
             lecturerName: slot.lecturerName,
+            roomId: slot.roomId,
+            roomName: slot.roomName,
             day: slot.day,
             date: slot.date,
+            dayOfWeek: slot.dayOfWeek,
             startTime: slot.startTime,
             endTime: slot.endTime,
+            weekStart: slot.weekStart,
+            weekEnd: slot.weekEnd,
             room: slot.room,
             enrolled: slot.enrolled,
             capacity: slot.capacity,
             classType: slot.classType,
             slotType: slot.slotType,
             status: slot.status,
+            sourceUploadId: slot.sourceUploadId,
+            createdBy: slot.createdBy,
+            createdAt: slot.createdAt,
+            updatedAt: slot.updatedAt,
           ))
       .toList();
 
@@ -161,6 +177,8 @@ Future<bool> seedFirestore() async {
   await fs.seedLecturers(seededLecturers);
   await fs.seedRooms(mock.roomResources);
   await fs.seedSubjects(mock.subjectsForSeed);
+  await _seedLecturerCourseAssignments(
+      fs, mock.lecturerCourseAssignmentsForSeed);
   await _seedClasses(fs, mock.demoClasses);
   await fs.seedTimetable(seededTimetable);
   await fs.seedDisciplineReports(mock.disciplineReports);
@@ -215,6 +233,39 @@ Future<void> _seedClasses(
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+    }
+    await batch.commit();
+  }
+}
+
+Future<void> _seedLecturerCourseAssignments(
+  FirestoreService fs,
+  List<LecturerCourseAssignmentSeed> assignments,
+) async {
+  for (var i = 0; i < assignments.length; i += 400) {
+    final batch = fs.db.batch();
+    final chunk = assignments.sublist(
+        i, i + 400 > assignments.length ? assignments.length : i + 400);
+    for (final item in chunk) {
+      batch.set(
+        fs.db.collection('lecturer_course_assignments').doc(item.assignmentId),
+        {
+          'assignmentId': item.assignmentId,
+          'academicSessionId': item.academicSessionId,
+          'lecturerId': item.lecturerId,
+          'lecturerName': item.lecturerName,
+          'lecturerEmail': item.lecturerEmail,
+          'programId': item.programId,
+          'classId': item.classId,
+          'subjectId': item.subjectId,
+          'subjectCode': item.subjectCode,
+          'subjectName': item.subjectName,
+          'isActive': item.isActive,
+          'dataSource': 'client_workbook_generated_demo_email',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+      );
     }
     await batch.commit();
   }

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tvetmara_student_attendance/data/lecturer_seed_data.dart';
 import 'package:tvetmara_student_attendance/data/mock_data.dart' as mock;
 import 'package:tvetmara_student_attendance/models/app_models.dart';
 
@@ -95,6 +96,52 @@ void main() {
         AttendanceStatus.mc,
         AttendanceStatus.ck,
       ]),
+    );
+  });
+
+  test('real lecturer seed preserves demo logins and generated emails', () {
+    expect(realLecturerProfiles.length, greaterThanOrEqualTo(100));
+    expect(
+      realLecturerProfiles.map((profile) => profile.name),
+      containsAll([
+        'Zabhin bin Mohd Arbai',
+        'IR TS DR. OSMAN BIN ABU BAKAR',
+        'RAFIDAH BINTI JEMAIN',
+      ]),
+    );
+    expect(
+      realLecturerProfiles.every((profile) => profile.name.trim().isNotEmpty),
+      isTrue,
+    );
+
+    final emails = mock.users.map((user) => user.email).toList();
+    expect(emails.toSet().length, emails.length);
+    expect(emails, contains('pensyarah_ded@tvetmara.edu.my'));
+    expect(emails, contains('lecturer001@tvetmara.edu.my'));
+    expect(
+      mock.realLecturerUsers.every((user) => user.role == UserRole.pensyarah),
+      isTrue,
+    );
+  });
+
+  test('lecturer course assignments and timetable use real lecturer names', () {
+    expect(mock.lecturerCourseAssignmentsForSeed.length, greaterThan(200));
+    expect(
+      mock.lecturerCourseAssignmentsForSeed
+          .every((assignment) => assignment.lecturerEmail.contains('@')),
+      isTrue,
+    );
+
+    final realLecturerNames =
+        realLecturerProfiles.map((profile) => profile.name).toSet();
+    final realNameSlots = mock.timetable
+        .where((slot) => realLecturerNames.contains(slot.lecturerName))
+        .toList();
+
+    expect(realNameSlots, isNotEmpty);
+    expect(
+      mock.timetable.map((slot) => slot.lecturerName).toSet(),
+      isNot(everyElement(startsWith('Pensyarah '))),
     );
   });
 }

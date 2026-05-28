@@ -1,4 +1,5 @@
 import '../core/constants/timetable_template.dart';
+import '../data/lecturer_seed_data.dart' as lecturer_seed;
 import '../data/subject_seed_data.dart' as subject_seed;
 import '../models/app_models.dart';
 
@@ -188,7 +189,7 @@ const roomResources = [
       name: 'MAKMAL KOMPUTER DIGITAL', block: 'Unknown', type: 'Makmal'),
 ];
 
-final List<AppUser> users = [
+final List<AppUser> demoAuthUsers = [
   const AppUser(
       uid: 'U001',
       name: 'Pentadbir TVETMARA',
@@ -246,19 +247,55 @@ final List<AppUser> users = [
       updatedAt: '2026-05-01 08:00')),
 ];
 
-final List<Lecturer> lecturers = users
-    .where((u) => u.role == UserRole.pensyarah)
-    .map((u) => Lecturer(
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          department: u.departmentId ?? 'Umum',
-          subjects: _subjectsForProgram(u.programId ?? '')
-              .take(4)
-              .map((s) => s.subjectCode)
-              .toList(),
+final List<AppUser> realLecturerUsers = lecturer_seed.realLecturerProfiles
+    .map((profile) => AppUser(
+          uid: profile.lecturerId,
+          name: profile.name,
+          email: profile.email,
+          role: UserRole.pensyarah,
+          programId:
+              profile.programIds.length == 1 ? profile.programIds.first : null,
+          departmentId: profile.departmentIds.length == 1
+              ? profile.departmentIds.first
+              : null,
+          isActive: true,
+          createdAt: '2026-05-01 08:00',
+          updatedAt: '2026-05-01 08:00',
         ))
     .toList();
+
+final List<AppUser> users = [
+  ...demoAuthUsers,
+  ...realLecturerUsers,
+];
+
+final List<Lecturer> lecturers = [
+  ...demoAuthUsers
+      .where((u) => u.role == UserRole.pensyarah)
+      .map((u) => Lecturer(
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            department: u.departmentId ?? 'Umum',
+            subjects: _subjectsForProgram(u.programId ?? '')
+                .take(4)
+                .map((s) => s.subjectCode)
+                .toList(),
+          )),
+  ...lecturer_seed.realLecturerProfiles.map((profile) => Lecturer(
+        id: profile.lecturerId,
+        name: profile.name,
+        email: profile.email,
+        department: profile.departmentIds.isEmpty
+            ? 'Umum'
+            : profile.departmentIds.join(','),
+        subjects: profile.subjectCodes,
+      )),
+];
+
+List<lecturer_seed.LecturerCourseAssignmentSeed>
+    get lecturerCourseAssignmentsForSeed =>
+        lecturer_seed.realLecturerCourseAssignments;
 
 class DemoClass {
   const DemoClass({
@@ -879,11 +916,19 @@ TimetableSlot _slot({
 }) {
   final program = _programById(programId);
   final classId = '$programId $sectionSuffix';
-  final lecturerId =
-      lecturerProgramId.isEmpty ? 'L_$programId' : 'L_$lecturerProgramId';
-  final lecturerName = lecturerProgramId.isEmpty
-      ? 'Pensyarah $programId'
-      : 'Pensyarah $lecturerProgramId';
+  final assignedLecturer = lecturerProgramId.isEmpty
+      ? _realAssignmentForSlot(
+          programId: programId,
+          classId: classId,
+          subjectCode: subject.subjectCode,
+        )
+      : null;
+  final lecturerId = assignedLecturer?.lecturerId ??
+      (lecturerProgramId.isEmpty ? 'L_$programId' : 'L_$lecturerProgramId');
+  final lecturerName = assignedLecturer?.lecturerName ??
+      (lecturerProgramId.isEmpty
+          ? 'Pensyarah $programId'
+          : 'Pensyarah $lecturerProgramId');
   return TimetableSlot(
     id: id,
     timetableSlotId: id,
@@ -918,6 +963,28 @@ TimetableSlot _slot({
     sourceUploadId: sourceUploadId,
     createdBy: 'seed_demo',
   );
+}
+
+lecturer_seed.LecturerCourseAssignmentSeed? _realAssignmentForSlot({
+  required String programId,
+  required String classId,
+  required String subjectCode,
+}) {
+  final normalizedClass = classId.replaceAll(' ', '').toUpperCase();
+  final exact = lecturerCourseAssignmentsForSeed
+      .where((assignment) =>
+          assignment.programId == programId &&
+          assignment.subjectCode == subjectCode &&
+          assignment.classId.replaceAll(' ', '').toUpperCase() ==
+              normalizedClass)
+      .firstOrNull;
+  if (exact != null) return exact;
+
+  return lecturerCourseAssignmentsForSeed
+      .where((assignment) =>
+          assignment.programId == programId &&
+          assignment.subjectCode == subjectCode)
+      .firstOrNull;
 }
 
 List<TimetableSlot> _conflictDemoSlots() {

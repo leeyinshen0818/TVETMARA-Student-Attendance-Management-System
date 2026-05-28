@@ -196,6 +196,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
             onSelectionChanged: _setSlotSelection,
             onDetails: (slot) => _showSlotDetails(state, slot),
             onEdit: (slot) => _showEditDialog(state, slot),
+            onConflictEdit: (slot) =>
+                _showEditDialog(state, slot, conflictContext: true),
             onDelete: (slot) => _confirmDelete(state, slot),
           )
         else if (_selectedSection == 1)
@@ -701,66 +703,279 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _showEditDialog(AppState state, TimetableSlot slot) async {
-    final session = TextEditingController(text: slot.session);
+  Future<void> _showEditDialog(
+    AppState state,
+    TimetableSlot slot, {
+    bool conflictContext = false,
+  }) async {
+    final session =
+        TextEditingController(text: slot.academicSessionId ?? slot.session);
     final semester = TextEditingController(text: slot.semester.toString());
-    final program = TextEditingController(text: slot.program);
-    final section = TextEditingController(text: slot.section);
     final subjectCode = TextEditingController(text: slot.subjectCode);
     final subjectName = TextEditingController(text: slot.subjectName);
     final lecturerId = TextEditingController(text: slot.lecturerId);
     final lecturerName = TextEditingController(text: slot.lecturerName);
-    final day = TextEditingController(text: slot.day);
     final date = TextEditingController(text: slot.date);
     final startTime = TextEditingController(text: slot.startTime);
     final endTime = TextEditingController(text: slot.endTime);
-    final room = TextEditingController(text: slot.room);
+    final room = TextEditingController(text: _slotRoomValue(slot));
+    final weekStart = TextEditingController(text: slot.weekStart ?? slot.date);
+    final weekEnd = TextEditingController(text: slot.weekEnd ?? slot.date);
     final enrolled = TextEditingController(text: slot.enrolled.toString());
     final capacity = TextEditingController(text: slot.capacity.toString());
     final classType = TextEditingController(text: slot.classType);
     final slotType = TextEditingController(text: slot.slotType);
-    final status = TextEditingController(text: slot.status);
+    var selectedProgram = _slotProgramValue(slot);
+    var selectedClass = _slotClassValue(slot);
+    var selectedSubjectKey = _subjectEditKey(
+      slot.subjectId,
+      slot.subjectCode,
+      slot.subjectName,
+    );
+    var selectedSubjectId = slot.subjectId;
+    var selectedLecturerKey =
+        _lecturerEditKey(slot.lecturerId, slot.lecturerName);
+    var selectedRoom = _slotRoomValue(slot);
+    var selectedDay = _normalizeDay(slot.dayOfWeek ?? slot.day);
+    var selectedStatus = _normalizeSlotStatus(slot.status);
+    String? formError;
+    StateSetter? dialogSetState;
+    final sessionOptions = _academicSessionOptions(state);
+    final roomValues = state.roomResources
+        .map((room) => room.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet()
+      ..add(room.text.trim());
+    roomValues.remove('');
+    final roomOptions = roomValues.toList()..sort();
 
     final saved = await showDialog<TimetableSlot>(
       context: context,
       builder: (context) {
         return AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           title: const Text('Kemas Kini Slot Jadual'),
-          content: SizedBox(
-            width: _dialogWidth(context, maxWidth: 720),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _ManagementNote(),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+          content: StatefulBuilder(
+            builder: (context, setDialogState) {
+              dialogSetState = setDialogState;
+              final programOptions = _editProgramOptions(state, slot);
+              final classOptions =
+                  _editClassOptions(state, selectedProgram, slot);
+              final subjectOptions =
+                  _editSubjectOptions(state, selectedProgram, slot);
+              final subjectLabels = {
+                for (final option in subjectOptions) option.key: option.label,
+              };
+              final lecturerOptions =
+                  _editLecturerOptions(state, selectedProgram, slot);
+              final lecturerLabels = {
+                for (final option in lecturerOptions) option.key: option.label,
+              };
+              return SizedBox(
+                width: _dialogWidth(context, maxWidth: 760),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _field(session, 'Sesi'),
-                      _field(semester, 'Semester', number: true),
-                      _field(program, 'Program'),
-                      _field(section, 'Kelas'),
-                      _field(subjectCode, 'Kod Kursus'),
-                      _field(subjectName, 'Nama Kursus', wide: true),
-                      _field(lecturerId, 'ID Pensyarah'),
-                      _field(lecturerName, 'Nama Pensyarah'),
-                      _field(day, 'Hari'),
-                      _field(date, 'Tarikh'),
-                      _field(startTime, 'Masa Mula'),
-                      _field(endTime, 'Masa Tamat'),
-                      _field(room, 'Bilik'),
-                      _field(enrolled, 'Pelajar', number: true),
-                      _field(capacity, 'Kapasiti', number: true),
-                      _field(classType, 'Jenis Kelas'),
-                      _field(slotType, 'Jenis Slot'),
-                      _field(status, 'Status'),
+                      _EditSlotNote(conflictContext: conflictContext),
+                      if (formError != null) ...[
+                        const SizedBox(height: 10),
+                        _InlineErrorMessage(message: formError!),
+                      ],
+                      const SizedBox(height: 14),
+                      _EditFormSection(
+                        title: 'Maklumat Kursus',
+                        children: [
+                          _dropdownField(
+                            label: 'Sesi Akademik',
+                            value: session.text.trim(),
+                            values: sessionOptions,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setDialogState(() => session.text = value);
+                            },
+                          ),
+                          _dropdownField(
+                            label: 'Program',
+                            value: selectedProgram,
+                            values: programOptions,
+                            labelForValue: (value) =>
+                                _programOptionLabel(state, value),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setDialogState(() {
+                                selectedProgram = value;
+                                final nextClasses =
+                                    _editClassOptions(state, value, slot);
+                                if (!nextClasses.contains(selectedClass)) {
+                                  selectedClass = '';
+                                }
+                                final nextSubjects =
+                                    _editSubjectOptions(state, value, slot);
+                                if (!nextSubjects.any((option) =>
+                                    option.key == selectedSubjectKey)) {
+                                  selectedSubjectKey = '';
+                                  selectedSubjectId = null;
+                                  subjectCode.clear();
+                                  subjectName.clear();
+                                }
+                                final nextLecturers =
+                                    _editLecturerOptions(state, value, slot);
+                                if (!nextLecturers.any((option) =>
+                                    option.key == selectedLecturerKey)) {
+                                  selectedLecturerKey = '';
+                                  lecturerId.clear();
+                                  lecturerName.clear();
+                                }
+                                formError = null;
+                              });
+                            },
+                          ),
+                          _dropdownField(
+                            label: 'Kelas',
+                            value: selectedClass,
+                            values: classOptions,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setDialogState(() {
+                                selectedClass = value;
+                                formError = null;
+                              });
+                            },
+                          ),
+                          _dropdownField(
+                            label: 'Kursus',
+                            value: selectedSubjectKey,
+                            values:
+                                subjectOptions.map((item) => item.key).toList(),
+                            labelForValue: (value) =>
+                                subjectLabels[value] ?? value,
+                            wide: true,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              final option = subjectOptions
+                                  .where((item) => item.key == value)
+                                  .firstOrNull;
+                              if (option == null) return;
+                              setDialogState(() {
+                                selectedSubjectKey = option.key;
+                                selectedSubjectId = option.subjectId;
+                                subjectCode.text = option.subjectCode;
+                                subjectName.text = option.subjectName;
+                                formError = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _EditFormSection(
+                        title: 'Pensyarah',
+                        children: [
+                          _dropdownField(
+                            label: 'Pensyarah',
+                            value: selectedLecturerKey,
+                            values: lecturerOptions
+                                .map((item) => item.key)
+                                .toList(),
+                            labelForValue: (value) =>
+                                lecturerLabels[value] ?? value,
+                            wide: true,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              final option = lecturerOptions
+                                  .where((item) => item.key == value)
+                                  .firstOrNull;
+                              if (option == null) return;
+                              setDialogState(() {
+                                selectedLecturerKey = option.key;
+                                lecturerId.text = option.lecturerId;
+                                lecturerName.text = option.lecturerName;
+                                formError = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _EditFormSection(
+                        title: 'Jadual Slot',
+                        children: [
+                          _dropdownField(
+                            label: 'Hari',
+                            value: selectedDay,
+                            values: _weekdayValues,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setDialogState(() => selectedDay = value);
+                            },
+                          ),
+                          _field(startTime, 'Masa Mula'),
+                          _field(endTime, 'Masa Tamat'),
+                          if (roomOptions.isEmpty)
+                            _field(room, 'Bilik', wide: true)
+                          else
+                            _dropdownField(
+                              label: 'Bilik',
+                              value: selectedRoom,
+                              values: roomOptions,
+                              wide: true,
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setDialogState(() {
+                                  selectedRoom = value;
+                                  room.text = value;
+                                  formError = null;
+                                });
+                              },
+                            ),
+                          _field(weekStart, 'Minggu Mula', number: true),
+                          _field(weekEnd, 'Minggu Tamat', number: true),
+                          _dropdownField(
+                            label: 'Status',
+                            value: selectedStatus,
+                            values: const ['active', 'inactive', 'cancelled'],
+                            labelForValue: _statusLabel,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setDialogState(() => selectedStatus = value);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        initiallyExpanded: false,
+                        title: const Text(
+                          'Butiran Teknikal',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: const Text(
+                          'Medan ini dikekalkan untuk keserasian rekod lama.',
+                        ),
+                        children: [
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              _field(lecturerId, 'ID Pensyarah'),
+                              _field(semester, 'Semester', number: true),
+                              _field(date, 'Tarikh / Minggu Legacy'),
+                              _field(enrolled, 'Pelajar', number: true),
+                              _field(capacity, 'Kapasiti', number: true),
+                              _field(classType, 'Jenis Kelas'),
+                              _field(slotType, 'Jenis Slot'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           actions: [
             TextButton(
@@ -769,42 +984,80 @@ class _TimetableScreenState extends State<TimetableScreen> {
             ),
             FilledButton(
               onPressed: () {
+                final cleanSession = session.text.trim();
+                final cleanProgram = selectedProgram.trim();
+                final cleanSection = selectedClass.trim();
+                final cleanRoom = roomOptions.isEmpty
+                    ? room.text.trim()
+                    : selectedRoom.trim();
+                final validationError = _validateEditSlotInput(
+                  programId: cleanProgram,
+                  classId: cleanSection,
+                  subjectCode: subjectCode.text.trim(),
+                  subjectName: subjectName.text.trim(),
+                  lecturerId: lecturerId.text.trim(),
+                  lecturerName: lecturerName.text.trim(),
+                  roomName: cleanRoom,
+                  day: selectedDay,
+                  startTime: startTime.text.trim(),
+                  endTime: endTime.text.trim(),
+                  weekStart: weekStart.text.trim(),
+                  weekEnd: weekEnd.text.trim(),
+                  status: selectedStatus,
+                );
+                if (validationError != null) {
+                  dialogSetState?.call(() => formError = validationError);
+                  return;
+                }
                 Navigator.pop(
                   context,
                   TimetableSlot(
                     id: slot.id,
                     timetableSlotId: slot.timetableSlotId,
-                    academicSessionId: slot.academicSessionId,
-                    programId: slot.programId,
-                    departmentId: slot.departmentId,
-                    classId: slot.classId,
-                    subjectId: slot.subjectId,
-                    session: session.text.trim(),
-                    semester:
-                        int.tryParse(semester.text.trim()) ?? slot.semester,
-                    program: program.text.trim(),
-                    section: section.text.trim(),
+                    academicSessionId: cleanSession.isEmpty
+                        ? slot.academicSessionId
+                        : cleanSession,
+                    programId:
+                        cleanProgram.isEmpty ? slot.programId : cleanProgram,
+                    departmentId: state.programs
+                            .any((program) => program.id == cleanProgram)
+                        ? _programDepartmentId(state, cleanProgram)
+                        : slot.departmentId,
+                    classId: cleanSection.isEmpty ? slot.classId : cleanSection,
+                    subjectId: selectedSubjectId ?? slot.subjectId,
+                    session: cleanSession.isEmpty ? slot.session : cleanSession,
+                    semester: int.tryParse(semester.text.trim()) ??
+                        _semesterFromClassId(cleanSection) ??
+                        slot.semester,
+                    program: cleanProgram.isEmpty ? slot.program : cleanProgram,
+                    section: cleanSection.isEmpty ? slot.section : cleanSection,
                     subjectCode: subjectCode.text.trim(),
                     subjectName: subjectName.text.trim(),
                     lecturerId: lecturerId.text.trim(),
                     lecturerName: lecturerName.text.trim(),
-                    roomId: slot.roomId,
-                    roomName: slot.roomName,
-                    day: day.text.trim(),
+                    roomId: cleanRoom.isEmpty
+                        ? slot.roomId
+                        : _roomIdForTemplate(cleanRoom),
+                    roomName: cleanRoom.isEmpty ? slot.roomName : cleanRoom,
+                    day: selectedDay,
                     date: date.text.trim(),
-                    dayOfWeek: slot.dayOfWeek,
+                    dayOfWeek: selectedDay,
                     startTime: startTime.text.trim(),
                     endTime: endTime.text.trim(),
-                    weekStart: slot.weekStart,
-                    weekEnd: slot.weekEnd,
-                    room: room.text.trim(),
+                    weekStart: weekStart.text.trim().isEmpty
+                        ? slot.weekStart
+                        : weekStart.text.trim(),
+                    weekEnd: weekEnd.text.trim().isEmpty
+                        ? slot.weekEnd
+                        : weekEnd.text.trim(),
+                    room: cleanRoom.isEmpty ? slot.room : cleanRoom,
                     enrolled:
                         int.tryParse(enrolled.text.trim()) ?? slot.enrolled,
                     capacity:
                         int.tryParse(capacity.text.trim()) ?? slot.capacity,
                     classType: classType.text.trim(),
                     slotType: slotType.text.trim(),
-                    status: status.text.trim(),
+                    status: selectedStatus,
                     sourceUploadId: slot.sourceUploadId,
                     createdBy: slot.createdBy,
                     createdAt: slot.createdAt,
@@ -822,22 +1075,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
     for (final controller in [
       session,
       semester,
-      program,
-      section,
       subjectCode,
       subjectName,
       lecturerId,
       lecturerName,
-      day,
       date,
       startTime,
       endTime,
       room,
+      weekStart,
+      weekEnd,
       enrolled,
       capacity,
       classType,
       slotType,
-      status,
     ]) {
       controller.dispose();
     }
@@ -1343,6 +1594,45 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
+  Widget _dropdownField({
+    required String label,
+    required String? value,
+    required List<String> values,
+    required ValueChanged<String?> onChanged,
+    String Function(String value)? labelForValue,
+    bool wide = false,
+  }) {
+    final cleanValues = values
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final options = cleanValues.toList()..sort();
+    final cleanValue = value?.trim();
+    final selectedValue =
+        cleanValue != null && options.contains(cleanValue) ? cleanValue : null;
+
+    return SizedBox(
+      width: wide ? 452 : 220,
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('$label-$selectedValue-${options.length}'),
+        initialValue: selectedValue,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label),
+        items: [
+          for (final option in options)
+            DropdownMenuItem<String>(
+              value: option,
+              child: Text(
+                labelForValue?.call(option) ?? option,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: onChanged,
+      ),
+    );
+  }
+
   List<String> _slotToRow(TimetableSlot slot) {
     return [
       slot.id,
@@ -1692,29 +1982,113 @@ class _HeaderActionBar extends StatelessWidget {
   }
 }
 
-class _ManagementNote extends StatelessWidget {
-  const _ManagementNote();
+class _EditSlotNote extends StatelessWidget {
+  const _EditSlotNote({required this.conflictContext});
+
+  final bool conflictContext;
 
   @override
   Widget build(BuildContext context) {
+    final text = conflictContext
+        ? 'Anda sedang mengemas kini slot yang mempunyai konflik. Ubah bilik, masa, hari atau pensyarah untuk menyelesaikan konflik.'
+        : 'Gunakan borang ini untuk pembetulan kecil seperti bilik, masa, hari, pensyarah atau status. Untuk jadual penuh, gunakan Muat Naik Jadual.';
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xfffffbeb),
         border: Border.all(color: const Color(0xfffde68a)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: Color(0xff92400e), size: 18),
-            SizedBox(width: 8),
+            const Icon(Icons.info_outline, color: Color(0xff92400e), size: 18),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Tambah manual sesuai untuk pembetulan kecil. Untuk jadual penuh, gunakan Muat Naik Jadual.',
-                style: TextStyle(color: Color(0xff92400e), fontSize: 12),
+                text,
+                style: const TextStyle(color: Color(0xff92400e), fontSize: 12),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineErrorMessage extends StatelessWidget {
+  const _InlineErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xfffff1f2),
+        border: Border.all(color: const Color(0xfffecdd3)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xffbe123c), size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Color(0xff9f1239),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditFormSection extends StatelessWidget {
+  const _EditFormSection({
+    required this.title,
+    required this.children,
+  });
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xff0f172a),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: children,
             ),
           ],
         ),
@@ -1794,6 +2168,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.onSelectionChanged,
     required this.onDetails,
     required this.onEdit,
+    required this.onConflictEdit,
     required this.onDelete,
   });
 
@@ -1828,6 +2203,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
   final void Function(TimetableSlot slot) onDetails;
   final void Function(TimetableSlot slot) onEdit;
+  final void Function(TimetableSlot slot) onConflictEdit;
   final void Function(TimetableSlot slot) onDelete;
 
   @override
@@ -1871,7 +2247,7 @@ class _OfficialTimetableSection extends StatelessWidget {
           _ConflictReviewPanel(
             slots: slots,
             onDetails: onDetails,
-            onEdit: onEdit,
+            onEdit: onConflictEdit,
           ),
           const SizedBox(height: 16),
           _TimetableViewSelector(
@@ -3144,13 +3520,17 @@ class _ConflictReviewPanel extends StatelessWidget {
   ) {
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        title: const Text('Butiran Konflik Jadual'),
-        content: SizedBox(
-          width: _dialogWidth(dialogContext, maxWidth: 800),
-          child: SingleChildScrollView(
+      builder: (dialogContext) {
+        final screenHeight = MediaQuery.sizeOf(dialogContext).height;
+        final contentHeight =
+            (screenHeight - 220).clamp(260.0, 640.0).toDouble();
+        return AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          title: const Text('Butiran Konflik Jadual'),
+          content: SizedBox(
+            width: _dialogWidth(dialogContext, maxWidth: 800),
+            height: contentHeight,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -3163,31 +3543,41 @@ class _ConflictReviewPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                for (final conflict in conflicts) ...[
-                  _ConflictCard(
-                    conflict: conflict,
-                    onDetails: (slot) {
-                      Navigator.pop(dialogContext);
-                      onDetails(slot);
-                    },
-                    onEdit: (slot) {
-                      Navigator.pop(dialogContext);
-                      onEdit(slot);
-                    },
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(bottom: 36),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final conflict in conflicts) ...[
+                          _ConflictCard(
+                            conflict: conflict,
+                            onDetails: (slot) {
+                              Navigator.pop(dialogContext);
+                              onDetails(slot);
+                            },
+                            onEdit: (slot) {
+                              Navigator.pop(dialogContext);
+                              onEdit(slot);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                ],
+                ),
               ],
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -3204,6 +3594,29 @@ class _TimetableConflict {
   final String value;
   final TimetableSlot a;
   final TimetableSlot b;
+
+  String get displayValue {
+    if (type == 'Pensyarah') {
+      final nameA = a.lecturerName.trim();
+      final nameB = b.lecturerName.trim();
+      if (nameA.isNotEmpty) return nameA;
+      if (nameB.isNotEmpty) return nameB;
+      return 'Pensyarah tidak dikenal pasti';
+    }
+    if (type == 'Bilik') {
+      final roomA = _slotRoomValue(a);
+      final roomB = _slotRoomValue(b);
+      if (roomA.isNotEmpty) return roomA;
+      if (roomB.isNotEmpty) return roomB;
+    }
+    if (type == 'Kelas') {
+      final classA = _slotClassValue(a);
+      final classB = _slotClassValue(b);
+      if (classA.isNotEmpty) return classA;
+      if (classB.isNotEmpty) return classB;
+    }
+    return value;
+  }
 }
 
 class _ConflictCard extends StatelessWidget {
@@ -3249,7 +3662,7 @@ class _ConflictCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '$typeLabel: ${conflict.value}',
+                    '$typeLabel: ${conflict.displayValue}',
                     style: const TextStyle(
                       color: Color(0xff92400e),
                       fontWeight: FontWeight.w800,
@@ -3268,7 +3681,7 @@ class _ConflictCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                '${slot.day}  •  ${slot.startTime}–${slot.endTime}  •  Minggu ${_weekTextForSlot(slot)}',
+                '${slot.day} - ${slot.startTime}-${slot.endTime} - Minggu ${_weekTextForSlot(slot)}',
                 style: const TextStyle(
                   color: Color(0xff78350f),
                   fontSize: 12,
@@ -3320,9 +3733,8 @@ class _ConflictSlotCard extends StatelessWidget {
     final programLabel = slot.programId?.isNotEmpty == true
         ? slot.programId!
         : _shortProgramLabel(slot.program);
-    final classLabel = slot.classId?.isNotEmpty == true
-        ? slot.classId!
-        : slot.section;
+    final classLabel =
+        slot.classId?.isNotEmpty == true ? slot.classId! : slot.section;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xffffffff),
@@ -3376,8 +3788,7 @@ class _ConflictSlotCard extends StatelessWidget {
                 ),
                 _SlotInfoChip(
                   icon: Icons.schedule_outlined,
-                  label:
-                      '${slot.day} ${slot.startTime}–${slot.endTime}',
+                  label: '${slot.day} ${slot.startTime}-${slot.endTime}',
                 ),
                 _SlotInfoChip(
                   icon: Icons.date_range_outlined,
@@ -3408,8 +3819,8 @@ class _ConflictSlotCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: () => onEdit(slot),
                     icon: const Icon(Icons.edit_outlined, size: 14),
-                    label: const Text('Edit Slot',
-                        style: TextStyle(fontSize: 12)),
+                    label:
+                        const Text('Edit Slot', style: TextStyle(fontSize: 12)),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       visualDensity: VisualDensity.compact,
@@ -4519,7 +4930,8 @@ class _TimetableTable extends StatelessWidget {
                 PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline, color: Color(0xffef4444)),
+                    leading:
+                        Icon(Icons.delete_outline, color: Color(0xffef4444)),
                     title: Text(
                       'Padam Slot',
                       style: TextStyle(color: Color(0xffef4444)),
@@ -4715,6 +5127,36 @@ String _statusLabel(String status) {
   };
 }
 
+const _weekdayValues = [
+  'Isnin',
+  'Selasa',
+  'Rabu',
+  'Khamis',
+  'Jumaat',
+  'Sabtu',
+  'Ahad',
+];
+
+String _normalizeDay(String value) {
+  final clean = value.trim();
+  if (_weekdayValues.contains(clean)) return clean;
+  final lower = clean.toLowerCase();
+  for (final day in _weekdayValues) {
+    if (day.toLowerCase() == lower) return day;
+  }
+  return _weekdayValues.first;
+}
+
+String _normalizeSlotStatus(String value) {
+  final clean = value.trim().toLowerCase();
+  return switch (clean) {
+    'aktif' || 'active' => 'active',
+    'tidak aktif' || 'inactive' => 'inactive',
+    'dibatalkan' || 'cancelled' || 'canceled' => 'cancelled',
+    _ => 'active',
+  };
+}
+
 String _sessionLabel(AppState state, String academicSessionId) {
   final session = state.academicSessions
       .where((item) => item.academicSessionId == academicSessionId)
@@ -4754,6 +5196,237 @@ String _slotRoomValue(TimetableSlot slot) {
   final normalized = slot.roomName?.trim();
   if (normalized != null && normalized.isNotEmpty) return normalized;
   return slot.room.trim();
+}
+
+class _EditSubjectOption {
+  const _EditSubjectOption({
+    required this.subjectId,
+    required this.subjectCode,
+    required this.subjectName,
+  });
+
+  final String? subjectId;
+  final String subjectCode;
+  final String subjectName;
+
+  String get key => _subjectEditKey(subjectId, subjectCode, subjectName);
+  String get label => '$subjectCode - $subjectName';
+}
+
+class _EditLecturerOption {
+  const _EditLecturerOption({
+    required this.lecturerId,
+    required this.lecturerName,
+    this.email,
+  });
+
+  final String lecturerId;
+  final String lecturerName;
+  final String? email;
+
+  String get key => _lecturerEditKey(lecturerId, lecturerName);
+  String get label {
+    final cleanEmail = email?.trim();
+    if (cleanEmail != null && cleanEmail.isNotEmpty) {
+      return '$lecturerName - $cleanEmail';
+    }
+    return lecturerName.isNotEmpty
+        ? lecturerName
+        : 'Pensyarah tidak dikenal pasti';
+  }
+}
+
+String _subjectEditKey(
+    String? subjectId, String subjectCode, String subjectName) {
+  final cleanId = subjectId?.trim();
+  if (cleanId != null && cleanId.isNotEmpty) return cleanId;
+  return '${subjectCode.trim()}|${subjectName.trim()}';
+}
+
+String _lecturerEditKey(String lecturerId, String lecturerName) {
+  final cleanId = lecturerId.trim();
+  if (cleanId.isNotEmpty) return cleanId;
+  return lecturerName.trim();
+}
+
+String _programOptionLabel(AppState state, String programId) {
+  final program =
+      state.programs.where((item) => item.id == programId).firstOrNull;
+  if (program == null || program.name.trim().isEmpty) return programId;
+  return '${program.id} - ${program.name}';
+}
+
+String? _programDepartmentId(AppState state, String programId) {
+  return state.programs
+      .where((program) => program.id == programId)
+      .firstOrNull
+      ?.departmentId;
+}
+
+List<String> _editProgramOptions(AppState state, TimetableSlot slot) {
+  final scoped = state.scopedPrograms.map((program) => program.id).toList();
+  final current = _slotProgramValue(slot);
+  if (current.isNotEmpty && !scoped.contains(current)) scoped.add(current);
+  return scoped;
+}
+
+List<String> _editClassOptions(
+  AppState state,
+  String selectedProgram,
+  TimetableSlot currentSlot,
+) {
+  final values = state.scopedTimetable
+      .where((slot) => _slotProgramValue(slot) == selectedProgram)
+      .map(_slotClassValue)
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+  final currentClass = _slotClassValue(currentSlot);
+  if (selectedProgram == _slotProgramValue(currentSlot) &&
+      currentClass.isNotEmpty &&
+      !values.contains(currentClass)) {
+    values.insert(0, currentClass);
+  }
+  return values;
+}
+
+List<_EditSubjectOption> _editSubjectOptions(
+  AppState state,
+  String selectedProgram,
+  TimetableSlot currentSlot,
+) {
+  final options = <String, _EditSubjectOption>{};
+  for (final slot in state.scopedTimetable) {
+    if (_slotProgramValue(slot) != selectedProgram) continue;
+    final code = slot.subjectCode.trim();
+    final name = slot.subjectName.trim();
+    if (code.isEmpty && name.isEmpty) continue;
+    final option = _EditSubjectOption(
+      subjectId: slot.subjectId,
+      subjectCode: code,
+      subjectName: name,
+    );
+    options.putIfAbsent(option.key, () => option);
+  }
+
+  if (selectedProgram == _slotProgramValue(currentSlot)) {
+    final current = _EditSubjectOption(
+      subjectId: currentSlot.subjectId,
+      subjectCode: currentSlot.subjectCode,
+      subjectName: currentSlot.subjectName,
+    );
+    if (current.subjectCode.isNotEmpty || current.subjectName.isNotEmpty) {
+      options.putIfAbsent(current.key, () => current);
+    }
+  }
+
+  final values = options.values.toList()
+    ..sort((a, b) => a.label.compareTo(b.label));
+  return values;
+}
+
+List<_EditLecturerOption> _editLecturerOptions(
+  AppState state,
+  String selectedProgram,
+  TimetableSlot currentSlot,
+) {
+  final options = <String, _EditLecturerOption>{};
+  for (final slot in state.scopedTimetable) {
+    if (_slotProgramValue(slot) != selectedProgram) continue;
+    final name = slot.lecturerName.trim();
+    final id = slot.lecturerId.trim();
+    if (name.isEmpty && id.isEmpty) continue;
+    final lecturer = state.lecturers
+        .where((item) => item.id == id || item.name == name)
+        .firstOrNull;
+    final option = _EditLecturerOption(
+      lecturerId: id.isNotEmpty ? id : lecturer?.id ?? '',
+      lecturerName: name.isNotEmpty ? name : lecturer?.name ?? '',
+      email: lecturer?.email,
+    );
+    options.putIfAbsent(option.key, () => option);
+  }
+
+  if (selectedProgram == _slotProgramValue(currentSlot)) {
+    final currentName = currentSlot.lecturerName.trim();
+    final currentId = currentSlot.lecturerId.trim();
+    final currentLecturer = state.lecturers
+        .where((item) => item.id == currentId || item.name == currentName)
+        .firstOrNull;
+    final current = _EditLecturerOption(
+      lecturerId: currentId.isNotEmpty ? currentId : currentLecturer?.id ?? '',
+      lecturerName:
+          currentName.isNotEmpty ? currentName : currentLecturer?.name ?? '',
+      email: currentLecturer?.email,
+    );
+    if (current.lecturerName.isNotEmpty || current.lecturerId.isNotEmpty) {
+      options.putIfAbsent(current.key, () => current);
+    }
+  }
+
+  final values = options.values.toList()
+    ..sort((a, b) => a.label.compareTo(b.label));
+  return values;
+}
+
+String? _validateEditSlotInput({
+  required String programId,
+  required String classId,
+  required String subjectCode,
+  required String subjectName,
+  required String lecturerId,
+  required String lecturerName,
+  required String roomName,
+  required String day,
+  required String startTime,
+  required String endTime,
+  required String weekStart,
+  required String weekEnd,
+  required String status,
+}) {
+  if (programId.trim().isEmpty) return 'Program perlu dipilih.';
+  if (classId.trim().isEmpty) return 'Kelas perlu dipilih.';
+  if (subjectCode.trim().isEmpty || subjectName.trim().isEmpty) {
+    return 'Kursus perlu dipilih.';
+  }
+  if (lecturerName.trim().isEmpty) return 'Pensyarah perlu dipilih.';
+  if (roomName.trim().isEmpty) return 'Bilik perlu dipilih.';
+  if (!_weekdayValues.contains(day.trim())) return 'Hari tidak sah.';
+
+  final start = _nullableMinutesFromTime(startTime);
+  final end = _nullableMinutesFromTime(endTime);
+  if (start == null || end == null) return 'Masa mesti dalam format HH:mm.';
+  if (start >= end) return 'Masa Mula mesti sebelum Masa Tamat.';
+
+  final startWeek = int.tryParse(weekStart.trim());
+  final endWeek = int.tryParse(weekEnd.trim());
+  if (startWeek == null || endWeek == null) {
+    return 'Minggu Mula dan Minggu Tamat mesti nombor.';
+  }
+  if (startWeek < 1 || endWeek < 1) return 'Minggu mesti bermula dari 1.';
+  if (startWeek > endWeek) {
+    return 'Minggu Mula mesti sebelum atau sama dengan Minggu Tamat.';
+  }
+  if (!{'active', 'inactive', 'cancelled'}.contains(status)) {
+    return 'Status tidak sah.';
+  }
+  return null;
+}
+
+int? _nullableMinutesFromTime(String value) {
+  final parts = value.trim().split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return (hour * 60) + minute;
+}
+
+int? _semesterFromClassId(String classId) {
+  final match = RegExp(r'\b(\d)').firstMatch(classId);
+  return int.tryParse(match?.group(1) ?? '');
 }
 
 String _slotSelectionKey(TimetableSlot slot) {
