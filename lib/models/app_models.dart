@@ -165,6 +165,7 @@ class AcademicSession {
     required this.academicSessionId,
     required this.name,
     required this.isActive,
+    this.status = 'active',
     this.startDate,
     this.endDate,
     this.createdAt,
@@ -174,10 +175,32 @@ class AcademicSession {
   final String academicSessionId;
   final String name;
   final bool isActive;
+  final String status;
   final String? startDate;
   final String? endDate;
   final String? createdAt;
   final String? updatedAt;
+
+  AcademicSession copyWith({
+    String? name,
+    bool? isActive,
+    String? status,
+    String? startDate,
+    String? endDate,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return AcademicSession(
+      academicSessionId: academicSessionId,
+      name: name ?? this.name,
+      isActive: isActive ?? this.isActive,
+      status: status ?? this.status,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 class AppUser {

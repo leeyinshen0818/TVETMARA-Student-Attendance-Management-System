@@ -48,6 +48,30 @@ class AppState extends ChangeNotifier {
   bool get isBootstrapLoaded =>
       _loadedCollections.containsAll(['programs', 'departments', 'sessions']);
 
+  List<AcademicSession> get selectableAcademicSessions {
+    final values = academicSessions
+        .where(
+            (item) => item.isActive && item.status.toLowerCase() != 'archived')
+        .toList()
+      ..sort((a, b) => a.academicSessionId.compareTo(b.academicSessionId));
+    final defaultIndex = values.indexWhere((item) =>
+        item.academicSessionId ==
+        TimetableCsvTemplate.defaultAcademicSessionId);
+    if (defaultIndex > 0) {
+      final defaultSession = values.removeAt(defaultIndex);
+      values.insert(0, defaultSession);
+    }
+    return values;
+  }
+
+  bool get canManageAcademicSessions {
+    final user = currentUser;
+    if (user == null) return false;
+    return user.role == UserRole.pentadbir ||
+        user.role == UserRole.ketua_jabatan ||
+        currentKetuaProgramInheritsKetuaJabatanTasks;
+  }
+
   bool get isTimetableDataLoaded =>
       _loadedCollections.containsAll(['timetable', 'uploads', 'rooms']);
 
@@ -115,6 +139,7 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(sessionAttendanceMap);
       academicSessions = results[13] as List<AcademicSession>;
+      _ensureSelectedAcademicSession();
       _loadedCollections.addAll([
         'users',
         'students',
@@ -151,6 +176,7 @@ class AppState extends ChangeNotifier {
       _loadCollection('sessions',
           () async => academicSessions = await _fs.getAcademicSessions()),
     ]);
+    _ensureSelectedAcademicSession();
   }
 
   Future<void> loadDashboardDataIfNeeded() async {
@@ -258,6 +284,11 @@ class AppState extends ChangeNotifier {
   Future<void> loadAttendanceSessionsIfNeeded() => _loadCollection(
       'attendanceSessions',
       () async => attendanceSessions = await _fs.getAttendanceSessions());
+
+  Future<void> refreshAcademicSessions() async {
+    _loadedCollections.remove('sessions');
+    await loadBootstrapDataIfNeeded();
+  }
 
   Future<void> loadSessionAttendanceIfNeeded() =>
       _loadCollection('sessionAttendance', () async {
@@ -729,6 +760,51 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateAcademicSession(String value) {
+    session = value;
+    notifyListeners();
+  }
+
+  Future<void> createAcademicSession(AcademicSession academicSession) async {
+    await _fs.createAcademicSession(
+      academicSession,
+      createdBy: currentUser?.uid,
+    );
+    academicSessions.add(academicSession);
+    _ensureSelectedAcademicSession();
+    notifyListeners();
+  }
+
+  Future<void> updateAcademicSessionRecord(
+      AcademicSession academicSession) async {
+    await _fs.updateAcademicSession(academicSession);
+    final index = academicSessions.indexWhere(
+      (item) => item.academicSessionId == academicSession.academicSessionId,
+    );
+    if (index == -1) {
+      academicSessions.add(academicSession);
+    } else {
+      academicSessions[index] = academicSession;
+    }
+    _ensureSelectedAcademicSession();
+    notifyListeners();
+  }
+
+  Future<void> archiveAcademicSession(String academicSessionId) async {
+    await _fs.archiveAcademicSession(academicSessionId);
+    final index = academicSessions.indexWhere(
+      (item) => item.academicSessionId == academicSessionId,
+    );
+    if (index != -1) {
+      academicSessions[index] = academicSessions[index].copyWith(
+        status: 'archived',
+        isActive: false,
+      );
+    }
+    _ensureSelectedAcademicSession();
+    notifyListeners();
+  }
+
   void updateReportFrequency(String value) {
     reportFrequency = value;
     notifyListeners();
@@ -992,6 +1068,19 @@ class AppState extends ChangeNotifier {
   ProgramCode? _programForId(String? programId) {
     if (programId == null || programId.isEmpty) return null;
     return programs.where((program) => program.id == programId).firstOrNull;
+  }
+
+  void _ensureSelectedAcademicSession() {
+    final selectable = selectableAcademicSessions;
+    if (selectable.any((item) => item.academicSessionId == session)) return;
+    final defaultSession = selectable
+        .where((item) =>
+            item.academicSessionId ==
+            TimetableCsvTemplate.defaultAcademicSessionId)
+        .firstOrNull;
+    session = defaultSession?.academicSessionId ??
+        selectable.firstOrNull?.academicSessionId ??
+        TimetableCsvTemplate.defaultAcademicSessionId;
   }
 
   String? _programIdForTimetableSlot(TimetableSlot slot) {

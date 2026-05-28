@@ -62,6 +62,33 @@ const List<ProgramCode> programs = [
       departmentId: 'automotif'),
 ];
 
+const List<AcademicSession> academicSessions = [
+  AcademicSession(
+    academicSessionId: 'JAN_JUN_2026',
+    name: 'Jan-Jun 2026',
+    startDate: '2026-01-01',
+    endDate: '2026-06-30',
+    status: 'active',
+    isActive: true,
+  ),
+  AcademicSession(
+    academicSessionId: 'JUL_DEC_2026',
+    name: 'Jul-Dec 2026',
+    startDate: '2026-07-01',
+    endDate: '2026-12-31',
+    status: 'upcoming',
+    isActive: true,
+  ),
+  AcademicSession(
+    academicSessionId: 'JAN_JUN_2027',
+    name: 'Jan-Jun 2027',
+    startDate: '2027-01-01',
+    endDate: '2027-06-30',
+    status: 'upcoming',
+    isActive: true,
+  ),
+];
+
 const roomResources = [
   RoomResource(name: 'BAS LAB', block: 'Workshop', type: 'Makmal'),
   RoomResource(name: 'BENGKEL FABRIKASI', block: 'Workshop', type: 'Bengkel'),

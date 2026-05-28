@@ -16,6 +16,18 @@ void main() {
     );
   });
 
+  test('seed includes multiple academic sessions for timetable planning', () {
+    expect(
+      mock.academicSessions.map((session) => session.academicSessionId),
+      containsAll(['JAN_JUN_2026', 'JUL_DEC_2026', 'JAN_JUN_2027']),
+    );
+    expect(
+      mock.academicSessions.every((session) =>
+          RegExp(r'^[A-Z0-9_]+$').hasMatch(session.academicSessionId)),
+      isTrue,
+    );
+  });
+
   test('DED 1A client-inspired slots use real subjects and rooms', () {
     final dedClientSlots = mock.timetable
         .where((slot) => slot.sourceUploadId == 'seed_client_ded_1a')

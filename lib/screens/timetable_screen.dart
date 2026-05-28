@@ -22,6 +22,8 @@ class TimetableScreen extends StatefulWidget {
   State<TimetableScreen> createState() => _TimetableScreenState();
 }
 
+enum _TimetableViewMode { list, weekly, room, lecturer }
+
 class _TimetableScreenState extends State<TimetableScreen> {
   static const _legacyExportColumns = [
     'id',
@@ -53,6 +55,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   bool _importing = false;
   bool _batchProcessing = false;
   int _selectedSection = 0;
+  _TimetableViewMode _selectedTimetableView = _TimetableViewMode.list;
   final _searchCtrl = TextEditingController();
   final Set<String> _selectedSlotKeys = <String>{};
   String? _dayFilter;
@@ -84,9 +87,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
 
     final timetable = state.scopedTimetable;
-    final sessionOptions = _academicSessionOptions(state, timetable);
+    final sessionOptions = _academicSessionOptions(state);
     final selectedSession = _activeAcademicSession(state);
-    final filteredTimetable = _filteredTimetable(timetable, selectedSession);
+    final sessionTimetable = _sessionTimetable(timetable, selectedSession);
+    final filteredTimetable = _filteredTimetable(sessionTimetable);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -96,23 +100,33 @@ class _TimetableScreenState extends State<TimetableScreen> {
               : 'Pengurusan Jadual Jabatan',
           subtitle:
               'Urus jadual rasmi, muat naik jadual CSV, dan semak rekod import mengikut skop pengguna.',
-          trailing: StatusChip('${timetable.length} Slot Jadual'),
+          trailing: StatusChip('${sessionTimetable.length} Rekod Jadual'),
         ),
         _ScopeSummary(
           state: state,
-          slotCount: timetable.length,
+          slotCount: sessionTimetable.length,
           selectedAcademicSession: selectedSession,
           academicSessionOptions: sessionOptions,
           onAcademicSessionChanged: (value) {
             if (value == null) return;
-            _updateFilters(() => _academicSessionFilter = value);
+            _updateFilters(() {
+              state.updateAcademicSession(value);
+              _academicSessionFilter = value;
+              _dayFilter = null;
+              _statusFilter = null;
+              _programFilter = null;
+              _classFilter = null;
+              _lecturerFilter = null;
+              _roomFilter = null;
+            });
           },
+          canManageAcademicSessions: state.canManageAcademicSessions,
+          onManageAcademicSessions: () => _showAcademicSessionManager(state),
         ),
         const SizedBox(height: 12),
         _HeaderActionBar(
           hasTimetable: filteredTimetable.isNotEmpty,
           onUpload: () => setState(() => _selectedSection = 1),
-          onDownloadTemplate: () => _downloadTemplate(state),
           onExport: () => _exportTimetable(filteredTimetable),
           onAddManual: () {
             Navigator.push(
@@ -133,7 +147,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           _OfficialTimetableSection(
             state: state,
             slots: filteredTimetable,
-            allSlots: timetable,
+            allSlots: sessionTimetable,
+            selectedAcademicSession: selectedSession,
             searchCtrl: _searchCtrl,
             dayFilter: _dayFilter,
             statusFilter: _statusFilter,
@@ -141,20 +156,36 @@ class _TimetableScreenState extends State<TimetableScreen> {
             classFilter: _classFilter,
             lecturerFilter: _lecturerFilter,
             roomFilter: _roomFilter,
+            selectedViewMode: _selectedTimetableView,
             selectedSlotKeys: _selectedSlotKeys,
             batchProcessing: _batchProcessing,
             onSearchChanged: (_) => _updateFilters(() {}),
             onDayChanged: (value) => _updateFilters(() => _dayFilter = value),
             onStatusChanged: (value) =>
                 _updateFilters(() => _statusFilter = value),
-            onProgramChanged: (value) =>
-                _updateFilters(() => _programFilter = value),
-            onClassChanged: (value) =>
-                _updateFilters(() => _classFilter = value),
-            onLecturerChanged: (value) =>
-                _updateFilters(() => _lecturerFilter = value),
+            onProgramChanged: (value) => _updateFilters(() {
+              _programFilter = value;
+              _classFilter = null;
+              _lecturerFilter = null;
+              _roomFilter = null;
+            }),
+            onClassChanged: (value) => _updateFilters(() {
+              _classFilter = value;
+              _lecturerFilter = null;
+              _roomFilter = null;
+            }),
+            onLecturerChanged: (value) => _updateFilters(() {
+              _lecturerFilter = value;
+              _roomFilter = null;
+            }),
             onRoomChanged: (value) => _updateFilters(() => _roomFilter = value),
             onResetFilters: _resetFilters,
+            onViewModeChanged: (mode) => setState(() {
+              _selectedTimetableView = mode;
+              if (mode != _TimetableViewMode.list) {
+                _selectedSlotKeys.clear();
+              }
+            }),
             onToggleSelectAllVisible: () =>
                 _toggleSelectAllVisible(filteredTimetable),
             onClearSelection: _clearSelection,
@@ -169,6 +200,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           )
         else if (_selectedSection == 1)
           _UploadWorkflowSection(
+            selectedAcademicSession: selectedSession,
             processingImport: _processingImport,
             importError: _importError,
             previewResult: _previewResult,
@@ -177,7 +209,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             importing: _importing,
             canImportPreview: _canImportPreview,
             onPickFile: () => _pickAndPreviewFile(state),
-            onDownloadTemplate: () => _downloadTemplate(state),
+            onDownloadTemplate: () => _downloadTemplate(state, selectedSession),
             onClearPreview: _clearPreview,
             onImportPreview: () => _confirmAndImportPreview(state),
             onViewOfficialTimetable: () => setState(() => _selectedSection = 0),
@@ -199,10 +231,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
     });
   }
 
-  List<TimetableSlot> _filteredTimetable(
+  List<TimetableSlot> _sessionTimetable(
     List<TimetableSlot> slots,
     String selectedSession,
   ) {
+    return slots
+        .where((slot) => _slotSessionValue(slot) == selectedSession)
+        .toList();
+  }
+
+  List<TimetableSlot> _filteredTimetable(List<TimetableSlot> slots) {
     final query = _searchCtrl.text.trim().toLowerCase();
     return slots.where((slot) {
       if (query.isNotEmpty) {
@@ -216,22 +254,26 @@ class _TimetableScreenState extends State<TimetableScreen> {
           slot.classId ?? '',
           slot.program,
           slot.programId ?? '',
+          _slotClassValue(slot),
+          _slotProgramValue(slot),
+          _slotRoomValue(slot),
         ].join(' ').toLowerCase();
         if (!haystack.contains(query)) return false;
       }
-      if (slot.session != selectedSession) {
-        return false;
-      }
       if (_dayFilter != null && slot.day != _dayFilter) return false;
       if (_statusFilter != null && slot.status != _statusFilter) return false;
-      if (_programFilter != null && slot.program != _programFilter) {
+      if (_programFilter != null && _slotProgramValue(slot) != _programFilter) {
         return false;
       }
-      if (_classFilter != null && slot.section != _classFilter) return false;
+      if (_classFilter != null && _slotClassValue(slot) != _classFilter) {
+        return false;
+      }
       if (_lecturerFilter != null && slot.lecturerName != _lecturerFilter) {
         return false;
       }
-      if (_roomFilter != null && slot.room != _roomFilter) return false;
+      if (_roomFilter != null && _slotRoomValue(slot) != _roomFilter) {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -245,7 +287,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       _classFilter = null;
       _lecturerFilter = null;
       _roomFilter = null;
-      _academicSessionFilter = null;
       _selectedSlotKeys.clear();
     });
   }
@@ -254,18 +295,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return _academicSessionFilter ?? state.session;
   }
 
-  List<String> _academicSessionOptions(
-    AppState state,
-    List<TimetableSlot> timetable,
-  ) {
-    final values = <String>{
-      state.session,
-      ...state.academicSessions.map((session) => session.academicSessionId),
-      ...timetable.map((slot) => slot.session),
-    }..removeWhere((value) => value.trim().isEmpty);
-    final sorted = values.toList()..sort();
-    if (sorted.remove(state.session)) sorted.insert(0, state.session);
-    return sorted;
+  List<String> _academicSessionOptions(AppState state) {
+    final values = state.selectableAcademicSessions
+        .map((session) => session.academicSessionId)
+        .toList();
+    if (values.isEmpty) return [state.session];
+    if (!values.contains(state.session)) values.insert(0, state.session);
+    return values;
   }
 
   List<TimetableUploadRecord> _filteredUploadHistory(AppState state) {
@@ -329,12 +365,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
       final preview = await TimetableMasterValidationService(
         FirestoreTimetableMasterDataSource(),
       ).preparePreview(parsed);
+      final validatedPreview = _withSelectedSessionValidation(
+        preview,
+        _activeAcademicSession(state),
+      );
       setState(() {
-        _previewResult = preview;
+        _previewResult = validatedPreview;
         _previewFileName = file.name;
-        _importError = preview.validationErrors.isEmpty
+        _importError = validatedPreview.validationErrors.isEmpty
             ? null
-            : preview.validationErrors.join('\n');
+            : validatedPreview.validationErrors.join('\n');
       });
     } catch (e) {
       setState(() {
@@ -346,6 +386,46 @@ class _TimetableScreenState extends State<TimetableScreen> {
     } finally {
       if (mounted) setState(() => _processingImport = false);
     }
+  }
+
+  TimetableMasterValidationResult _withSelectedSessionValidation(
+    TimetableMasterValidationResult preview,
+    String selectedSession,
+  ) {
+    final mismatches = preview.previewRows.where((row) {
+      final rowSession = row.slotDraft?.academicSessionId ??
+          row.sourceRow.draft?.academicSessionId;
+      return rowSession != null &&
+          rowSession.isNotEmpty &&
+          rowSession != selectedSession;
+    }).toList();
+    if (mismatches.isEmpty) return preview;
+
+    final messages = mismatches
+        .map((row) {
+          final rowSession = row.slotDraft?.academicSessionId ??
+              row.sourceRow.draft?.academicSessionId ??
+              '-';
+          return 'Sesi dipilih ialah $selectedSession, tetapi baris CSV ${row.rowNumber} menggunakan $rowSession.';
+        })
+        .toSet()
+        .toList();
+
+    return TimetableMasterValidationResult(
+      totalRows: preview.totalRows,
+      validRows: preview.validRows,
+      warningRows: preview.warningRows,
+      duplicateRows: preview.duplicateRows,
+      errorRows: preview.errorRows,
+      subjectUpsertDrafts: preview.subjectUpsertDrafts,
+      classCreateDrafts: preview.classCreateDrafts,
+      previewRows: preview.previewRows,
+      validationErrors: [
+        ...preview.validationErrors,
+        ...messages,
+      ],
+      validationWarnings: preview.validationWarnings,
+    );
   }
 
   Future<void> _confirmAndImportPreview(AppState state) async {
@@ -418,14 +498,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
   }
 
-  void _downloadTemplate(AppState state) {
+  void _downloadTemplate(AppState state, String selectedSession) {
     final sampleProgramId = _sampleProgramId(state);
     final sampleLecturer = _sampleLecturer(state, sampleProgramId);
     final sampleRoomName = _sampleRoomName(state, sampleProgramId);
     final rows = [
       TimetableCsvTemplate.fullHeader,
       [
-        TimetableCsvTemplate.defaultAcademicSessionId,
+        selectedSession,
         sampleProgramId,
         _sampleSection(state),
         'DED10044',
@@ -647,7 +727,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         return AlertDialog(
           title: const Text('Kemas Kini Slot Jadual'),
           content: SizedBox(
-            width: 720,
+            width: _dialogWidth(context, maxWidth: 720),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,6 +879,377 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
+  Future<void> _showAcademicSessionManager(AppState state) async {
+    if (!state.canManageAcademicSessions) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final sessions = List<AcademicSession>.from(state.academicSessions)
+              ..sort(
+                  (a, b) => a.academicSessionId.compareTo(b.academicSessionId));
+            final dialogWidth = (MediaQuery.sizeOf(context).width * 0.92)
+                .clamp(320.0, 960.0)
+                .toDouble();
+            return AlertDialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              title: const Text('Urus Sesi Akademik'),
+              content: SizedBox(
+                width: dialogWidth,
+                child: sessions.isEmpty
+                    ? const Text('Tiada sesi akademik dijumpai.')
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 820),
+                            child: DataTable(
+                              horizontalMargin: 12,
+                              columnSpacing: 18,
+                              columns: const [
+                                DataColumn(label: Text('Kod Sesi')),
+                                DataColumn(label: Text('Nama Sesi')),
+                                DataColumn(label: Text('Tarikh Mula')),
+                                DataColumn(label: Text('Tarikh Tamat')),
+                                DataColumn(label: Text('Status')),
+                                DataColumn(label: Text('Aktif')),
+                                DataColumn(label: Text('Tindakan')),
+                              ],
+                              rows: sessions.map((session) {
+                                return DataRow(cells: [
+                                  DataCell(_SessionTableText(
+                                    session.academicSessionId,
+                                    width: 128,
+                                    bold: true,
+                                  )),
+                                  DataCell(_SessionTableText(
+                                    session.name,
+                                    width: 150,
+                                  )),
+                                  DataCell(_SessionTableText(
+                                    session.startDate ?? '-',
+                                    width: 96,
+                                  )),
+                                  DataCell(_SessionTableText(
+                                    session.endDate ?? '-',
+                                    width: 96,
+                                  )),
+                                  DataCell(
+                                    StatusChip(
+                                      _academicSessionStatusLabel(
+                                          session.status),
+                                    ),
+                                  ),
+                                  DataCell(
+                                      Text(session.isActive ? 'Ya' : 'Tidak')),
+                                  DataCell(SizedBox(
+                                    width: 96,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Edit Sesi',
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          onPressed: () async {
+                                            final saved =
+                                                await _showAcademicSessionForm(
+                                              state,
+                                              session: session,
+                                            );
+                                            if (saved && mounted) {
+                                              setDialogState(() {});
+                                            }
+                                          },
+                                          icon: const Icon(Icons.edit_outlined),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Arkibkan Sesi',
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          onPressed:
+                                              session.status == 'archived'
+                                                  ? null
+                                                  : () async {
+                                                      final archived =
+                                                          await _confirmArchiveSession(
+                                                        state,
+                                                        session,
+                                                      );
+                                                      if (archived && mounted) {
+                                                        setDialogState(() {});
+                                                      }
+                                                    },
+                                          icon: const Icon(
+                                              Icons.archive_outlined),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                                ]);
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+              actions: [
+                SizedBox(
+                  width: dialogWidth,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final saved = await _showAcademicSessionForm(state);
+                          if (saved && mounted) setDialogState(() {});
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Tambah Sesi'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Tutup'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool> _showAcademicSessionForm(
+    AppState state, {
+    AcademicSession? session,
+  }) async {
+    if (!state.canManageAcademicSessions) return false;
+    final isEdit = session != null;
+    final idCtrl =
+        TextEditingController(text: session?.academicSessionId ?? '');
+    final nameCtrl = TextEditingController(text: session?.name ?? '');
+    final startCtrl = TextEditingController(text: session?.startDate ?? '');
+    final endCtrl = TextEditingController(text: session?.endDate ?? '');
+    var status = session?.status ?? 'upcoming';
+    var isActive = session?.isActive ?? status != 'archived';
+    String? error;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          void syncStatus(String value) {
+            setDialogState(() {
+              status = value;
+              if (status == 'archived') isActive = false;
+            });
+          }
+
+          return AlertDialog(
+            title: Text(isEdit ? 'Edit Sesi Akademik' : 'Tambah Sesi'),
+            content: SizedBox(
+              width: _dialogWidth(context, maxWidth: 520),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: idCtrl,
+                      enabled: !isEdit,
+                      decoration: const InputDecoration(
+                        labelText: 'Kod Sesi',
+                        hintText: 'JUL_DEC_2026',
+                      ),
+                    ),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Sesi',
+                        hintText: 'Jul-Dec 2026',
+                      ),
+                    ),
+                    TextField(
+                      controller: startCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tarikh Mula',
+                        hintText: '2026-07-01',
+                      ),
+                    ),
+                    TextField(
+                      controller: endCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Tarikh Tamat',
+                        hintText: '2026-12-31',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: status,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: const [
+                        DropdownMenuItem(value: 'active', child: Text('Aktif')),
+                        DropdownMenuItem(
+                            value: 'upcoming', child: Text('Akan Datang')),
+                        DropdownMenuItem(
+                            value: 'archived', child: Text('Arkib')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) syncStatus(value);
+                      },
+                    ),
+                    CheckboxListTile(
+                      value: isActive,
+                      onChanged: status == 'archived'
+                          ? null
+                          : (value) => setDialogState(
+                                () => isActive = value ?? isActive,
+                              ),
+                      title: const Text('Aktif untuk pilihan jadual'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    if (error != null)
+                      Text(
+                        error!,
+                        style: const TextStyle(color: Color(0xffb91c1c)),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final validation = _validateAcademicSessionForm(
+                    state,
+                    idCtrl.text,
+                    nameCtrl.text,
+                    startCtrl.text,
+                    endCtrl.text,
+                    status,
+                    isEdit: isEdit,
+                  );
+                  if (validation != null) {
+                    setDialogState(() => error = validation);
+                    return;
+                  }
+                  final cleanStatus = status.trim();
+                  final savedSession = AcademicSession(
+                    academicSessionId: isEdit
+                        ? session.academicSessionId
+                        : idCtrl.text.trim().toUpperCase(),
+                    name: nameCtrl.text.trim(),
+                    startDate: startCtrl.text.trim(),
+                    endDate: endCtrl.text.trim(),
+                    status: cleanStatus,
+                    isActive: cleanStatus == 'archived' ? false : isActive,
+                    createdAt: session?.createdAt,
+                    updatedAt: session?.updatedAt,
+                  );
+                  final navigator = Navigator.of(context);
+                  if (isEdit) {
+                    await state.updateAcademicSessionRecord(savedSession);
+                  } else {
+                    await state.createAcademicSession(savedSession);
+                  }
+                  navigator.pop(true);
+                },
+                child: const Text('Simpan'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    idCtrl.dispose();
+    nameCtrl.dispose();
+    startCtrl.dispose();
+    endCtrl.dispose();
+    return saved ?? false;
+  }
+
+  String? _validateAcademicSessionForm(
+    AppState state,
+    String id,
+    String name,
+    String startDate,
+    String endDate,
+    String status, {
+    required bool isEdit,
+  }) {
+    final cleanId = id.trim().toUpperCase();
+    if (cleanId.isEmpty) return 'Kod sesi diperlukan.';
+    if (!RegExp(r'^[A-Z0-9_]+$').hasMatch(cleanId)) {
+      return 'Kod sesi mesti huruf besar/nombor/underscore tanpa ruang atau slash.';
+    }
+    if (!isEdit &&
+        state.academicSessions
+            .any((item) => item.academicSessionId == cleanId)) {
+      return 'Kod sesi telah wujud.';
+    }
+    if (name.trim().isEmpty) return 'Nama sesi diperlukan.';
+    final start = DateTime.tryParse(startDate.trim());
+    final end = DateTime.tryParse(endDate.trim());
+    if (start == null) return 'Tarikh mula mesti format YYYY-MM-DD.';
+    if (end == null) return 'Tarikh tamat mesti format YYYY-MM-DD.';
+    if (!start.isBefore(end)) return 'Tarikh mula mesti sebelum tarikh tamat.';
+    if (!{'active', 'upcoming', 'archived'}.contains(status)) {
+      return 'Status tidak sah.';
+    }
+    return null;
+  }
+
+  Future<bool> _confirmArchiveSession(
+    AppState state,
+    AcademicSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Arkibkan Sesi Akademik?'),
+        content: const Text(
+          'Sesi ini tidak akan dipadam, tetapi tidak akan dipilih untuk muat naik jadual baharu.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Arkibkan'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+    await state.archiveAcademicSession(session.academicSessionId);
+    if (!mounted) return true;
+    if (_academicSessionFilter == session.academicSessionId) {
+      setState(() => _academicSessionFilter = state.session);
+    }
+    return true;
+  }
+
   Future<void> _showSlotDetails(AppState state, TimetableSlot slot) async {
     final programName = state.programs
             .where((program) => program.id == slot.programId)
@@ -814,7 +1265,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Butiran Jadual'),
         content: SizedBox(
-          width: 680,
+          width: _dialogWidth(context, maxWidth: 680),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,6 +1443,34 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 }
 
+class _SessionTableText extends StatelessWidget {
+  const _SessionTableText(
+    this.value, {
+    required this.width,
+    this.bold = false,
+  });
+
+  final String value;
+  final double width;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: value,
+      child: SizedBox(
+        width: width,
+        child: Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontWeight: bold ? FontWeight.w800 : null),
+        ),
+      ),
+    );
+  }
+}
+
 class _ScopeSummary extends StatelessWidget {
   const _ScopeSummary({
     required this.state,
@@ -999,6 +1478,8 @@ class _ScopeSummary extends StatelessWidget {
     required this.selectedAcademicSession,
     required this.academicSessionOptions,
     required this.onAcademicSessionChanged,
+    required this.canManageAcademicSessions,
+    required this.onManageAcademicSessions,
   });
 
   final AppState state;
@@ -1006,6 +1487,8 @@ class _ScopeSummary extends StatelessWidget {
   final String selectedAcademicSession;
   final List<String> academicSessionOptions;
   final ValueChanged<String?> onAcademicSessionChanged;
+  final bool canManageAcademicSessions;
+  final VoidCallback onManageAcademicSessions;
 
   @override
   Widget build(BuildContext context) {
@@ -1056,7 +1539,7 @@ class _ScopeSummary extends StatelessWidget {
                     (session) => DropdownMenuItem<String>(
                       value: session,
                       child: Text(
-                        session,
+                        _sessionLabel(state, session),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1066,6 +1549,12 @@ class _ScopeSummary extends StatelessWidget {
               onChanged: onAcademicSessionChanged,
             ),
           ),
+          if (canManageAcademicSessions)
+            OutlinedButton.icon(
+              onPressed: onManageAcademicSessions,
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('Urus Sesi Akademik'),
+            ),
           _ContextTile(
             icon: Icons.calendar_view_week_outlined,
             label: 'Jumlah Rekod Jadual',
@@ -1149,14 +1638,12 @@ class _HeaderActionBar extends StatelessWidget {
   const _HeaderActionBar({
     required this.hasTimetable,
     required this.onUpload,
-    required this.onDownloadTemplate,
     required this.onExport,
     required this.onAddManual,
   });
 
   final bool hasTimetable;
   final VoidCallback onUpload;
-  final VoidCallback onDownloadTemplate;
   final VoidCallback onExport;
   final VoidCallback onAddManual;
 
@@ -1178,17 +1665,16 @@ class _HeaderActionBar extends StatelessWidget {
             FilledButton.icon(
               onPressed: onUpload,
               icon: const Icon(Icons.upload_file),
-              label: const Text('Muat Naik CSV'),
-            ),
-            OutlinedButton.icon(
-              onPressed: onDownloadTemplate,
-              icon: const Icon(Icons.file_download_outlined),
-              label: const Text('Muat Turun Templat'),
+              label: const Text('Muat Naik Jadual'),
             ),
             Tooltip(
               message:
                   'Mengeksport jadual yang sedang dipaparkan berdasarkan penapis semasa.',
               child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xff1d4ed8),
+                  side: const BorderSide(color: Color(0xff1d4ed8)),
+                ),
                 onPressed: hasTimetable ? onExport : null,
                 icon: const Icon(Icons.ios_share),
                 label: const Text('Eksport Paparan Semasa'),
@@ -1197,7 +1683,7 @@ class _HeaderActionBar extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onAddManual,
               icon: const Icon(Icons.add),
-              label: const Text('Tambah Manual'),
+              label: const Text('Tambah Slot Manual'),
             ),
           ],
         ),
@@ -1226,7 +1712,7 @@ class _ManagementNote extends StatelessWidget {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Tambah manual sesuai untuk pembetulan kecil. Untuk jadual penuh, gunakan Muat Naik CSV.',
+                'Tambah manual sesuai untuk pembetulan kecil. Untuk jadual penuh, gunakan Muat Naik Jadual.',
                 style: TextStyle(color: Color(0xff92400e), fontSize: 12),
               ),
             ),
@@ -1280,6 +1766,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.state,
     required this.slots,
     required this.allSlots,
+    required this.selectedAcademicSession,
     required this.searchCtrl,
     required this.dayFilter,
     required this.statusFilter,
@@ -1287,6 +1774,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.classFilter,
     required this.lecturerFilter,
     required this.roomFilter,
+    required this.selectedViewMode,
     required this.selectedSlotKeys,
     required this.batchProcessing,
     required this.onSearchChanged,
@@ -1297,6 +1785,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.onLecturerChanged,
     required this.onRoomChanged,
     required this.onResetFilters,
+    required this.onViewModeChanged,
     required this.onToggleSelectAllVisible,
     required this.onClearSelection,
     required this.onExportSelected,
@@ -1311,6 +1800,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final AppState state;
   final List<TimetableSlot> slots;
   final List<TimetableSlot> allSlots;
+  final String selectedAcademicSession;
   final TextEditingController searchCtrl;
   final String? dayFilter;
   final String? statusFilter;
@@ -1318,6 +1808,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final String? classFilter;
   final String? lecturerFilter;
   final String? roomFilter;
+  final _TimetableViewMode selectedViewMode;
   final Set<String> selectedSlotKeys;
   final bool batchProcessing;
   final ValueChanged<String> onSearchChanged;
@@ -1328,6 +1819,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final ValueChanged<String?> onLecturerChanged;
   final ValueChanged<String?> onRoomChanged;
   final VoidCallback onResetFilters;
+  final ValueChanged<_TimetableViewMode> onViewModeChanged;
   final VoidCallback onToggleSelectAllVisible;
   final VoidCallback onClearSelection;
   final VoidCallback onExportSelected;
@@ -1340,10 +1832,18 @@ class _OfficialTimetableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isListView = selectedViewMode == _TimetableViewMode.list;
+    final emptyTitle = allSlots.isEmpty
+        ? 'Tiada jadual untuk sesi akademik ini.'
+        : 'Tiada jadual ditemui untuk penapis semasa.';
+    final emptySubtitle = allSlots.isEmpty
+        ? 'Muat naik jadual CSV untuk mula menggunakan sesi ini.'
+        : 'Laraskan carian atau reset penapis untuk melihat rekod jadual.';
+
     return AppPanel(
       title: 'Jadual Rasmi',
       subtitle:
-          '${slots.length} daripada ${allSlots.length} slot dipaparkan untuk ${state.session}.',
+          '${slots.length} daripada ${allSlots.length} slot dipaparkan untuk $selectedAcademicSession.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1370,7 +1870,12 @@ class _OfficialTimetableSection extends StatelessWidget {
           const SizedBox(height: 16),
           _ConflictReviewPanel(slots: slots),
           const SizedBox(height: 16),
-          if (slots.isNotEmpty) ...[
+          _TimetableViewSelector(
+            selectedMode: selectedViewMode,
+            onChanged: onViewModeChanged,
+          ),
+          const SizedBox(height: 16),
+          if (isListView && slots.isNotEmpty) ...[
             _SelectionToolbar(
               visibleCount: slots.length,
               selectedCount: _selectedVisibleCount(slots, selectedSlotKeys),
@@ -1381,7 +1886,8 @@ class _OfficialTimetableSection extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
-          if (_selectedVisibleCount(slots, selectedSlotKeys) > 0) ...[
+          if (isListView &&
+              _selectedVisibleCount(slots, selectedSlotKeys) > 0) ...[
             _BatchActionBar(
               selectedCount: _selectedVisibleCount(slots, selectedSlotKeys),
               batchProcessing: batchProcessing,
@@ -1392,17 +1898,91 @@ class _OfficialTimetableSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          _TimetableTable(
-            slots: slots,
-            selectedSlotKeys: selectedSlotKeys,
-            batchProcessing: batchProcessing,
-            onSelectionChanged: onSelectionChanged,
-            onDetails: onDetails,
-            onEdit: onEdit,
-            onDelete: onDelete,
-          ),
+          if (selectedViewMode == _TimetableViewMode.list)
+            _TimetableTable(
+              slots: slots,
+              emptyTitle: emptyTitle,
+              emptySubtitle: emptySubtitle,
+              selectedSlotKeys: selectedSlotKeys,
+              batchProcessing: batchProcessing,
+              onSelectionChanged: onSelectionChanged,
+              onDetails: onDetails,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            )
+          else if (selectedViewMode == _TimetableViewMode.weekly)
+            _WeeklyTimetableView(
+              slots: slots,
+              emptyTitle: emptyTitle,
+              emptySubtitle: emptySubtitle,
+              onDetails: onDetails,
+            )
+          else if (selectedViewMode == _TimetableViewMode.room)
+            _GroupedTimetableView(
+              slots: slots,
+              emptyTitle: emptyTitle,
+              emptySubtitle: emptySubtitle,
+              mode: _TimetableViewMode.room,
+              onDetails: onDetails,
+            )
+          else
+            _GroupedTimetableView(
+              slots: slots,
+              emptyTitle: emptyTitle,
+              emptySubtitle: emptySubtitle,
+              mode: _TimetableViewMode.lecturer,
+              onDetails: onDetails,
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _TimetableViewSelector extends StatelessWidget {
+  const _TimetableViewSelector({
+    required this.selectedMode,
+    required this.onChanged,
+  });
+
+  final _TimetableViewMode selectedMode;
+  final ValueChanged<_TimetableViewMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (_TimetableViewMode.list, Icons.view_list_outlined, 'Paparan Senarai'),
+      (
+        _TimetableViewMode.weekly,
+        Icons.calendar_view_week_outlined,
+        'Paparan Mingguan'
+      ),
+      (_TimetableViewMode.room, Icons.meeting_room_outlined, 'Paparan Bilik'),
+      (
+        _TimetableViewMode.lecturer,
+        Icons.person_search_outlined,
+        'Paparan Pensyarah'
+      ),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final item in items)
+          ChoiceChip(
+            avatar: Icon(item.$2, size: 18),
+            label: Text(item.$3),
+            selected: selectedMode == item.$1,
+            onSelected: (_) => onChanged(item.$1),
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: selectedMode == item.$1
+                  ? const Color(0xff0f172a)
+                  : const Color(0xff475569),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1598,12 +2178,25 @@ class _TimetableFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = _distinct(slots.map((slot) => slot.day));
+    final programContext = _contextSlots(includeProgram: false);
+    final classContext = _contextSlots(includeClass: false);
+    final lecturerContext = _contextSlots(includeLecturer: false);
+    final roomContext = _contextSlots(includeRoom: false);
+    const days = [
+      'Isnin',
+      'Selasa',
+      'Rabu',
+      'Khamis',
+      'Jumaat',
+      'Sabtu',
+      'Ahad',
+    ];
     final statuses = _distinct(slots.map((slot) => slot.status));
-    final programs = _distinct(slots.map((slot) => slot.program));
-    final classes = _distinct(slots.map((slot) => slot.section));
-    final lecturers = _distinct(slots.map((slot) => slot.lecturerName));
-    final rooms = _distinct(slots.map((slot) => slot.room));
+    final programs = _distinct(programContext.map(_slotProgramValue));
+    final classes = _distinct(classContext.map(_slotClassValue));
+    final lecturers =
+        _distinct(lecturerContext.map((slot) => slot.lecturerName));
+    final rooms = _distinct(roomContext.map(_slotRoomValue));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1717,6 +2310,39 @@ class _TimetableFilters extends StatelessWidget {
       ..sort();
     return result;
   }
+
+  List<TimetableSlot> _contextSlots({
+    bool includeProgram = true,
+    bool includeClass = true,
+    bool includeLecturer = true,
+    bool includeRoom = true,
+  }) {
+    return slots.where((slot) {
+      if (includeProgram &&
+          programFilter != null &&
+          _slotProgramValue(slot) != programFilter) {
+        return false;
+      }
+      if (includeClass &&
+          classFilter != null &&
+          _slotClassValue(slot) != classFilter) {
+        return false;
+      }
+      if (includeLecturer &&
+          lecturerFilter != null &&
+          slot.lecturerName != lecturerFilter) {
+        return false;
+      }
+      if (includeRoom &&
+          roomFilter != null &&
+          _slotRoomValue(slot) != roomFilter) {
+        return false;
+      }
+      if (dayFilter != null && slot.day != dayFilter) return false;
+      if (statusFilter != null && slot.status != statusFilter) return false;
+      return true;
+    }).toList();
+  }
 }
 
 class _FilterDropdown extends StatelessWidget {
@@ -1738,11 +2364,13 @@ class _FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveValue =
+        value != null && values.contains(value) ? value : null;
     return SizedBox(
       width: width,
       child: DropdownButtonFormField<String?>(
-        key: ValueKey('$label-${value ?? 'all'}-${values.length}'),
-        initialValue: value,
+        key: ValueKey('$label-${effectiveValue ?? 'all'}-${values.length}'),
+        initialValue: effectiveValue,
         isExpanded: true,
         decoration: InputDecoration(
           labelText: label,
@@ -1804,12 +2432,12 @@ class _CoverageSummary extends StatelessWidget {
       children: [
         _CoverageTile(
           label: 'Program',
-          value: _count(slots.map((slot) => slot.program)),
+          value: _count(slots.map(_slotProgramValue)),
           icon: Icons.school_outlined,
         ),
         _CoverageTile(
           label: 'Kelas',
-          value: _count(slots.map((slot) => slot.section)),
+          value: _count(slots.map(_slotClassValue)),
           icon: Icons.groups_outlined,
         ),
         _CoverageTile(
@@ -1819,7 +2447,7 @@ class _CoverageSummary extends StatelessWidget {
         ),
         _CoverageTile(
           label: 'Bilik',
-          value: _count(slots.map((slot) => slot.room)),
+          value: _count(slots.map(_slotRoomValue)),
           icon: Icons.meeting_room_outlined,
         ),
       ],
@@ -1878,6 +2506,484 @@ class _CoverageTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WeeklyTimetableView extends StatelessWidget {
+  const _WeeklyTimetableView({
+    required this.slots,
+    required this.emptyTitle,
+    required this.emptySubtitle,
+    required this.onDetails,
+  });
+
+  final List<TimetableSlot> slots;
+  final String emptyTitle;
+  final String emptySubtitle;
+  final void Function(TimetableSlot slot) onDetails;
+
+  static const _weekdayOrder = [
+    'Isnin',
+    'Selasa',
+    'Rabu',
+    'Khamis',
+    'Jumaat',
+    'Sabtu',
+    'Ahad',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (slots.isEmpty) {
+      return _EmptyState(
+        icon: Icons.calendar_view_week_outlined,
+        title: emptyTitle,
+        subtitle: emptySubtitle,
+      );
+    }
+
+    final days = _visibleDays(slots);
+    final timeBlocks = _timeBlocks(slots);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth;
+        final timeWidth = available < 520 ? 104.0 : 124.0;
+        final dayWidth = available >= 1180
+            ? ((available - timeWidth) / days.length).clamp(190.0, 238.0)
+            : available >= 760
+                ? 206.0
+                : 190.0;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints:
+                BoxConstraints(minWidth: timeWidth + (days.length * dayWidth)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _WeeklyHeaderCell(label: 'Masa', width: timeWidth),
+                    for (final day in days)
+                      _WeeklyHeaderCell(label: day, width: dayWidth),
+                  ],
+                ),
+                for (final block in timeBlocks)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _WeeklyTimeCell(block: block, width: timeWidth),
+                        for (final day in days)
+                          _WeeklySlotCell(
+                            width: dayWidth,
+                            slots: _slotsForBlock(slots, day, block),
+                            onDetails: onDetails,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<String> _visibleDays(List<TimetableSlot> slots) {
+    final used = slots.map((slot) => slot.day.trim()).toSet();
+    final days =
+        _weekdayOrder.where((day) => used.contains(day)).toList(growable: true);
+    final extraDays = used.where((day) => !days.contains(day)).toList()..sort();
+    days.addAll(extraDays);
+    return days;
+  }
+
+  List<String> _timeBlocks(List<TimetableSlot> slots) {
+    final blocks = slots
+        .map((slot) => '${slot.startTime}-${slot.endTime}')
+        .where((value) => value.trim() != '-')
+        .toSet()
+        .toList()
+      ..sort((a, b) => _timeSortValue(a).compareTo(_timeSortValue(b)));
+    return blocks;
+  }
+
+  List<TimetableSlot> _slotsForBlock(
+    List<TimetableSlot> slots,
+    String day,
+    String block,
+  ) {
+    final matches = slots
+        .where((slot) =>
+            slot.day == day && '${slot.startTime}-${slot.endTime}' == block)
+        .toList()
+      ..sort(_compareSlots);
+    return matches;
+  }
+
+  int _timeSortValue(String block) {
+    final start = block.split('-').first;
+    return _minutesFromTime(start);
+  }
+}
+
+class _WeeklyHeaderCell extends StatelessWidget {
+  const _WeeklyHeaderCell({
+    required this.label,
+    this.width = 220,
+  });
+
+  final String label;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xffe2e8f0),
+        border: Border.all(color: const Color(0xffcbd5e1)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xff0f172a),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyTimeCell extends StatelessWidget {
+  const _WeeklyTimeCell({
+    required this.block,
+    required this.width,
+  });
+
+  final String block;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 124),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+      ),
+      child: Text(
+        block,
+        style: const TextStyle(
+          color: Color(0xff334155),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklySlotCell extends StatelessWidget {
+  const _WeeklySlotCell({
+    required this.width,
+    required this.slots,
+    required this.onDetails,
+  });
+
+  final double width;
+  final List<TimetableSlot> slots;
+  final void Function(TimetableSlot slot) onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      constraints: const BoxConstraints(minHeight: 124),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xffe2e8f0)),
+      ),
+      child: slots.isEmpty
+          ? const Center(
+              child: Text(
+                '-',
+                style: TextStyle(color: Color(0xff94a3b8)),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final slot in slots) ...[
+                  _MiniTimetableSlotCard(
+                    slot: slot,
+                    onTap: () => onDetails(slot),
+                    showDayTime: false,
+                    trailingRoom: true,
+                  ),
+                  if (slot != slots.last) const SizedBox(height: 6),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _GroupedTimetableView extends StatelessWidget {
+  const _GroupedTimetableView({
+    required this.slots,
+    required this.emptyTitle,
+    required this.emptySubtitle,
+    required this.mode,
+    required this.onDetails,
+  });
+
+  final List<TimetableSlot> slots;
+  final String emptyTitle;
+  final String emptySubtitle;
+  final _TimetableViewMode mode;
+  final void Function(TimetableSlot slot) onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    if (slots.isEmpty) {
+      return _EmptyState(
+        icon: mode == _TimetableViewMode.room
+            ? Icons.meeting_room_outlined
+            : Icons.person_search_outlined,
+        title: emptyTitle,
+        subtitle: emptySubtitle,
+      );
+    }
+
+    final grouped = _groupSlots(slots);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final entry in grouped.entries) ...[
+          _GroupedTimetableCard(
+            title: entry.key,
+            mode: mode,
+            slots: entry.value,
+            onDetails: onDetails,
+          ),
+          if (entry.key != grouped.keys.last) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Map<String, List<TimetableSlot>> _groupSlots(List<TimetableSlot> slots) {
+    final grouped = <String, List<TimetableSlot>>{};
+    for (final slot in slots) {
+      final key = mode == _TimetableViewMode.room
+          ? _slotRoomValue(slot)
+          : slot.lecturerName.trim();
+      grouped.putIfAbsent(key.isEmpty ? '-' : key, () => []).add(slot);
+    }
+    final sortedKeys = grouped.keys.toList()..sort();
+    return {
+      for (final key in sortedKeys) key: (grouped[key]!..sort(_compareSlots)),
+    };
+  }
+}
+
+class _GroupedTimetableCard extends StatelessWidget {
+  const _GroupedTimetableCard({
+    required this.title,
+    required this.mode,
+    required this.slots,
+    required this.onDetails,
+  });
+
+  final String title;
+  final _TimetableViewMode mode;
+  final List<TimetableSlot> slots;
+  final void Function(TimetableSlot slot) onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = constraints.maxWidth >= 980
+                ? (constraints.maxWidth - 20) / 3
+                : constraints.maxWidth >= 640
+                    ? (constraints.maxWidth - 10) / 2
+                    : constraints.maxWidth;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      mode == _TimetableViewMode.room
+                          ? Icons.meeting_room_outlined
+                          : Icons.person_outline,
+                      color: const Color(0xff334155),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Tooltip(
+                        message: title,
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xff0f172a),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    StatusChip('${slots.length} slot'),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final slot in slots)
+                      SizedBox(
+                        width: cardWidth,
+                        child: _MiniTimetableSlotCard(
+                          slot: slot,
+                          onTap: () => onDetails(slot),
+                          showDayTime: true,
+                          trailingRoom: mode == _TimetableViewMode.lecturer,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTimetableSlotCard extends StatelessWidget {
+  const _MiniTimetableSlotCard({
+    required this.slot,
+    required this.onTap,
+    required this.showDayTime,
+    required this.trailingRoom,
+  });
+
+  final TimetableSlot slot;
+  final VoidCallback onTap;
+  final bool showDayTime;
+  final bool trailingRoom;
+
+  @override
+  Widget build(BuildContext context) {
+    final contextLine = trailingRoom
+        ? '${_slotClassValue(slot)} - ${_slotRoomValue(slot)}'
+        : '${_slotClassValue(slot)} - ${slot.lecturerName}';
+    final supportingLine =
+        trailingRoom ? slot.lecturerName : _slotRoomValue(slot);
+    return Tooltip(
+      message:
+          '${slot.subjectCode}\n${slot.subjectName}\n$contextLine\n$supportingLine',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: slot.status.toLowerCase() == 'active'
+                ? const Color(0xfff8fafc)
+                : const Color(0xfff1f5f9),
+            border: Border.all(
+              color: slot.status.toLowerCase() == 'active'
+                  ? const Color(0xffcbd5e1)
+                  : const Color(0xff94a3b8),
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showDayTime) ...[
+                Text(
+                  '${slot.day} - ${slot.startTime}-${slot.endTime}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xff475569),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              Text(
+                slot.subjectCode,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xff0f172a),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                contextLine,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xff334155),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                supportingLine,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Color(0xff64748b), fontSize: 12),
+              ),
+              if (!showDayTime) ...[
+                const SizedBox(height: 2),
+                Text(
+                  slot.subjectName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xff64748b),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+              if (slot.status.toLowerCase() != 'active') ...[
+                const SizedBox(height: 8),
+                StatusChip(_statusLabel(slot.status)),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2031,7 +3137,7 @@ class _ConflictReviewPanel extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Butiran Konflik Jadual'),
         content: SizedBox(
-          width: 760,
+          width: _dialogWidth(context, maxWidth: 760),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2097,7 +3203,7 @@ class _ConflictCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${slot.day} · ${slot.startTime}-${slot.endTime} · Minggu ${_weekTextForSlot(slot)}',
+              '${slot.day} - ${slot.startTime}-${slot.endTime} - Minggu ${_weekTextForSlot(slot)}',
               style: const TextStyle(color: Color(0xff92400e), fontSize: 12),
             ),
             const SizedBox(height: 10),
@@ -2119,7 +3225,7 @@ class _ConflictSlotLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      '${slot.subjectCode} · ${slot.section} · ${slot.lecturerName} · ${slot.room}',
+      '${slot.subjectCode} - ${slot.section} - ${slot.lecturerName} - ${slot.room}',
       style: const TextStyle(color: Color(0xff0f172a), fontSize: 13),
     );
   }
@@ -2127,6 +3233,7 @@ class _ConflictSlotLine extends StatelessWidget {
 
 class _UploadWorkflowSection extends StatelessWidget {
   const _UploadWorkflowSection({
+    required this.selectedAcademicSession,
     required this.processingImport,
     required this.importError,
     required this.previewResult,
@@ -2141,6 +3248,7 @@ class _UploadWorkflowSection extends StatelessWidget {
     required this.onViewOfficialTimetable,
   });
 
+  final String selectedAcademicSession;
   final bool processingImport;
   final String? importError;
   final TimetableMasterValidationResult? previewResult;
@@ -2174,9 +3282,7 @@ class _UploadWorkflowSection extends StatelessWidget {
               const SizedBox(height: 16),
               const _UploadSteps(),
               const SizedBox(height: 16),
-              const _ExampleValues(),
-              const SizedBox(height: 16),
-              _TemplateHelper(),
+              _TemplateHelper(selectedAcademicSession: selectedAcademicSession),
             ],
           ),
         ),
@@ -2369,7 +3475,7 @@ class _ImportHistorySection extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: const Text('Butiran Import'),
         content: SizedBox(
-          width: 680,
+          width: _dialogWidth(context, maxWidth: 680),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2452,15 +3558,15 @@ class _UploadActions extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        FilledButton.icon(
-          onPressed: processingImport ? null : onPickFile,
-          icon: const Icon(Icons.upload_file),
-          label: Text(processingImport ? 'Memproses...' : 'Pilih Fail CSV'),
-        ),
         OutlinedButton.icon(
           onPressed: onDownloadTemplate,
           icon: const Icon(Icons.file_download_outlined),
           label: const Text('Muat Turun Templat CSV'),
+        ),
+        FilledButton.icon(
+          onPressed: processingImport ? null : onPickFile,
+          icon: const Icon(Icons.upload_file),
+          label: Text(processingImport ? 'Memproses...' : 'Pilih Fail CSV'),
         ),
       ],
     );
@@ -2474,8 +3580,10 @@ class _UploadSteps extends StatelessWidget {
   Widget build(BuildContext context) {
     const steps = [
       'Muat turun templat CSV.',
-      'Isi jadual dalam Excel dan eksport sebagai CSV.',
-      'Muat naik fail CSV, semak pratonton, kemudian import baris layak.',
+      'Isi jadual dalam Excel.',
+      'Eksport sebagai CSV.',
+      'Muat naik fail dan semak pratonton.',
+      'Import baris layak.',
     ];
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -2533,43 +3641,11 @@ class _UploadSteps extends StatelessWidget {
   }
 }
 
-class _ExampleValues extends StatelessWidget {
-  const _ExampleValues();
-
-  @override
-  Widget build(BuildContext context) {
-    const examples = [
-      ('Sesi', TimetableCsvTemplate.defaultAcademicSessionId),
-      ('Hari', 'Isnin, Selasa, Rabu, Khamis, Jumaat'),
-      ('Masa', '08:00, 10:00, 14:30'),
-      ('Bilik', 'BILIK KULIAH DED 1, SMART CLASSROOM'),
-      ('Minggu', '1-18'),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Contoh nilai CSV',
-          style: TextStyle(
-            color: Color(0xff0f172a),
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final example in examples)
-              _InfoPill('${example.$1}: ${example.$2}'),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _TemplateHelper extends StatelessWidget {
+  const _TemplateHelper({required this.selectedAcademicSession});
+
+  final String selectedAcademicSession;
+
   @override
   Widget build(BuildContext context) {
     return ExpansionTile(
@@ -2577,10 +3653,10 @@ class _TemplateHelper extends StatelessWidget {
       childrenPadding: EdgeInsets.zero,
       initiallyExpanded: false,
       title: const Text(
-        'Keperluan format CSV',
+        'Panduan Format CSV',
         style: TextStyle(fontWeight: FontWeight.w800),
       ),
-      subtitle: const Text('Klik untuk melihat header penuh CSV.'),
+      subtitle: const Text('Klik untuk melihat header dan syarat format.'),
       children: [
         Align(
           alignment: Alignment.centerLeft,
@@ -2594,19 +3670,18 @@ class _TemplateHelper extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        const Align(
+        Align(
           alignment: Alignment.centerLeft,
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _InfoPill('CSV sahaja'),
-              _InfoPill('Excel: eksport sebagai CSV'),
-              _InfoPill('Minggu: 1-18'),
-              _InfoPill(
-                  'Sesi: ${TimetableCsvTemplate.defaultAcademicSessionId}'),
-              _InfoPill('Hari: Isnin-Ahad'),
-              _InfoPill('Masa: HH:mm'),
+              const _InfoPill('CSV sahaja'),
+              const _InfoPill('Excel: eksport sebagai CSV'),
+              const _InfoPill('Minggu: 1-18'),
+              _InfoPill('Sesi: $selectedAcademicSession'),
+              const _InfoPill('Hari: Isnin-Ahad'),
+              const _InfoPill('Masa: HH:mm'),
             ],
           ),
         ),
@@ -2906,7 +3981,7 @@ class _RowMessages extends StatelessWidget {
       builder: (context) => AlertDialog(
         title: Text('Butiran Baris $rowNumber'),
         content: SizedBox(
-          width: 520,
+          width: _dialogWidth(context, maxWidth: 520),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -3126,6 +4201,8 @@ class _ImportSuccessPanel extends StatelessWidget {
 class _TimetableTable extends StatelessWidget {
   const _TimetableTable({
     required this.slots,
+    required this.emptyTitle,
+    required this.emptySubtitle,
     required this.selectedSlotKeys,
     required this.batchProcessing,
     required this.onSelectionChanged,
@@ -3135,6 +4212,8 @@ class _TimetableTable extends StatelessWidget {
   });
 
   final List<TimetableSlot> slots;
+  final String emptyTitle;
+  final String emptySubtitle;
   final Set<String> selectedSlotKeys;
   final bool batchProcessing;
   final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
@@ -3145,10 +4224,10 @@ class _TimetableTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (slots.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.event_busy_outlined,
-        title: 'Tiada jadual ditemui untuk skop ini.',
-        subtitle: 'Muat naik CSV atau tambah jadual secara manual.',
+        title: emptyTitle,
+        subtitle: emptySubtitle,
       );
     }
 
@@ -3202,7 +4281,7 @@ class _TimetableTable extends StatelessWidget {
           )),
           DataCell(SizedBox(
             width: 130,
-            child: Text('${slot.day} · ${slot.startTime}-${slot.endTime}'),
+            child: Text('${slot.day} - ${slot.startTime}-${slot.endTime}'),
           )),
           DataCell(SizedBox(
             width: 160,
@@ -3328,33 +4407,44 @@ class _DetailSection extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             for (final row in rows)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 170,
-                      child: Text(
-                        row.$1,
-                        style: const TextStyle(
-                          color: Color(0xff64748b),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 430;
+                  final label = Text(
+                    row.$1,
+                    style: const TextStyle(
+                      color: Color(0xff64748b),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
-                    Expanded(
-                      child: SelectableText(
-                        row.$2.isEmpty ? '-' : row.$2,
-                        style: const TextStyle(
-                          color: Color(0xff0f172a),
-                          fontSize: 13,
-                        ),
-                      ),
+                  );
+                  final value = SelectableText(
+                    row.$2.isEmpty ? '-' : row.$2,
+                    style: const TextStyle(
+                      color: Color(0xff0f172a),
+                      fontSize: 13,
                     ),
-                  ],
-                ),
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: narrow
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              label,
+                              const SizedBox(height: 2),
+                              value,
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(width: 170, child: label),
+                              Expanded(child: value),
+                            ],
+                          ),
+                  );
+                },
               ),
           ],
         ),
@@ -3371,6 +4461,47 @@ String _statusLabel(String status) {
     'attendance completed' => 'Kehadiran Selesai',
     _ => status,
   };
+}
+
+String _sessionLabel(AppState state, String academicSessionId) {
+  final session = state.academicSessions
+      .where((item) => item.academicSessionId == academicSessionId)
+      .firstOrNull;
+  if (session == null) return academicSessionId;
+  return '${session.name} (${session.academicSessionId})';
+}
+
+String _academicSessionStatusLabel(String status) {
+  return switch (status.toLowerCase()) {
+    'active' => 'Aktif',
+    'upcoming' => 'Akan Datang',
+    'archived' => 'Arkib',
+    _ => status,
+  };
+}
+
+String _slotSessionValue(TimetableSlot slot) {
+  final normalized = slot.academicSessionId?.trim();
+  if (normalized != null && normalized.isNotEmpty) return normalized;
+  return slot.session.trim();
+}
+
+String _slotProgramValue(TimetableSlot slot) {
+  final normalized = slot.programId?.trim();
+  if (normalized != null && normalized.isNotEmpty) return normalized;
+  return slot.program.trim();
+}
+
+String _slotClassValue(TimetableSlot slot) {
+  final normalized = slot.classId?.trim();
+  if (normalized != null && normalized.isNotEmpty) return normalized;
+  return slot.section.trim();
+}
+
+String _slotRoomValue(TimetableSlot slot) {
+  final normalized = slot.roomName?.trim();
+  if (normalized != null && normalized.isNotEmpty) return normalized;
+  return slot.room.trim();
 }
 
 String _slotSelectionKey(TimetableSlot slot) {
@@ -3391,6 +4522,49 @@ String _uploadStatusLabel(String status) {
 String _shortProgramLabel(String value) {
   final match = RegExp(r'\b[A-Z]{2,4}\b').firstMatch(value);
   return match?.group(0) ?? value;
+}
+
+double _dialogWidth(
+  BuildContext context, {
+  required double maxWidth,
+  double minWidth = 320,
+}) {
+  final screenWidth = MediaQuery.sizeOf(context).width;
+  return (screenWidth * 0.9).clamp(minWidth, maxWidth).toDouble();
+}
+
+int _compareSlots(TimetableSlot a, TimetableSlot b) {
+  final dayCompare = _daySortValue(a.day).compareTo(_daySortValue(b.day));
+  if (dayCompare != 0) return dayCompare;
+  final timeCompare =
+      _minutesFromTime(a.startTime).compareTo(_minutesFromTime(b.startTime));
+  if (timeCompare != 0) return timeCompare;
+  final classCompare = _slotClassValue(a).compareTo(_slotClassValue(b));
+  if (classCompare != 0) return classCompare;
+  return a.subjectCode.compareTo(b.subjectCode);
+}
+
+int _daySortValue(String day) {
+  const days = [
+    'Isnin',
+    'Selasa',
+    'Rabu',
+    'Khamis',
+    'Jumaat',
+    'Sabtu',
+    'Ahad',
+  ];
+  final index = days.indexOf(day.trim());
+  return index == -1 ? 99 : index;
+}
+
+int _minutesFromTime(String value) {
+  final parts = value.trim().split(':');
+  if (parts.length < 2) return 99999;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return 99999;
+  return (hour * 60) + minute;
 }
 
 String _weekTextForSlot(TimetableSlot slot) {

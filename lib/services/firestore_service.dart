@@ -196,6 +196,44 @@ class FirestoreService {
     return snap.docs.map(_docToAcademicSession).toList();
   }
 
+  Future<void> createAcademicSession(
+    AcademicSession session, {
+    String? createdBy,
+  }) async {
+    await _academicSessionsCol.doc(session.academicSessionId).set({
+      'academicSessionId': session.academicSessionId,
+      'name': session.name,
+      'startDate': session.startDate,
+      'endDate': session.endDate,
+      'status': session.status,
+      'isActive': session.isActive,
+      if (createdBy != null) 'createdBy': createdBy,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateAcademicSession(AcademicSession session) async {
+    await _academicSessionsCol.doc(session.academicSessionId).set({
+      'academicSessionId': session.academicSessionId,
+      'name': session.name,
+      'startDate': session.startDate,
+      'endDate': session.endDate,
+      'status': session.status,
+      'isActive': session.isActive,
+      if (session.createdAt != null) 'createdAt': session.createdAt,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> archiveAcademicSession(String academicSessionId) async {
+    await _academicSessionsCol.doc(academicSessionId).set({
+      'status': 'archived',
+      'isActive': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   // ---------------------------------------------------------------------------
   // Attendance
   // ---------------------------------------------------------------------------
@@ -692,16 +730,48 @@ class FirestoreService {
     await batch.commit();
   }
 
-  Future<void> seedAcademicSessions() async {
-    await _academicSessionsCol
-        .doc(TimetableCsvTemplate.defaultAcademicSessionId)
-        .set({
-      'academicSessionId': TimetableCsvTemplate.defaultAcademicSessionId,
-      'name': TimetableCsvTemplate.defaultAcademicSessionName,
-      'isActive': true,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> seedAcademicSessions([List<AcademicSession>? sessions]) async {
+    final values = sessions ??
+        const [
+          AcademicSession(
+            academicSessionId: TimetableCsvTemplate.defaultAcademicSessionId,
+            name: TimetableCsvTemplate.defaultAcademicSessionName,
+            startDate: '2026-01-01',
+            endDate: '2026-06-30',
+            status: 'active',
+            isActive: true,
+          ),
+          AcademicSession(
+            academicSessionId: 'JUL_DEC_2026',
+            name: 'Jul-Dec 2026',
+            startDate: '2026-07-01',
+            endDate: '2026-12-31',
+            status: 'upcoming',
+            isActive: true,
+          ),
+          AcademicSession(
+            academicSessionId: 'JAN_JUN_2027',
+            name: 'Jan-Jun 2027',
+            startDate: '2027-01-01',
+            endDate: '2027-06-30',
+            status: 'upcoming',
+            isActive: true,
+          ),
+        ];
+    final batch = _db.batch();
+    for (final session in values) {
+      batch.set(_academicSessionsCol.doc(session.academicSessionId), {
+        'academicSessionId': session.academicSessionId,
+        'name': session.name,
+        'startDate': session.startDate,
+        'endDate': session.endDate,
+        'status': session.status,
+        'isActive': session.isActive,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
 
   Future<void> seedSubjects(List<SubjectCourse> subjects) async {
@@ -838,6 +908,8 @@ class FirestoreService {
       academicSessionId: d['academicSessionId'] as String? ?? doc.id,
       name: d['name'] as String? ?? doc.id,
       isActive: d['isActive'] as bool? ?? true,
+      status: d['status'] as String? ??
+          ((d['isActive'] as bool? ?? true) ? 'active' : 'archived'),
       startDate: d['startDate'] as String?,
       endDate: d['endDate'] as String?,
       createdAt: _readTimestamp(d['createdAt']),

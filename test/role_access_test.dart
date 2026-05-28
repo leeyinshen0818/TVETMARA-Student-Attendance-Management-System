@@ -165,4 +165,21 @@ void main() {
     expect(state.scopedTimetable, isEmpty);
     expect(state.scopedBookings, isEmpty);
   });
+
+  test('academic session management follows role hierarchy', () {
+    expect(_stateFor(_user('admin@tvetmara.edu.my')).canManageAcademicSessions,
+        isTrue);
+    expect(
+        _stateFor(_user('kj_elektrik@tvetmara.edu.my'))
+            .canManageAcademicSessions,
+        isTrue);
+    expect(_stateFor(_user('kp_dgs@tvetmara.edu.my')).canManageAcademicSessions,
+        isTrue);
+    expect(_stateFor(_user('kp_ded@tvetmara.edu.my')).canManageAcademicSessions,
+        isFalse);
+    expect(
+        _stateFor(_user('pensyarah_ded@tvetmara.edu.my'))
+            .canManageAcademicSessions,
+        isFalse);
+  });
 }

@@ -52,6 +52,7 @@ Future<bool> seedFirestore() async {
   // 2. Run migrations and structural seeding (programs, departments)
   // ------------------------------------------------------------------
   await fs.runMigrationAndSeed();
+  await fs.seedAcademicSessions(mock.academicSessions);
 
   // ------------------------------------------------------------------
   // 3. Create Firebase Auth accounts and align users/{uid}
