@@ -4234,6 +4234,7 @@ class _TimetableTable extends StatelessWidget {
     return AppDataTable(
       columns: const [
         DataColumn(label: Text('Pilih')),
+        DataColumn(label: Text('Aksi')),
         DataColumn(label: Text('Kod')),
         DataColumn(label: Text('Subjek')),
         DataColumn(label: Text('Kelas')),
@@ -4243,7 +4244,6 @@ class _TimetableTable extends StatelessWidget {
         DataColumn(label: Text('Bilik')),
         DataColumn(label: Text('Minggu')),
         DataColumn(label: Text('Status')),
-        DataColumn(label: Text('Tindakan')),
       ],
       rows: slots.map((slot) {
         final selected = selectedSlotKeys.contains(_slotSelectionKey(slot));
@@ -4257,6 +4257,56 @@ class _TimetableTable extends StatelessWidget {
                     ? null
                     : (value) => onSelectionChanged(slot, value ?? false),
               ),
+            ),
+          ),
+          DataCell(
+            PopupMenuButton<String>(
+              tooltip: 'Tindakan slot',
+              icon: const Icon(Icons.more_vert, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onSelected: (action) {
+                switch (action) {
+                  case 'details':
+                    onDetails?.call(slot);
+                  case 'edit':
+                    onEdit?.call(slot);
+                  case 'delete':
+                    onDelete?.call(slot);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'details',
+                  child: ListTile(
+                    leading: Icon(Icons.info_outline),
+                    title: Text('Lihat Butiran'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Edit Slot'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: Color(0xffef4444)),
+                    title: Text(
+                      'Padam Slot',
+                      style: TextStyle(color: Color(0xffef4444)),
+                    ),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
             ),
           ),
           DataCell(Text(
@@ -4289,26 +4339,6 @@ class _TimetableTable extends StatelessWidget {
           )),
           DataCell(Text(_weekText(slot))),
           DataCell(StatusChip(_statusLabel(slot.status))),
-          DataCell(Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: 'Lihat Butiran',
-                onPressed: onDetails == null ? null : () => onDetails!(slot),
-                icon: const Icon(Icons.info_outline),
-              ),
-              IconButton(
-                tooltip: 'Edit Jadual',
-                onPressed: onEdit == null ? null : () => onEdit!(slot),
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              IconButton(
-                tooltip: 'Padam Jadual',
-                onPressed: onDelete == null ? null : () => onDelete!(slot),
-                icon: const Icon(Icons.delete_outline),
-              ),
-            ],
-          )),
         ]);
       }).toList(),
     );
