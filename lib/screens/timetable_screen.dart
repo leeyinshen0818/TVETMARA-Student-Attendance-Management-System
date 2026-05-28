@@ -1868,7 +1868,11 @@ class _OfficialTimetableSection extends StatelessWidget {
           const SizedBox(height: 16),
           _CoverageSummary(slots: slots),
           const SizedBox(height: 16),
-          _ConflictReviewPanel(slots: slots),
+          _ConflictReviewPanel(
+            slots: slots,
+            onDetails: onDetails,
+            onEdit: onEdit,
+          ),
           const SizedBox(height: 16),
           _TimetableViewSelector(
             selectedMode: selectedViewMode,
@@ -2990,9 +2994,15 @@ class _MiniTimetableSlotCard extends StatelessWidget {
 }
 
 class _ConflictReviewPanel extends StatelessWidget {
-  const _ConflictReviewPanel({required this.slots});
+  const _ConflictReviewPanel({
+    required this.slots,
+    required this.onDetails,
+    required this.onEdit,
+  });
 
   final List<TimetableSlot> slots;
+  final void Function(TimetableSlot slot) onDetails;
+  final void Function(TimetableSlot slot) onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -3134,16 +3144,37 @@ class _ConflictReviewPanel extends StatelessWidget {
   ) {
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         title: const Text('Butiran Konflik Jadual'),
         content: SizedBox(
-          width: _dialogWidth(context, maxWidth: 760),
+          width: _dialogWidth(dialogContext, maxWidth: 800),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  '${conflicts.length} konflik dikesan. Klik "Edit Slot" untuk mengubah slot yang berkonflik.',
+                  style: const TextStyle(
+                    color: Color(0xff475569),
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 for (final conflict in conflicts) ...[
-                  _ConflictCard(conflict: conflict),
+                  _ConflictCard(
+                    conflict: conflict,
+                    onDetails: (slot) {
+                      Navigator.pop(dialogContext);
+                      onDetails(slot);
+                    },
+                    onEdit: (slot) {
+                      Navigator.pop(dialogContext);
+                      onEdit(slot);
+                    },
+                  ),
                   const SizedBox(height: 12),
                 ],
               ],
@@ -3152,7 +3183,7 @@ class _ConflictReviewPanel extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Tutup'),
           ),
         ],
@@ -3176,13 +3207,31 @@ class _TimetableConflict {
 }
 
 class _ConflictCard extends StatelessWidget {
-  const _ConflictCard({required this.conflict});
+  const _ConflictCard({
+    required this.conflict,
+    required this.onDetails,
+    required this.onEdit,
+  });
 
   final _TimetableConflict conflict;
+  final void Function(TimetableSlot slot) onDetails;
+  final void Function(TimetableSlot slot) onEdit;
 
   @override
   Widget build(BuildContext context) {
     final slot = conflict.a;
+    final typeLabel = switch (conflict.type) {
+      'Bilik' => 'Konflik Bilik',
+      'Pensyarah' => 'Konflik Pensyarah',
+      'Kelas' => 'Konflik Kelas',
+      _ => 'Konflik ${conflict.type}',
+    };
+    final typeIcon = switch (conflict.type) {
+      'Bilik' => Icons.meeting_room_outlined,
+      'Pensyarah' => Icons.person_outline,
+      'Kelas' => Icons.groups_outlined,
+      _ => Icons.warning_amber_outlined,
+    };
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xfffffbeb),
@@ -3190,26 +3239,64 @@ class _ConflictCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${conflict.type}: ${conflict.value}',
-              style: const TextStyle(
-                color: Color(0xff92400e),
-                fontWeight: FontWeight.w800,
+            Row(
+              children: [
+                Icon(typeIcon, size: 18, color: const Color(0xff92400e)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '$typeLabel: ${conflict.value}',
+                    style: const TextStyle(
+                      color: Color(0xff92400e),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xfffef3c7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${slot.day}  •  ${slot.startTime}–${slot.endTime}  •  Minggu ${_weekTextForSlot(slot)}',
+                style: const TextStyle(
+                  color: Color(0xff78350f),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${slot.day} - ${slot.startTime}-${slot.endTime} - Minggu ${_weekTextForSlot(slot)}',
-              style: const TextStyle(color: Color(0xff92400e), fontSize: 12),
+            const SizedBox(height: 12),
+            const Text(
+              'Slot yang berkonflik:',
+              style: TextStyle(
+                color: Color(0xff475569),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 10),
-            _ConflictSlotLine(slot: conflict.a),
-            const SizedBox(height: 6),
-            _ConflictSlotLine(slot: conflict.b),
+            const SizedBox(height: 8),
+            _ConflictSlotCard(
+              slot: conflict.a,
+              onDetails: onDetails,
+              onEdit: onEdit,
+            ),
+            const SizedBox(height: 8),
+            _ConflictSlotCard(
+              slot: conflict.b,
+              onDetails: onDetails,
+              onEdit: onEdit,
+            ),
           ],
         ),
       ),
@@ -3217,16 +3304,151 @@ class _ConflictCard extends StatelessWidget {
   }
 }
 
-class _ConflictSlotLine extends StatelessWidget {
-  const _ConflictSlotLine({required this.slot});
+class _ConflictSlotCard extends StatelessWidget {
+  const _ConflictSlotCard({
+    required this.slot,
+    required this.onDetails,
+    required this.onEdit,
+  });
 
   final TimetableSlot slot;
+  final void Function(TimetableSlot slot) onDetails;
+  final void Function(TimetableSlot slot) onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '${slot.subjectCode} - ${slot.section} - ${slot.lecturerName} - ${slot.room}',
-      style: const TextStyle(color: Color(0xff0f172a), fontSize: 13),
+    final programLabel = slot.programId?.isNotEmpty == true
+        ? slot.programId!
+        : _shortProgramLabel(slot.program);
+    final classLabel = slot.classId?.isNotEmpty == true
+        ? slot.classId!
+        : slot.section;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xffffffff),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  slot.subjectCode,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: Color(0xff0f172a),
+                  ),
+                ),
+                Text(
+                  slot.subjectName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xff334155),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                _SlotInfoChip(
+                  icon: Icons.groups_outlined,
+                  label: '$programLabel  $classLabel',
+                ),
+                _SlotInfoChip(
+                  icon: Icons.person_outline,
+                  label: slot.lecturerName,
+                ),
+                _SlotInfoChip(
+                  icon: Icons.meeting_room_outlined,
+                  label: slot.room,
+                ),
+                _SlotInfoChip(
+                  icon: Icons.schedule_outlined,
+                  label:
+                      '${slot.day} ${slot.startTime}–${slot.endTime}',
+                ),
+                _SlotInfoChip(
+                  icon: Icons.date_range_outlined,
+                  label: 'Minggu ${_weekTextForSlot(slot)}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                SizedBox(
+                  height: 30,
+                  child: OutlinedButton.icon(
+                    onPressed: () => onDetails(slot),
+                    icon: const Icon(Icons.info_outline, size: 14),
+                    label: const Text('Lihat Butiran',
+                        style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: 30,
+                  child: FilledButton.icon(
+                    onPressed: () => onEdit(slot),
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    label: const Text('Edit Slot',
+                        style: TextStyle(fontSize: 12)),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SlotInfoChip extends StatelessWidget {
+  const _SlotInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: const Color(0xff64748b)),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xff475569),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
