@@ -12,6 +12,7 @@ import 'records_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
 import 'timetable_screen.dart';
+import 'admin/admin_user_management_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -86,6 +87,13 @@ class _HomeShellState extends State<HomeShell> {
       if (isAdmin)
         const _NavItem(
             'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
+      if (isAdmin)
+        const _NavItem(
+          'Pengurusan Pengguna', 
+          Icons.manage_accounts_outlined, 
+          AdminUserManagementScreen(),
+          dataScope: _DataScope.none, // Since it uses internal Firestore streams
+        ),
     ];
     if (index >= items.length) index = 0;
     final activeItem = items[index];
