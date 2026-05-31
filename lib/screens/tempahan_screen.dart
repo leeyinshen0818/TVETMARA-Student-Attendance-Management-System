@@ -7,20 +7,6 @@ import '../widgets/status_chip.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // M6 – Booking Module (Tempahan Bilik)
-//
-// Roles & access:
-//   Pensyarah        → creates a booking request (selects slot, room,
-//                       replacement date/time, reason).
-//   Ketua Program    → approves / rejects bookings for their program.
-//   Ketua Jabatan    → approves / rejects bookings for their department.
-//
-// Room availability is checked against:
-//   1. Existing timetable slots on the same date/room.
-//   2. Already-approved booking requests on the same date/room.
-//
-// When a booking is approved:
-//   • A new TimetableSlot (slotType: 'Kelas Ganti') is inserted so that
-//     every subsequent availability check immediately reflects the approval.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class TempahanScreen extends StatefulWidget {
@@ -32,16 +18,17 @@ class TempahanScreen extends StatefulWidget {
 
 class _TempahanScreenState extends State<TempahanScreen>
     with SingleTickerProviderStateMixin {
-  // ── Tab controller (Pensyarah: 2 tabs; Approver: 3 tabs) ──
   late final TabController _tabCtrl;
-
-  // ── Filter state for approver list ──
   String _filterStatus = 'Semua';
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    // PATCH 1: listener forces rebuild when tab changes so if/else below works
+    _tabCtrl.addListener(() {
+      if (!_tabCtrl.indexIsChanging) setState(() {});
+    });
   }
 
   @override
@@ -63,7 +50,6 @@ class _TempahanScreenState extends State<TempahanScreen>
       return const _AccessDenied();
     }
 
-    // Reuse tab count: Pensyarah → [Mohon, Sejarah], Approver → [Tindakan, Sejarah]
     final visibleBookings = state.scopedBookings;
     final pendingCount =
         visibleBookings.where((b) => b.status == 'Pending').length;
@@ -106,35 +92,21 @@ class _TempahanScreenState extends State<TempahanScreen>
         ),
         const SizedBox(height: 16),
 
-        // ── Tab views (AnimatedBuilder listens to tab controller index) ──
-        AnimatedBuilder(
-          animation: _tabCtrl,
-          builder: (context, _) {
-            final idx = _tabCtrl.index;
-            return IndexedStack(
-              index: idx,
-              children: [
-                // Tab 0
-                if (isPensyarah)
-                  _NewRequestTab(onSubmitted: () => _tabCtrl.animateTo(1))
-                else
-                  _ApproverActionTab(
-                    filterStatus: _filterStatus,
-                    onFilterChanged: (v) =>
-                        setState(() => _filterStatus = v),
-                  ),
-
-                // Tab 1 – full history
-                _AllBookingsTab(
+        // PATCH 1: plain if/else using _tabCtrl.index — listener above
+        // ensures setState fires on every tab change so this always re-renders.
+        if (_tabCtrl.index == 0)
+          isPensyarah
+              ? _NewRequestTab(onSubmitted: () => _tabCtrl.animateTo(1))
+              : _ApproverActionTab(
                   filterStatus: _filterStatus,
-                  onFilterChanged: (v) =>
-                      setState(() => _filterStatus = v),
-                  isApprover: isApprover,
-                ),
-              ],
-            );
-          },
-        ),
+                  onFilterChanged: (v) => setState(() => _filterStatus = v),
+                )
+        else
+          _AllBookingsTab(
+            filterStatus: _filterStatus,
+            onFilterChanged: (v) => setState(() => _filterStatus = v),
+            isApprover: isApprover,
+          ),
       ],
     );
   }
@@ -155,7 +127,6 @@ class _NewRequestTab extends StatefulWidget {
 class _NewRequestTabState extends State<_NewRequestTab> {
   final _formKey = GlobalKey<FormState>();
 
-  // Form fields
   String? _selectedSlotId;
   String _block = 'All';
   String _room = '';
@@ -165,7 +136,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
   String _reason = 'Latihan / Mesyuarat';
   String _remarks = '';
 
-  // Controllers for date/time pickers
   final _dateCtrl = TextEditingController();
   final _startCtrl = TextEditingController();
   final _endCtrl = TextEditingController();
@@ -188,6 +158,19 @@ class _NewRequestTabState extends State<_NewRequestTab> {
     _endCtrl.dispose();
     _remarksCtrl.dispose();
     super.dispose();
+  }
+
+  // PATCH 2: fallback to program slots when Pensyarah has no personal slots
+  List<TimetableSlot> _getSlots(dynamic state, dynamic user) {
+    final personal = state.scopedTimetable as List<TimetableSlot>;
+    if (personal.isNotEmpty) return personal;
+    final code = user.programId as String?;
+    if (code == null || code.isEmpty) return state.timetable as List<TimetableSlot>;
+    return (state.timetable as List<TimetableSlot>).where((s) {
+      if (s.programId == code) return true;
+      final prefix = s.section.trim().split(RegExp(r'\s+')).firstOrNull ?? '';
+      return prefix == code;
+    }).toList();
   }
 
   Future<void> _pickDate() async {
@@ -232,11 +215,9 @@ class _NewRequestTabState extends State<_NewRequestTab> {
 
     final state = AppScope.of(ctx);
     final user = state.currentUser!;
-    final slots = state.scopedTimetable;
-    final selected =
-        slots.where((s) => s.id == _selectedSlotId).firstOrNull;
+    final slots = _getSlots(state, user);
+    final selected = slots.where((s) => s.id == _selectedSlotId).firstOrNull;
 
-    // Final availability check
     final available = state.isRoomAvailable(
       room: _room,
       date: _replacementDate,
@@ -258,14 +239,36 @@ class _NewRequestTabState extends State<_NewRequestTab> {
 
     setState(() => _submitting = true);
 
+    // Resolve programId: slot.programId → section prefix → user.programId
+    final section = selected?.section ?? '-';
+    final prefix = section.trim().split(RegExp(r'\s+')).firstOrNull ?? '';
+    String? programId;
+    if (selected?.programId != null && selected!.programId!.isNotEmpty) {
+      programId = selected.programId;
+    } else if (state.programs.any((p) => p.id == prefix)) {
+      programId = prefix;
+    } else {
+      programId = user.programId;
+    }
+
+    String? deptId = selected?.departmentId ?? user.departmentId;
+    if (deptId == null && programId != null) {
+      deptId = state.programs
+          .where((p) => p.id == programId)
+          .firstOrNull
+          ?.departmentId;
+    }
+
+    debugPrint('=== SUBMIT === programId=$programId deptId=$deptId section=$section');
+
     final booking = BookingRequest(
       id: 'BK${DateTime.now().millisecondsSinceEpoch}',
       lecturerId: user.uid,
       lecturerName: user.name,
-      programId: selected?.programId ?? user.programId,
-      departmentId: selected?.departmentId ?? user.departmentId,
+      programId: programId,
+      departmentId: deptId,
       subject: selected?.subjectName ?? '-',
-      section: selected?.section ?? '-',
+      section: section,
       originalDate: selected?.date ?? _replacementDate,
       originalTime: selected != null
           ? '${selected.startTime} – ${selected.endTime}'
@@ -282,7 +285,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
     );
 
     await state.addBooking(booking);
-
     setState(() => _submitting = false);
 
     if (ctx.mounted) {
@@ -300,7 +302,8 @@ class _NewRequestTabState extends State<_NewRequestTab> {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
-    final slots = state.scopedTimetable;
+    final slots = _getSlots(state, user); // PATCH 2: use _getSlots
+
     final blocks = [
       'All',
       ...state.roomResources.map((r) => r.block).toSet().toList()..sort(),
@@ -309,18 +312,15 @@ class _NewRequestTabState extends State<_NewRequestTab> {
         .where((r) => _block == 'All' || r.block == _block)
         .toList();
 
-    // Default room if not yet set
     if (filteredRooms.isNotEmpty &&
         !filteredRooms.any((r) => r.name == _room)) {
       _room = filteredRooms.first.name;
     }
 
-    // Default slot
     _selectedSlotId ??= slots.firstOrNull?.id;
     final selected =
         slots.where((s) => s.id == _selectedSlotId).firstOrNull;
 
-    // Live availability
     final canCheck = _room.isNotEmpty &&
         _replacementDate.isNotEmpty &&
         _startTime.isNotEmpty &&
@@ -339,29 +339,25 @@ class _NewRequestTabState extends State<_NewRequestTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Original class info banner ──
             if (selected != null)
               _InfoBanner(slot: selected),
 
             const SizedBox(height: 16),
 
-            // ── Form card ──
             AppPanel(
               title: 'Butiran Permohonan',
-              subtitle:
-                  'Isi semua maklumat kelas ganti yang diperlukan.',
+              subtitle: 'Isi semua maklumat kelas ganti yang diperlukan.',
               trailing: canCheck
-                  ? StatusChip(available ? 'Available' : 'Unavailable')
+                  ? StatusChip(available ? 'Tersedia' : 'Tidak Tersedia')
                   : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: slot selector
                   _SectionLabel('Kelas Asal'),
                   const SizedBox(height: 8),
                   if (slots.isEmpty)
                     const Text(
-                      'Tiada slot jadual ditemui untuk akaun anda.',
+                      'Tiada slot jadual ditemui untuk program anda.',
                       style: TextStyle(color: Color(0xff64748b)),
                     )
                   else
@@ -374,6 +370,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                           .map((s) => DropdownMenuItem<String>(
                                 value: s.id,
                                 child: Text(
+                                  '[${s.programId ?? s.section.split(' ').first}] '
                                   '${s.subjectCode} – ${s.section}  '
                                   '(${s.day}, ${s.startTime}–${s.endTime})',
                                   overflow: TextOverflow.ellipsis,
@@ -389,7 +386,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                   _SectionLabel('Tarikh & Masa Ganti'),
                   const SizedBox(height: 8),
 
-                  // Row 2: date + times
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -454,7 +450,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                   _SectionLabel('Pilihan Bilik'),
                   const SizedBox(height: 8),
 
-                  // Row 3: block + room
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -469,8 +464,8 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                           items: blocks
                               .map((b) => DropdownMenuItem<String>(
                                     value: b,
-                                    child:
-                                        Text(b == 'All' ? 'Semua Blok' : b),
+                                    child: Text(
+                                        b == 'All' ? 'Semua Blok' : b),
                                   ))
                               .toList(),
                           onChanged: (v) =>
@@ -522,7 +517,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                     ],
                   ),
 
-                  // Availability warning inline
                   if (canCheck && !available)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
@@ -544,7 +538,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                   _SectionLabel('Sebab & Catatan'),
                   const SizedBox(height: 8),
 
-                  // Row 4: reason + remarks
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -579,7 +572,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
 
                   const SizedBox(height: 24),
 
-                  // Submit button
                   Row(
                     children: [
                       FilledButton.icon(
@@ -610,7 +602,6 @@ class _NewRequestTabState extends State<_NewRequestTab> {
 
             const SizedBox(height: 16),
 
-            // ── Room availability calendar helper ──
             _RoomAvailabilityHelper(
               date: _replacementDate,
               rooms: state.roomResources,
@@ -700,7 +691,6 @@ class _AllBookingsTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Filter chips — display Malay but filter by English status value
           Wrap(
             spacing: 8,
             children: List.generate(_filterValues.length, (i) {
@@ -718,60 +708,27 @@ class _AllBookingsTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          AppPanel(
-            title: 'Senarai Permohonan',
-            subtitle: '${filtered.length} rekod ditemui.',
-            child: AppDataTable(
-              columns: const [
-                DataColumn(label: Text('Pensyarah')),
-                DataColumn(label: Text('Subjek / Kelas')),
-                DataColumn(label: Text('Tarikh Ganti')),
-                DataColumn(label: Text('Masa')),
-                DataColumn(label: Text('Bilik & Ketersediaan')),
-                DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Tindakan')),
-              ],
-              rows: filtered.map((b) {
-                final avail = state.isRoomAvailable(
-                  room: b.room,
-                  date: b.replacementDate,
-                  start: b.replacementStart,
-                  end: b.replacementEnd,
-                  ignoreBookingId: b.id,
-                );
-                final statusLabel = switch (b.status) {
-                  'Pending' => 'Menunggu',
-                  'Approved' => 'Diluluskan',
-                  'Rejected' => 'Ditolak',
-                  _ => b.status,
-                };
-                return DataRow(cells: [
-                  DataCell(Text(b.lecturerName)),
-                  DataCell(Text('${b.subject}\n${b.section}',
-                      style: const TextStyle(fontSize: 12))),
-                  DataCell(Text(b.replacementDate)),
-                  DataCell(Text(
-                      '${b.replacementStart}–${b.replacementEnd}',
-                      style: const TextStyle(fontSize: 12))),
-                  DataCell(Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(b.room, style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 2),
-                      StatusChip(avail ? 'Available' : 'Unavailable'),
-                    ],
-                  )),
-                  DataCell(StatusChip(statusLabel)),
-                  DataCell(
-                    isApprover && b.status == 'Pending'
-                        ? _ApproveRejectButtons(bookingId: b.id)
-                        : const Text('–'),
-                  ),
-                ]);
-              }).toList(),
+          if (filtered.isEmpty)
+            AppPanel(
+              child: _EmptyState(
+                icon: Icons.inbox_outlined,
+                message: 'Tiada rekod ditemui.',
+                color: Colors.grey,
+              ),
+            )
+          else
+            AppPanel(
+              title: 'Senarai Permohonan',
+              subtitle: '${filtered.length} rekod ditemui.',
+              child: Column(
+                children: filtered
+                    .map((b) => _BookingApprovalCard(
+                          booking: b,
+                          showActions: isApprover && b.status == 'Pending',
+                        ))
+                    .toList(),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -779,12 +736,13 @@ class _AllBookingsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Approval card (used in the pending tab)
+// Booking card
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BookingApprovalCard extends StatelessWidget {
-  const _BookingApprovalCard({required this.booking});
+  const _BookingApprovalCard({required this.booking, this.showActions = true});
   final BookingRequest booking;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) {
@@ -797,6 +755,13 @@ class _BookingApprovalCard extends StatelessWidget {
       ignoreBookingId: booking.id,
     );
 
+    final statusLabel = switch (booking.status) {
+      'Pending' => 'Menunggu',
+      'Approved' => 'Diluluskan',
+      'Rejected' => 'Ditolak',
+      _ => booking.status,
+    };
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -808,7 +773,6 @@ class _BookingApprovalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
           Row(
             children: [
               const Icon(Icons.meeting_room_outlined,
@@ -824,12 +788,11 @@ class _BookingApprovalCard extends StatelessWidget {
                   ),
                 ),
               ),
-              StatusChip(avail ? 'Available' : 'Unavailable'),
+              StatusChip(statusLabel),
             ],
           ),
           const SizedBox(height: 10),
 
-          // Details grid
           Wrap(
             spacing: 24,
             runSpacing: 6,
@@ -855,6 +818,10 @@ class _BookingApprovalCard extends StatelessWidget {
                   icon: Icons.info_outline,
                   label: 'Sebab',
                   value: booking.reason),
+              _DetailItem(
+                  icon: Icons.circle_outlined,
+                  label: 'Ketersediaan',
+                  value: avail ? '✓ Tersedia' : '✗ Tidak Tersedia'),
               if (booking.remarks.isNotEmpty)
                 _DetailItem(
                     icon: Icons.notes_outlined,
@@ -863,7 +830,6 @@ class _BookingApprovalCard extends StatelessWidget {
             ],
           ),
 
-          // Conflict warning
           if (!avail)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -873,17 +839,17 @@ class _BookingApprovalCard extends StatelessWidget {
                       color: Colors.orange, size: 16),
                   SizedBox(width: 6),
                   Text(
-                    'Bilik telah dibooking pada masa ini. Meluluskan akan '
-                    'ditolak secara automatik.',
-                    style:
-                        TextStyle(color: Colors.orange, fontSize: 12),
+                    'Bilik telah ditempah pada masa ini.',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
                   ),
                 ],
               ),
             ),
 
-          const SizedBox(height: 12),
-          _ApproveRejectButtons(bookingId: booking.id),
+          if (showActions) ...[
+            const SizedBox(height: 12),
+            _ApproveRejectButtons(bookingId: booking.id),
+          ],
         ],
       ),
     );
@@ -931,9 +897,8 @@ class _ApproveRejectButtons extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           ),
           onPressed: () async {
-            final confirmed =
-                await _confirmReject(context);
-            if (confirmed == true) {
+            final confirmed = await _confirmReject(context);
+            if (confirmed == true && context.mounted) {
               await state.updateBooking(bookingId, 'Rejected');
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -975,7 +940,7 @@ class _ApproveRejectButtons extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Room availability helper panel (shown on request form)
+// Room availability helper panel
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _RoomAvailabilityHelper extends StatelessWidget {
@@ -987,15 +952,13 @@ class _RoomAvailabilityHelper extends StatelessWidget {
 
   final String date;
   final List<RoomResource> rooms;
-  final dynamic state; // AppState
+  final dynamic state;
 
   @override
   Widget build(BuildContext context) {
     if (date.isEmpty || rooms.isEmpty) return const SizedBox.shrink();
 
-    // Group rooms by block, show a quick at-a-glance grid
-    final blocks =
-        rooms.map((r) => r.block).toSet().toList()..sort();
+    final blocks = rooms.map((r) => r.block).toSet().toList()..sort();
 
     return AppPanel(
       title: 'Ketersediaan Bilik – $date',
@@ -1024,13 +987,10 @@ class _RoomAvailabilityHelper extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: blockRooms.map((r) {
-                  // Check availability for a broad morning window to flag
-                  // any existing timetable usage — real per-time check happens
-                  // in the form.
-                  final slotCount = state.timetable
+                  final slotCount = (state.timetable as List)
                       .where((s) => s.room == r.name && s.date == date)
                       .length;
-                  final bookedCount = state.bookings
+                  final bookedCount = (state.bookings as List)
                       .where((b) =>
                           b.room == r.name &&
                           b.replacementDate == date &&
