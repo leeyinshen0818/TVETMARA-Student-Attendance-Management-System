@@ -521,10 +521,19 @@ class FirestoreService {
   }
 
   Future<void> updateDisciplineStatus(String id, String status) async {
-    await _disciplineCol.doc(id).update({
-      'status': status,
+    final normalizedStatus = _normalizeDisciplineStatus(status);
+    final updates = <String, dynamic>{
+      'status': normalizedStatus,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (normalizedStatus == 'reviewed') {
+      updates['reviewedAt'] = FieldValue.serverTimestamp();
+    } else if (normalizedStatus == 'action_taken') {
+      updates['actionTakenAt'] = FieldValue.serverTimestamp();
+    } else if (normalizedStatus == 'closed') {
+      updates['closedAt'] = FieldValue.serverTimestamp();
+    }
+    await _disciplineCol.doc(id).update(updates);
   }
 
   // ---------------------------------------------------------------------------
@@ -1274,7 +1283,7 @@ class FirestoreService {
         'severity': report.severity,
         'description': report.description,
         'followUp': report.followUp,
-        'status': report.status,
+        'status': _normalizeDisciplineStatus(report.status),
         if (!existing) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         if (report.reviewedAt != null) 'reviewedAt': report.reviewedAt,
@@ -1309,6 +1318,15 @@ class FirestoreService {
 
   String _safeDocSegment(String value) {
     return value.replaceAll(RegExp(r'[/\\\s]+'), '_');
+  }
+
+  String _normalizeDisciplineStatus(String status) {
+    return switch (status) {
+      'New' => 'pending',
+      'Under Review' => 'reviewed',
+      'Approved' => 'action_taken',
+      _ => status,
+    };
   }
 
   Iterable<List<T>> _chunks<T>(List<T> items, int size) sync* {

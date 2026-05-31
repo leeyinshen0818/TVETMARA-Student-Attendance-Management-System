@@ -501,27 +501,40 @@ class AppState extends ChangeNotifier {
     final user = currentUser;
     if (user == null || user.role == UserRole.pentadbir) return [];
 
-    if (user.role == UserRole.ketua_jabatan ||
-        user.role == UserRole.ketua_program) {
-      final scopedProgramIds =
-          scopedPrograms.map((program) => program.id).toSet();
+    if (user.role == UserRole.ketua_jabatan) {
+      final scopedProgramIds = scopedPrograms.map((program) => program.id).toSet();
       final scopedStudentIds =
           scopedStudents.map((student) => student.id).toSet();
       return disciplineReports
           .where((report) =>
-              scopedProgramIds
-                  .contains(_programIdForDisciplineReport(report)) ||
-              scopedStudentIds.contains(report.studentId))
+              report.departmentId == user.departmentId ||
+              (report.departmentId == null &&
+                  (scopedProgramIds
+                          .contains(_programIdForDisciplineReport(report)) ||
+                      scopedStudentIds.contains(report.studentId))))
           .toList();
     }
 
-    // Pensyarah
-    return disciplineReports
-        .where((report) =>
-            report.createdBy == user.uid ||
-            report.createdByName == user.name ||
-            report.lecturer == user.name)
-        .toList();
+    if (user.role == UserRole.ketua_program) {
+      final scopedStudentIds =
+          scopedStudents.map((student) => student.id).toSet();
+      return disciplineReports
+          .where((report) =>
+              report.programId == user.programId ||
+              (report.programId == null &&
+                  (scopedStudentIds.contains(report.studentId) ||
+                      _programIdForDisciplineReport(report) == user.programId)))
+          .toList();
+    }
+
+    // Pensyarah. Fallbacks are kept only for older reports that have no
+    // createdBy yet.
+    return disciplineReports.where((report) {
+      if (report.createdBy != null && report.createdBy!.isNotEmpty) {
+        return report.createdBy == user.uid;
+      }
+      return report.createdByName == user.name || report.lecturer == user.name;
+    }).toList();
   }
 
   List<BookingRequest> get scopedBookings {
@@ -677,13 +690,14 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateDiscipline(String id, String status) async {
+    final normalizedStatus = _normalizeDisciplineStatus(status);
     final index = disciplineReports.indexWhere((report) => report.id == id);
     if (index != -1) {
       disciplineReports[index] =
-          disciplineReports[index].copyWith(status: status);
+          disciplineReports[index].copyWith(status: normalizedStatus);
     }
     notifyListeners();
-    await _fs.updateDisciplineStatus(id, status);
+    await _fs.updateDisciplineStatus(id, normalizedStatus);
   }
 
   Future<void> addBooking(BookingRequest booking) async {
@@ -1019,18 +1033,29 @@ class AppState extends ChangeNotifier {
     final student =
         students.where((student) => student.id == report.studentId).firstOrNull;
     final slot = _slotForDisciplineReport(report, student);
-    final programName = report.programName ??
-        student?.program ??
-        slot?.program ??
-        _programForId(user?.programId)?.name;
-    final program = _programForName(programName) ??
+    final slotProgramId =
+        slot?.programId != null && slot!.programId!.isNotEmpty
+            ? slot.programId
+            : null;
+    final slotDepartmentId =
+        slot?.departmentId != null && slot!.departmentId!.isNotEmpty
+            ? slot.departmentId
+            : null;
+    final program = _programForId(slotProgramId) ??
         _programForId(report.programId) ??
-        _programForId(user?.programId);
+        _programForId(user?.programId) ??
+        _programForName(report.programName) ??
+        _programForName(student?.program) ??
+        _programForName(slot?.program);
+    final programName =
+        report.programName ?? program?.name ?? student?.program ?? slot?.program;
 
     return report.copyWith(
-      programId: report.programId ?? program?.id,
+      status: _normalizeDisciplineStatus(report.status),
+      programId: report.programId ?? slotProgramId ?? program?.id,
       programName: programName ?? program?.name,
-      departmentId: report.departmentId ?? program?.departmentId,
+      departmentId:
+          report.departmentId ?? slotDepartmentId ?? program?.departmentId,
       subjectCode: report.subjectCode ?? slot?.subjectCode,
       subjectName: report.subjectName ??
           (report.subject == '-' ? slot?.subjectName : report.subject),
@@ -1108,6 +1133,15 @@ class AppState extends ChangeNotifier {
         students.where((student) => student.id == report.studentId).firstOrNull;
     if (student != null) return _programIdForStudent(student);
     return _programForName(report.programName)?.id;
+  }
+
+  String _normalizeDisciplineStatus(String status) {
+    return switch (status) {
+      'New' => 'pending',
+      'Under Review' => 'reviewed',
+      'Approved' => 'action_taken',
+      _ => status,
+    };
   }
 
   String? _programIdForBooking(BookingRequest booking) {

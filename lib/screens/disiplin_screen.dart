@@ -153,7 +153,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                             severity: severity,
                             description: _descCtrl.text.trim(),
                             followUp: false,
-                            status: 'New',
+                            status: 'pending',
                           ));
                           _descCtrl.clear();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -187,25 +187,43 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
             columns: const [
               DataColumn(label: Text('ID Laporan')),
               DataColumn(label: Text('Pelajar')),
-              DataColumn(label: Text('Isu')),
-              DataColumn(label: Text('Tahap')),
+              DataColumn(label: Text('Program / Kelas')),
+              DataColumn(label: Text('Subjek')),
+              DataColumn(label: Text('Isu & Keterangan')),
+              DataColumn(label: Text('Dilapor Oleh')),
+              DataColumn(label: Text('Tarikh')),
+              DataColumn(label: Text('Reviewer')),
               DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Semakan')),
+              DataColumn(label: Text('Tindakan')),
             ],
             rows: visibleDiscipline.map((report) {
+              final status = _normalizedStatus(report.status);
               return DataRow(cells: [
                 DataCell(Text(report.id)),
                 DataCell(Text(report.studentName)),
-                DataCell(Text(report.issueType)),
-                DataCell(StatusChip(report.severity)),
-                DataCell(StatusChip(report.status)),
-                DataCell(canApproveDiscipline &&
-                        (report.status == 'New' ||
-                            report.status == 'Under Review')
-                    ? IconButton(
-                        onPressed: () =>
-                            state.updateDiscipline(report.id, 'Approved'),
-                        icon: const Icon(Icons.check, color: Colors.green))
+                DataCell(Text(
+                    '${report.programName ?? report.programId ?? '-'}\n${report.section}')),
+                DataCell(Text(report.subjectName ??
+                    report.subjectCode ??
+                    (report.subject == '-' ? '-' : report.subject))),
+                DataCell(SizedBox(
+                  width: 260,
+                  child: Text(
+                    '${report.issueType} (${report.severity})\n${report.description.isEmpty ? '-' : report.description}',
+                  ),
+                )),
+                DataCell(Text(report.createdByName ?? report.lecturer)),
+                DataCell(Text(report.createdAt ?? report.date)),
+                DataCell(Text(report.assignedReviewerRoles.isEmpty
+                    ? '-'
+                    : report.assignedReviewerRoles.join(', '))),
+                DataCell(StatusChip(status)),
+                DataCell(canApproveDiscipline
+                    ? _DisciplineStatusActions(
+                        status: status,
+                        onChanged: (nextStatus) =>
+                            state.updateDiscipline(report.id, nextStatus),
+                      )
                     : const Text('-')),
               ]);
             }).toList(),
@@ -214,4 +232,63 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
       ],
     );
   }
+
+  String _normalizedStatus(String status) {
+    return switch (status) {
+      'New' => 'pending',
+      'Under Review' => 'reviewed',
+      'Approved' => 'action_taken',
+      _ => status,
+    };
+  }
+}
+
+class _DisciplineStatusActions extends StatelessWidget {
+  const _DisciplineStatusActions({
+    required this.status,
+    required this.onChanged,
+  });
+
+  final String status;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = switch (status) {
+      'pending' => const [
+          _StatusAction('reviewed', 'Reviewed', Icons.rate_review_outlined),
+          _StatusAction('rejected', 'Rejected', Icons.close),
+        ],
+      'reviewed' => const [
+          _StatusAction(
+              'action_taken', 'Action Taken', Icons.task_alt_outlined),
+          _StatusAction('rejected', 'Rejected', Icons.close),
+        ],
+      'action_taken' => const [
+          _StatusAction('closed', 'Closed', Icons.lock_outline),
+        ],
+      _ => const <_StatusAction>[],
+    };
+
+    if (actions.isEmpty) return const Text('-');
+    return Wrap(
+      spacing: 6,
+      children: [
+        for (final action in actions)
+          IconButton(
+            tooltip: action.label,
+            onPressed: () => onChanged(action.status),
+            icon: Icon(action.icon, size: 20),
+          ),
+      ],
+    );
+  }
+}
+
+class _StatusAction {
+  const _StatusAction(this.status, this.label, this.icon);
+
+  final String status;
+  final String label;
+  final IconData icon;
 }
