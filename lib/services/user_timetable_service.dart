@@ -193,6 +193,35 @@ class UserTimetableService {
     });
   }
 
+  Stream<List<TimetableSlot>> getAllSlotsStream() {
+    return _db
+        .collection(FirestoreCollections.timetableSlots)
+        .snapshots()
+        .map((snap) => snap.docs.map(_docToSlot).toList());
+  }
+
+  /// Returns timetable slots for a single lecturer in a specific academic session.
+  /// Uses a Firestore query bound by lecturerId and filters session values on the client
+  /// so both 'academicSessionId' and legacy 'session' field names are supported.
+  Stream<List<TimetableSlot>> getLecturerTimetableStream({
+    required String lecturerId,
+    required String academicSessionId,
+  }) {
+    return _db
+        .collection(FirestoreCollections.timetableSlots)
+        .where('lecturerId', isEqualTo: lecturerId)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => _docToSlot(doc))
+          .where((slot) {
+            return slot.academicSessionId == academicSessionId ||
+                slot.session == academicSessionId;
+          })
+          .toList();
+    });
+  }
+
   /// Asynchronously updates a user's active status in the 'users' collection.
   Future<void> updateUserStatus(String uid, bool isActive) async {
     try {
@@ -202,6 +231,44 @@ class UserTimetableService {
       });
     } catch (e) {
       throw Exception('Gagal mengemas kini status aktif pengguna di Firestore: $e');
+    }
+  }
+
+  Future<void> updateTimetableOverride(
+      String documentId, bool isActive) async {
+    try {
+      // Try timetable_slots first (used by the dialog cancel)
+      final slotRef = _db
+          .collection(FirestoreCollections.timetableSlots)
+          .doc(documentId);
+      final slotSnap = await slotRef.get();
+ 
+      if (slotSnap.exists) {
+        await slotRef.update({
+          'status': isActive ? 'active' : 'cancelled',
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+ 
+      // Fall back to lecturer_course_assignments (used by Tab 3 row cancel)
+      final assignRef = _db
+          .collection('lecturer_course_assignments')
+          .doc(documentId);
+      final assignSnap = await assignRef.get();
+ 
+      if (assignSnap.exists) {
+        await assignRef.update({
+          'isActive': isActive,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+ 
+      throw Exception(
+          'Dokumen "$documentId" tidak dijumpai dalam timetable_slots atau lecturer_course_assignments.');
+    } catch (e) {
+      throw Exception('Gagal mengemas kini override jadual di Firestore: $e');
     }
   }
 }

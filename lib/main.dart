@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
+import 'screens/timetable_slots_screen.dart';
+import 'models/app_models.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
 
@@ -146,6 +148,22 @@ class TvetmaraApp extends StatelessWidget {
           dividerThickness: .7,
         ),
       ),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/timetable/slots') {
+          final args = settings.arguments;
+          AppUser? selectedUser;
+          if (args is Map<String, Object?>) {
+            selectedUser = args['user'] as AppUser?;
+          }
+          return MaterialPageRoute(
+            builder: (context) => TimetableSlotsScreen(
+              selectedUser: selectedUser,
+            ),
+            settings: settings,
+          );
+        }
+        return null;
+      },
       home: SelectionArea(
         child: Builder(
           builder: (context) {
