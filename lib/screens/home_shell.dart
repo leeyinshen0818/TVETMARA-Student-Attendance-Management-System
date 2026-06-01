@@ -14,6 +14,8 @@ import 'settings_screen.dart';
 import 'timetable_screen.dart';
 // import 'admin/admin_timetable_viewer_screen.dart';
 import 'admin/admin_user_management_screen.dart';
+import 'lecturer_timetable_grid_screen.dart'; 
+import 'kp_timetable_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -45,6 +47,48 @@ class _HomeShellState extends State<HomeShell> {
       const _NavItem(
           'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen(),
           dataScope: _DataScope.dashboard),
+
+      // Pensyarah: view own timetable (Module 5 – read-only grid)
+      if (isPensyarah)
+        _NavItem(
+          'Jadual Saya',
+          Icons.calendar_view_week_outlined,
+          LecturerTimetableGridScreen(
+            lecturerId: user.uid,
+            lecturerName: user.name,
+            // programId (e.g. "DED", "DGS") is stored on AppUser from Firestore.
+            // Used as a fallback query key when lecturerId doesn't match the
+            // seeded timetable documents (which use opaque IDs like "REAL_L_044").
+            programId: user.programId ?? '',
+            // Placeholder for Yee Wen's attendance module — wire up later:
+            // onSlotSelected: (slotId, week) => Navigator.push(context, ...)
+            
+            // PEMBETULAN: Menggunakan _DataScope.values untuk mengelakkan ralat "referenced before it is declared"
+            onNavigateToAttendance: () {
+              setState(() {
+                final targetIndex = _DataScope.values.indexOf(_DataScope.timetable);
+                if (targetIndex != -1) index = targetIndex;
+              });
+            },
+            onNavigateToTempahan: () {
+              setState(() {
+                final targetIndex = _DataScope.values.indexOf(_DataScope.attendance);
+                if (targetIndex != -1) index = targetIndex;
+              });
+            },
+          ),
+          dataScope: _DataScope.none, // uses its own Firestore stream
+        ),
+
+      if (isKetuaProgram)
+        _NavItem(
+          'Jadual',
+          Icons.calendar_month_outlined,
+          isKetuaProgram 
+              ? KpTimetableScreen(kpUser: user) 
+              : const TimetableScreen(),       
+          dataScope: isKetuaProgram ? _DataScope.none : _DataScope.timetable,
+        ),
 
       // Option A: only Pensyarah takes attendance.
       if (isPensyarah)
