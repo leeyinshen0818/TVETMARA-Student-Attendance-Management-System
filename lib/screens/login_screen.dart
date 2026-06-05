@@ -302,13 +302,13 @@ class _LoginForm extends StatelessWidget {
                               'kp_ded@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
-                          label: 'Pensyarah DED',
+                          label: 'SYARIFAH BINTI ABDUL RAHIM',
                           icon: Icons.menu_book,
                           onPressed: () => onFillDemo(
                               'pensyarah_ded@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
-                          label: 'Pensyarah DGS',
+                          label: 'Zabhin bin Mohd Arbai',
                           icon: Icons.menu_book,
                           onPressed: () => onFillDemo(
                               'pensyarah_dgs@tvetmara.edu.my', 'password123'),
@@ -402,10 +402,19 @@ class _DemoLoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
+    return Tooltip(
+      message: label,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 190),
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
     );
   }
 }

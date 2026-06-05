@@ -22,12 +22,20 @@ class DashboardScreen extends StatelessWidget {
             slot.status.contains('Not Taken') ||
             slot.status == 'Attendance Pending')
         .length;
+    final timetablePanelTitle = user.role == UserRole.pensyarah
+        ? 'Slot Jadual Saya'
+        : 'Ringkasan Slot Jadual';
+    final timetablePanelSubtitle = user.role == UserRole.pensyarah
+        ? 'Senarai ringkas slot jadual yang ditugaskan kepada anda untuk sesi akademik dipilih.'
+        : 'Senarai ringkas slot jadual dalam skop semasa untuk sesi akademik dipilih.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Selamat kembali, ${user.name.split(' ').first}',
+          title: user.role == UserRole.pensyarah
+              ? 'Selamat kembali, ${user.name}'
+              : 'Selamat kembali, ${user.name.split(' ').first}',
           subtitle: switch (user.role) {
             UserRole.pentadbir =>
               'Ringkasan pentadbir dan tetapan asas sistem.',
@@ -36,7 +44,7 @@ class DashboardScreen extends StatelessWidget {
             UserRole.ketua_program =>
               'Pemantauan program untuk kehadiran, laporan dan kelulusan tempahan.',
             UserRole.pensyarah =>
-              'Kelas anda, penghantaran kehadiran, laporan disiplin dan permohonan bilik.',
+              'Pantau jadual mengajar, kehadiran, laporan disiplin dan permohonan bilik anda.',
           },
           trailing: const StatusChip('Jan - Jun 2026'),
         ),
@@ -51,29 +59,32 @@ class DashboardScreen extends StatelessWidget {
             StatTile(
                 label: 'Pelajar',
                 value: '${students.length}',
-                icon: Icons.school_outlined),
+                icon: Icons.school_outlined,
+                helper: 'Jumlah pelajar dalam kelas ditugaskan'),
             StatTile(
                 label: 'Slot Jadual',
                 value: '${timetable.length}',
-                icon: Icons.calendar_month_outlined),
+                icon: Icons.calendar_month_outlined,
+                helper: 'Slot mengajar aktif'),
             StatTile(
                 label: 'Bawah ${state.attendanceThreshold}%',
                 value: '$below',
                 icon: Icons.report_problem_outlined,
-                color: Colors.red),
+                color: Colors.red,
+                helper: 'Pelajar berisiko kehadiran'),
             StatTile(
                 label: 'Tindakan Menunggu',
                 value:
                     '${pending + bookings.where((b) => b.status == 'Pending').length}',
                 icon: Icons.pending_actions_outlined,
-                color: Colors.orange),
+                color: Colors.orange,
+                helper: 'Kehadiran / laporan belum selesai'),
           ],
         ),
         const SizedBox(height: 20),
         AppPanel(
-          title: 'Slot Jadual Terkini',
-          subtitle:
-              'Semakan ringkas sesi kelas akan datang dan yang telah selesai.',
+          title: timetablePanelTitle,
+          subtitle: timetablePanelSubtitle,
           child: AppDataTable(
             columns: const [
               DataColumn(label: Text('Tarikh')),

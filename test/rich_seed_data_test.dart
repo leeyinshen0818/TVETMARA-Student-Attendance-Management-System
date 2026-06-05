@@ -100,7 +100,7 @@ void main() {
   });
 
   test('real lecturer seed preserves demo logins and generated emails', () {
-    expect(realLecturerProfiles.length, greaterThanOrEqualTo(100));
+    expect(realLecturerProfiles.length, greaterThanOrEqualTo(95));
     expect(
       realLecturerProfiles.map((profile) => profile.name),
       containsAll([

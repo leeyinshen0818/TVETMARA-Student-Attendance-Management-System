@@ -7,18 +7,20 @@ class StatTile extends StatelessWidget {
     required this.value,
     required this.icon,
     this.color,
+    this.helper,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final Color? color;
+  final String? helper;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tileColor = color ?? Theme.of(context).colorScheme.primary;
-    return Card(
+    final card = Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(
@@ -61,6 +63,13 @@ class StatTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    if (helper == null || helper!.isEmpty) return card;
+
+    return Tooltip(
+      message: helper!,
+      child: card,
     );
   }
 }

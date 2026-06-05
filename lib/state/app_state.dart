@@ -463,11 +463,12 @@ class AppState extends ChangeNotifier {
           .toList();
     }
 
-    // Pensyarah
-    return timetable
-        .where((slot) =>
-            slot.lecturerId == user.uid || slot.lecturerName == user.name)
-        .toList();
+    // Pensyarah. Prefer stable lecturerId matches when present; name fallback
+    // is only for older/seeded rows that cannot be linked by ID.
+    final directMatches =
+        timetable.where((slot) => slot.lecturerId == user.uid).toList();
+    if (directMatches.isNotEmpty) return directMatches;
+    return timetable.where((slot) => slot.lecturerName == user.name).toList();
   }
 
   List<Student> get scopedStudents {
@@ -502,7 +503,8 @@ class AppState extends ChangeNotifier {
     if (user == null || user.role == UserRole.pentadbir) return [];
 
     if (user.role == UserRole.ketua_jabatan) {
-      final scopedProgramIds = scopedPrograms.map((program) => program.id).toSet();
+      final scopedProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
       final scopedStudentIds =
           scopedStudents.map((student) => student.id).toSet();
       return disciplineReports
@@ -1033,10 +1035,9 @@ class AppState extends ChangeNotifier {
     final student =
         students.where((student) => student.id == report.studentId).firstOrNull;
     final slot = _slotForDisciplineReport(report, student);
-    final slotProgramId =
-        slot?.programId != null && slot!.programId!.isNotEmpty
-            ? slot.programId
-            : null;
+    final slotProgramId = slot?.programId != null && slot!.programId!.isNotEmpty
+        ? slot.programId
+        : null;
     final slotDepartmentId =
         slot?.departmentId != null && slot!.departmentId!.isNotEmpty
             ? slot.departmentId
@@ -1047,8 +1048,10 @@ class AppState extends ChangeNotifier {
         _programForName(report.programName) ??
         _programForName(student?.program) ??
         _programForName(slot?.program);
-    final programName =
-        report.programName ?? program?.name ?? student?.program ?? slot?.program;
+    final programName = report.programName ??
+        program?.name ??
+        student?.program ??
+        slot?.program;
 
     return report.copyWith(
       status: _normalizeDisciplineStatus(report.status),

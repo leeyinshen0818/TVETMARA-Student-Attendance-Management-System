@@ -3,6 +3,17 @@ import '../data/lecturer_seed_data.dart' as lecturer_seed;
 import '../data/subject_seed_data.dart' as subject_seed;
 import '../models/app_models.dart';
 
+const demoLecturerDedName = 'SYARIFAH BINTI ABDUL RAHIM';
+const demoLecturerDgsName = 'Zabhin bin Mohd Arbai';
+
+String _demoLecturerName(String programId) {
+  return switch (programId) {
+    'DED' => demoLecturerDedName,
+    'DGS' => demoLecturerDgsName,
+    _ => 'Pensyarah $programId',
+  };
+}
+
 const List<ProgramCode> programs = [
   ProgramCode(
       id: 'DGS',
@@ -237,7 +248,7 @@ final List<AppUser> demoAuthUsers = [
       updatedAt: '2026-05-01 08:00')),
   ...programs.map((p) => AppUser(
       uid: 'L_${p.id}',
-      name: 'Pensyarah ${p.id}',
+      name: _demoLecturerName(p.id),
       email: 'pensyarah_${p.id.toLowerCase()}@tvetmara.edu.my',
       role: UserRole.pensyarah,
       departmentId: p.departmentId ?? 'Umum',
@@ -548,15 +559,15 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         subjectCode: 'DED10044',
         subjectName: 'ELECTRICAL INSTALLATION',
         slotId: 'DED1A_CLIENT_001',
-        lecturer: 'Pensyarah DED',
+        lecturer: demoLecturerDedName,
         date: '2026-05-18',
         issueType: 'Kerap Tidak Hadir',
         severity: 'High',
         description: 'Pelajar kerap tidak hadir tanpa makluman awal.',
         followUp: true,
-        status: 'Under Review',
+        status: 'reviewed',
         createdBy: 'L_DED',
-        createdByName: 'Pensyarah DED',
+        createdByName: demoLecturerDedName,
         assignedReviewerRoles: ['ketua_program', 'ketua_jabatan'],
       ),
       DisciplineReport(
@@ -569,16 +580,16 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         subject: _subjectsForProgram('DGS').first.subjectName,
         subjectCode: _subjectsForProgram('DGS').first.subjectCode,
         subjectName: _subjectsForProgram('DGS').first.subjectName,
-        lecturer: 'Pensyarah DGS',
+        lecturer: demoLecturerDgsName,
         date: '2026-05-20',
         issueType: 'Lewat ke kelas',
         severity: 'Medium',
         description:
             'Pelajar lewat hadir ke kelas beberapa kali dalam minggu semasa.',
         followUp: true,
-        status: 'Submitted',
+        status: 'pending',
         createdBy: 'L_DGS',
-        createdByName: 'Pensyarah DGS',
+        createdByName: demoLecturerDgsName,
         assignedReviewerRoles: ['ketua_program'],
       ),
       DisciplineReport(
@@ -599,7 +610,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         description:
             'Pelajar diberi teguran kerana tidak mematuhi arahan kelas.',
         followUp: false,
-        status: 'Resolved',
+        status: 'action_taken',
         createdBy: 'L_SMI',
         createdByName: 'Pensyarah SMI',
         assignedReviewerRoles: ['ketua_program', 'ketua_jabatan'],
@@ -621,7 +632,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         severity: 'Medium',
         description: 'Laporan susulan disiplin ringan untuk semakan jabatan.',
         followUp: true,
-        status: 'Closed',
+        status: 'closed',
         createdBy: 'L_SMM',
         createdByName: 'Pensyarah SMM',
         assignedReviewerRoles: ['ketua_program', 'ketua_jabatan'],
@@ -632,7 +643,7 @@ final bookings = <BookingRequest>[
   const BookingRequest(
     id: 'B001',
     lecturerId: 'L_DED',
-    lecturerName: 'Pensyarah DED',
+    lecturerName: demoLecturerDedName,
     programId: 'DED',
     departmentId: 'elektrik',
     subject: 'ELECTRICAL INSTALLATION',
@@ -646,13 +657,13 @@ final bookings = <BookingRequest>[
     roomName: 'BILIK KULIAH DED 1',
     room: 'BILIK KULIAH DED 1',
     reason: 'Kecemasan',
-    remarks: '',
+    remarks: 'Permohonan demo untuk ujian aliran kelulusan.',
     status: 'Pending',
   ),
   const BookingRequest(
     id: 'B002',
     lecturerId: 'L_DED',
-    lecturerName: 'Pensyarah DED',
+    lecturerName: demoLecturerDedName,
     programId: 'DED',
     departmentId: 'elektrik',
     subject: 'ELECTRICAL CIRCUIT THEORY 1',
@@ -667,6 +678,7 @@ final bookings = <BookingRequest>[
     room: 'PLC LAB',
     reason: 'Mesyuarat jabatan',
     remarks: 'Diluluskan untuk demo.',
+    updatedAt: '2026-05-19 10:00',
     status: 'Approved',
   ),
   const BookingRequest(
@@ -686,13 +698,14 @@ final bookings = <BookingRequest>[
     roomName: 'PLC LAB',
     room: 'PLC LAB',
     reason: 'Pertukaran jadual',
-    remarks: 'Bertindih dengan tempahan B002.',
+    remarks: 'Ditolak untuk demo kerana bertindih dengan tempahan B002.',
+    updatedAt: '2026-05-20 11:00',
     status: 'Rejected',
   ),
   const BookingRequest(
     id: 'B004',
     lecturerId: 'L_DGS',
-    lecturerName: 'Pensyarah DGS',
+    lecturerName: demoLecturerDgsName,
     programId: 'DGS',
     subject: 'Demo kelas ganti DGS',
     section: 'DGS 1A',
@@ -927,8 +940,8 @@ TimetableSlot _slot({
       (lecturerProgramId.isEmpty ? 'L_$programId' : 'L_$lecturerProgramId');
   final lecturerName = assignedLecturer?.lecturerName ??
       (lecturerProgramId.isEmpty
-          ? 'Pensyarah $programId'
-          : 'Pensyarah $lecturerProgramId');
+          ? _demoLecturerName(programId)
+          : _demoLecturerName(lecturerProgramId));
   return TimetableSlot(
     id: id,
     timetableSlotId: id,
@@ -1001,7 +1014,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '14:00',
       endTime: '16:00',
       roomName: 'SMART CLASSROOM',
-      slotType: 'Generated Conflict Demo - Room',
+      slotType: 'Intentional Demo Conflict - Room',
       sourceUploadId: 'seed_conflict_demo',
     ),
     _slot(
@@ -1013,7 +1026,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '15:00',
       endTime: '17:00',
       roomName: 'SMART CLASSROOM',
-      slotType: 'Generated Conflict Demo - Room',
+      slotType: 'Intentional Demo Conflict - Room',
       sourceUploadId: 'seed_conflict_demo',
     ),
     _slot(
@@ -1025,7 +1038,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '14:00',
       endTime: '16:00',
       roomName: 'BILIK KULIAH DED 1',
-      slotType: 'Generated Conflict Demo - Lecturer',
+      slotType: 'Intentional Demo Conflict - Lecturer',
       sourceUploadId: 'seed_conflict_demo',
       lecturerProgramId: 'DED',
     ),
@@ -1038,7 +1051,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '15:00',
       endTime: '17:00',
       roomName: 'PLC LAB',
-      slotType: 'Generated Conflict Demo - Lecturer',
+      slotType: 'Intentional Demo Conflict - Lecturer',
       sourceUploadId: 'seed_conflict_demo',
       lecturerProgramId: 'DED',
     ),
@@ -1051,7 +1064,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '14:00',
       endTime: '16:00',
       roomName: 'BILIK KULIAH DED 2',
-      slotType: 'Generated Conflict Demo - Class',
+      slotType: 'Intentional Demo Conflict - Class',
       sourceUploadId: 'seed_conflict_demo',
     ),
     _slot(
@@ -1063,7 +1076,7 @@ List<TimetableSlot> _conflictDemoSlots() {
       startTime: '15:00',
       endTime: '17:00',
       roomName: 'ELEC PRINCPLE LAB',
-      slotType: 'Generated Conflict Demo - Class',
+      slotType: 'Intentional Demo Conflict - Class',
       sourceUploadId: 'seed_conflict_demo',
     ),
   ];
