@@ -509,6 +509,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       [
         selectedSession,
         sampleProgramId,
+        _programNameForTemplate(state, sampleProgramId),
         _sampleSection(state),
         'DED10044',
         'Wiring and Installation Practice',
@@ -735,6 +736,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
     var selectedSubjectId = slot.subjectId;
     var selectedLecturerKey =
         _lecturerEditKey(slot.lecturerId, slot.lecturerName);
+    var selectedLecturerEmail = slot.lecturerEmail;
+    var selectedLecturerProfileId = slot.lecturerProfileId;
     var selectedRoom = _slotRoomValue(slot);
     var selectedDay = _normalizeDay(slot.dayOfWeek ?? slot.day);
     var selectedStatus = _normalizeSlotStatus(slot.status);
@@ -825,6 +828,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 if (!nextLecturers.any((option) =>
                                     option.key == selectedLecturerKey)) {
                                   selectedLecturerKey = '';
+                                  selectedLecturerEmail = null;
+                                  selectedLecturerProfileId = null;
                                   lecturerId.clear();
                                   lecturerName.clear();
                                 }
@@ -892,6 +897,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 selectedLecturerKey = option.key;
                                 lecturerId.text = option.lecturerId;
                                 lecturerName.text = option.lecturerName;
+                                selectedLecturerEmail = option.email;
+                                selectedLecturerProfileId =
+                                    option.lecturerProfileId;
                                 formError = null;
                               });
                             },
@@ -1035,6 +1043,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     subjectName: subjectName.text.trim(),
                     lecturerId: lecturerId.text.trim(),
                     lecturerName: lecturerName.text.trim(),
+                    lecturerEmail: selectedLecturerEmail,
+                    lecturerProfileId: selectedLecturerProfileId,
                     roomId: cleanRoom.isEmpty
                         ? slot.roomId
                         : _roomIdForTemplate(cleanRoom),
@@ -1675,6 +1685,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return departmentProgram?.id ?? 'DED';
   }
 
+  String _programNameForTemplate(AppState state, String programId) {
+    return state.programs
+            .where((program) => program.id == programId)
+            .firstOrNull
+            ?.name ??
+        programId;
+  }
+
   String _sampleSection(AppState state) {
     if (state.scopedTimetable.isNotEmpty) {
       return state.scopedTimetable.first.section;
@@ -1715,6 +1733,27 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Lecturer _sampleLecturer(AppState state, String programId) {
+    final scopedUser = state.users.where((user) {
+      if (user.role != UserRole.pensyarah || !user.isActive) return false;
+      final currentUser = state.currentUser;
+      if (currentUser?.role == UserRole.ketua_jabatan) {
+        return user.departmentId == currentUser!.departmentId;
+      }
+      if (currentUser?.role == UserRole.ketua_program) {
+        return user.programId == currentUser!.programId;
+      }
+      return user.programId == programId;
+    }).firstOrNull;
+    if (scopedUser != null) {
+      return Lecturer(
+        id: scopedUser.uid,
+        name: scopedUser.name,
+        email: scopedUser.email,
+        department: scopedUser.departmentId ?? '',
+        subjects: const [],
+      );
+    }
+
     final scopedLecturer = state.lecturers.where((lecturer) {
       final user = state.currentUser;
       if (user?.role == UserRole.ketua_jabatan) {
@@ -5218,11 +5257,13 @@ class _EditLecturerOption {
     required this.lecturerId,
     required this.lecturerName,
     this.email,
+    this.lecturerProfileId,
   });
 
   final String lecturerId;
   final String lecturerName;
   final String? email;
+  final String? lecturerProfileId;
 
   String get key => _lecturerEditKey(lecturerId, lecturerName);
   String get label {
@@ -5332,18 +5373,48 @@ List<_EditLecturerOption> _editLecturerOptions(
   TimetableSlot currentSlot,
 ) {
   final options = <String, _EditLecturerOption>{};
+  for (final user in state.users) {
+    if (user.role != UserRole.pensyarah || !user.isActive) continue;
+    final inProgram = user.programId == selectedProgram;
+    final inDepartment = user.departmentId != null &&
+        state.programs
+                .where((program) => program.id == selectedProgram)
+                .firstOrNull
+                ?.departmentId ==
+            user.departmentId;
+    if (!inProgram && !inDepartment) continue;
+    final option = _EditLecturerOption(
+      lecturerId: user.uid,
+      lecturerName: user.name,
+      email: user.email,
+      lecturerProfileId: user.lecturerProfileId,
+    );
+    options.putIfAbsent(option.key, () => option);
+  }
+
   for (final slot in state.scopedTimetable) {
     if (_slotProgramValue(slot) != selectedProgram) continue;
     final name = slot.lecturerName.trim();
     final id = slot.lecturerId.trim();
     if (name.isEmpty && id.isEmpty) continue;
+    final user = state.users
+        .where((item) =>
+            item.uid == id ||
+            item.email.toLowerCase() ==
+                (slot.lecturerEmail ?? '').toLowerCase() ||
+            (slot.lecturerProfileId != null &&
+                item.lecturerProfileId == slot.lecturerProfileId))
+        .firstOrNull;
     final lecturer = state.lecturers
         .where((item) => item.id == id || item.name == name)
         .firstOrNull;
     final option = _EditLecturerOption(
-      lecturerId: id.isNotEmpty ? id : lecturer?.id ?? '',
-      lecturerName: name.isNotEmpty ? name : lecturer?.name ?? '',
-      email: lecturer?.email,
+      lecturerId: user?.uid ?? (id.isNotEmpty ? id : lecturer?.id ?? ''),
+      lecturerName:
+          user?.name ?? (name.isNotEmpty ? name : lecturer?.name ?? ''),
+      email: user?.email ?? slot.lecturerEmail ?? lecturer?.email,
+      lecturerProfileId:
+          user?.lecturerProfileId ?? slot.lecturerProfileId ?? lecturer?.id,
     );
     options.putIfAbsent(option.key, () => option);
   }
@@ -5351,14 +5422,28 @@ List<_EditLecturerOption> _editLecturerOptions(
   if (selectedProgram == _slotProgramValue(currentSlot)) {
     final currentName = currentSlot.lecturerName.trim();
     final currentId = currentSlot.lecturerId.trim();
+    final currentUser = state.users
+        .where((item) =>
+            item.uid == currentId ||
+            item.email.toLowerCase() ==
+                (currentSlot.lecturerEmail ?? '').toLowerCase() ||
+            (currentSlot.lecturerProfileId != null &&
+                item.lecturerProfileId == currentSlot.lecturerProfileId))
+        .firstOrNull;
     final currentLecturer = state.lecturers
         .where((item) => item.id == currentId || item.name == currentName)
         .firstOrNull;
     final current = _EditLecturerOption(
-      lecturerId: currentId.isNotEmpty ? currentId : currentLecturer?.id ?? '',
-      lecturerName:
-          currentName.isNotEmpty ? currentName : currentLecturer?.name ?? '',
-      email: currentLecturer?.email,
+      lecturerId: currentUser?.uid ??
+          (currentId.isNotEmpty ? currentId : currentLecturer?.id ?? ''),
+      lecturerName: currentUser?.name ??
+          (currentName.isNotEmpty ? currentName : currentLecturer?.name ?? ''),
+      email: currentUser?.email ??
+          currentSlot.lecturerEmail ??
+          currentLecturer?.email,
+      lecturerProfileId: currentUser?.lecturerProfileId ??
+          currentSlot.lecturerProfileId ??
+          currentLecturer?.id,
     );
     if (current.lecturerName.isNotEmpty || current.lecturerId.isNotEmpty) {
       options.putIfAbsent(current.key, () => current);

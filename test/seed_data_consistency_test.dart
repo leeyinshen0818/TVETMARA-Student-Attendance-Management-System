@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tvetmara_student_attendance/data/mock_data.dart' as mock;
 import 'package:tvetmara_student_attendance/models/app_models.dart';
+import 'package:tvetmara_student_attendance/services/timetable_import_service.dart';
 
 String _roomId(String roomName) => roomName.replaceAll(RegExp(r'[/\\.]'), '_');
 
@@ -70,8 +73,19 @@ void main() {
     expect(dedDemo.name, mock.demoLecturerDedName);
     expect(dgsDemo.uid, 'L_DGS');
     expect(dgsDemo.name, mock.demoLecturerDgsName);
-    expect(dedDemo.name, isNot('Pensyarah DED'));
-    expect(dgsDemo.name, isNot('Pensyarah DGS'));
+    expect(dedDemo.name, 'Pensyarah DED (Demo)');
+    expect(dgsDemo.name, 'Pensyarah DGS (Demo)');
+
+    final syarifah = mock.users.singleWhere(
+      (user) => user.email == 'lecturer046@tvetmara.edu.my',
+    );
+    final zabhin = mock.users.singleWhere(
+      (user) => user.email == 'lecturer001@tvetmara.edu.my',
+    );
+    expect(syarifah.name, 'SYARIFAH BINTI ABDUL RAHIM');
+    expect(syarifah.lecturerProfileId, 'REAL_L_046');
+    expect(zabhin.name, 'Zabhin bin Mohd Arbai');
+    expect(zabhin.lecturerProfileId, 'REAL_L_001');
   });
 
   test('timetable seed keeps normalized master-data links consistent', () {
@@ -144,7 +158,9 @@ void main() {
       () {
     for (final slot in mock.timetable) {
       if (!slot.lecturerName.startsWith('Pensyarah ')) continue;
-      final lecturerProgram = slot.lecturerName.split(' ').last;
+      final match =
+          RegExp(r'^Pensyarah\s+([A-Z0-9]+)').firstMatch(slot.lecturerName);
+      final lecturerProgram = match?.group(1);
       final slotProgram = slot.programId ?? slot.program;
       final isIntentionalConflict =
           slot.sourceUploadId == 'seed_conflict_demo' &&
@@ -246,6 +262,43 @@ void main() {
         expect(bundle.session.attendancePercentage, summary.percentage,
             reason: bundle.session.id);
       }
+    }
+  });
+
+  test('clean no-conflict timetable CSV parses and has no core conflicts', () {
+    final file = File('demo_data/clean_no_conflict_timetable_JAN_JUN_2026.csv');
+    expect(file.existsSync(), isTrue);
+    final result = const TimetableImportService()
+        .parseAndValidate(file.readAsStringSync());
+    expect(result.validationErrors, isEmpty);
+    expect(result.errorRows, 0);
+    expect(result.duplicateRows, 0);
+    expect(result.parsedRows.length, greaterThanOrEqualTo(30));
+
+    final lecturerEmails = mock.users.map((user) => user.email).toSet();
+    final rooms = {
+      for (final room in mock.roomResources)
+        room.name.replaceAll(RegExp(r'[/\\.]'), '_'),
+    };
+    final classes = mock.demoClasses.map((item) => item.classId).toSet();
+    final conflictKeys = <String>{};
+    for (final row in result.parsedRows) {
+      final draft = row.draft!;
+      expect(lecturerEmails, contains(draft.lecturerEmail));
+      expect(rooms, contains(draft.roomId));
+      expect(classes, contains(draft.classId));
+      final scheduleKey = [
+        draft.academicSessionId,
+        draft.dayOfWeek,
+        draft.startTime,
+        draft.endTime,
+        draft.weekStart,
+        draft.weekEnd,
+      ].join('|');
+      expect(conflictKeys.add('room|$scheduleKey|${draft.roomId}'), isTrue);
+      expect(conflictKeys.add('lecturer|$scheduleKey|${draft.lecturerEmail}'),
+          isTrue);
+      expect(conflictKeys.add('class|$scheduleKey|${draft.classId}'), isTrue);
     }
   });
 }

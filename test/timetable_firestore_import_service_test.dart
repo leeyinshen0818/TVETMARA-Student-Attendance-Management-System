@@ -21,6 +21,7 @@ TimetablePreviewRow _row({
     subjectName: 'Wiring and Installation Practice',
     lecturerId: 'UID_DED',
     lecturerEmail: 'pensyarah_ded@tvetmara.edu.my',
+    lecturerProfileId: null,
     lecturerName: 'Pensyarah DED',
     roomId: 'BILIK KULIAH 1',
     roomName: 'BILIK KULIAH 1',

@@ -48,7 +48,7 @@ class KpTimetableService extends ChangeNotifier {
 
       _allSlots = querySnapshot.docs.map((doc) {
         final data = doc.data();
-        
+
         // Accurate factory mapping matching your complete TimetableSlot property structure
         return TimetableSlot(
           id: doc.id,
@@ -62,10 +62,16 @@ class KpTimetableService extends ChangeNotifier {
           semester: (data['semester'] as num? ?? 1).toInt(),
           program: data['program'] as String? ?? '',
           section: data['section'] as String? ?? '',
-          subjectCode: data['subjectCode'] as String? ?? data['courseCode'] as String? ?? '',
-          subjectName: data['subjectName'] as String? ?? data['courseName'] as String? ?? '',
+          subjectCode: data['subjectCode'] as String? ??
+              data['courseCode'] as String? ??
+              '',
+          subjectName: data['subjectName'] as String? ??
+              data['courseName'] as String? ??
+              '',
           lecturerId: data['lecturerId'] as String? ?? '',
           lecturerName: data['lecturerName'] as String? ?? '',
+          lecturerEmail: data['lecturerEmail'] as String?,
+          lecturerProfileId: data['lecturerProfileId'] as String?,
           roomId: data['roomId'] as String?,
           roomName: data['roomName'] as String?,
           day: data['day'] as String? ?? 'ISNIN',
@@ -78,7 +84,7 @@ class KpTimetableService extends ChangeNotifier {
           classType: data['classType'] as String? ?? 'Kuliah',
           slotType: data['slotType'] as String? ?? 'Regular',
           status: data['status'] as String? ?? 'Active',
-          sourceUploadId: data['period']?.toString(), 
+          sourceUploadId: data['period']?.toString(),
         );
       }).toList();
 
@@ -86,7 +92,6 @@ class KpTimetableService extends ChangeNotifier {
       final sections = _allSlots.map((slot) => slot.section).toSet().toList();
       sections.sort();
       _availableSections = ['All Classes', ...sections];
-
     } catch (e) {
       debugPrint('Error retrieving consolidated program slots: $e');
     } finally {
@@ -98,16 +103,17 @@ class KpTimetableService extends ChangeNotifier {
   /// Filters retrieved items locally by active academic Week, selected section, Day, and Period block
   List<TimetableSlot> getFilteredSlotsForCell(String day, int period) {
     return _allSlots.where((slot) {
-      bool matchesWeek = true; 
+      bool matchesWeek = true;
       if (slot.weekStart != null && slot.weekEnd != null) {
         int start = int.tryParse(slot.weekStart!) ?? 1;
         int end = int.tryParse(slot.weekEnd!) ?? 18;
         matchesWeek = _selectedWeek >= start && _selectedWeek <= end;
       }
 
-      bool matchesSection = _selectedSection == 'All Classes' || slot.section == _selectedSection;
+      bool matchesSection =
+          _selectedSection == 'All Classes' || slot.section == _selectedSection;
       bool matchesDay = slot.day.toUpperCase() == day.toUpperCase();
-      
+
       bool matchesPeriod = false;
       if (slot.sourceUploadId != null) {
         matchesPeriod = int.tryParse(slot.sourceUploadId!) == period;

@@ -64,6 +64,7 @@ class FirestoreTimetableMasterDataSource implements TimetableMasterDataSource {
         programId: data[UserFields.programId] as String?,
         departmentId: data[UserFields.departmentId] as String?,
         phoneNumber: data[UserFields.phoneNumber] as String?,
+        lecturerProfileId: data[UserFields.lecturerProfileId] as String?,
         isActive: data[UserFields.isActive] as bool? ?? true,
       );
     }
@@ -311,6 +312,7 @@ class TimetableMasterValidationService {
             subjectName: draft.subjectName,
             lecturerId: lecturer.uid,
             lecturerEmail: draft.lecturerEmail,
+            lecturerProfileId: lecturer.lecturerProfileId,
             lecturerName: lecturer.name,
             roomId: draft.roomId,
             roomName: room.name,

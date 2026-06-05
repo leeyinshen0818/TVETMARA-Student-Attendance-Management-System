@@ -14,7 +14,7 @@ import 'settings_screen.dart';
 import 'timetable_screen.dart';
 // import 'admin/admin_timetable_viewer_screen.dart';
 import 'admin/admin_user_management_screen.dart';
-import 'lecturer_timetable_grid_screen.dart'; 
+import 'lecturer_timetable_grid_screen.dart';
 import 'kp_timetable_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -56,23 +56,24 @@ class _HomeShellState extends State<HomeShell> {
           LecturerTimetableGridScreen(
             lecturerId: user.uid,
             lecturerName: user.name,
-            // programId (e.g. "DED", "DGS") is stored on AppUser from Firestore.
-            // Used as a fallback query key when lecturerId doesn't match the
-            // seeded timetable documents (which use opaque IDs like "REAL_L_044").
+            lecturerEmail: user.email,
             programId: user.programId ?? '',
+            lecturerProfileId: user.lecturerProfileId,
             // Placeholder for Yee Wen's attendance module — wire up later:
             // onSlotSelected: (slotId, week) => Navigator.push(context, ...)
-            
+
             // PEMBETULAN: Menggunakan _DataScope.values untuk mengelakkan ralat "referenced before it is declared"
             onNavigateToAttendance: () {
               setState(() {
-                final targetIndex = _DataScope.values.indexOf(_DataScope.timetable);
+                final targetIndex =
+                    _DataScope.values.indexOf(_DataScope.timetable);
                 if (targetIndex != -1) index = targetIndex;
               });
             },
             onNavigateToTempahan: () {
               setState(() {
-                final targetIndex = _DataScope.values.indexOf(_DataScope.attendance);
+                final targetIndex =
+                    _DataScope.values.indexOf(_DataScope.attendance);
                 if (targetIndex != -1) index = targetIndex;
               });
             },
@@ -84,9 +85,9 @@ class _HomeShellState extends State<HomeShell> {
         _NavItem(
           'Jadual',
           Icons.calendar_month_outlined,
-          isKetuaProgram 
-              ? KpTimetableScreen(kpUser: user) 
-              : const TimetableScreen(),       
+          isKetuaProgram
+              ? KpTimetableScreen(kpUser: user)
+              : const TimetableScreen(),
           dataScope: isKetuaProgram ? _DataScope.none : _DataScope.timetable,
         ),
 
@@ -134,10 +135,11 @@ class _HomeShellState extends State<HomeShell> {
             'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
       if (isAdmin)
         const _NavItem(
-          'Pengurusan Pengguna', 
-          Icons.manage_accounts_outlined, 
+          'Pengurusan Pengguna',
+          Icons.manage_accounts_outlined,
           AdminUserManagementScreen(),
-          dataScope: _DataScope.none, // Since it uses internal Firestore streams
+          dataScope:
+              _DataScope.none, // Since it uses internal Firestore streams
         ),
       // if (isAdmin)
       //  const _NavItem(

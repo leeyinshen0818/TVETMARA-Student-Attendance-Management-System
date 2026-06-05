@@ -876,6 +876,7 @@ class FirestoreService {
       departmentId:
           d[UserFields.departmentId] as String? ?? d['department'] as String?,
       phoneNumber: d[UserFields.phoneNumber] as String?,
+      lecturerProfileId: d[UserFields.lecturerProfileId] as String?,
       isActive: d[UserFields.isActive] as bool? ?? d['active'] as bool? ?? true,
       createdAt: _readTimestamp(d[UserFields.createdAt]),
       updatedAt: _readTimestamp(d[UserFields.updatedAt]) ??
@@ -964,6 +965,8 @@ class FirestoreService {
       subjectName: d['subjectName'] as String? ?? '',
       lecturerId: d['lecturerId'] as String? ?? '',
       lecturerName: d['lecturerName'] as String? ?? '',
+      lecturerEmail: d['lecturerEmail'] as String?,
+      lecturerProfileId: d['lecturerProfileId'] as String?,
       roomId: roomId,
       roomName: roomName,
       day: d['day'] as String? ?? dayOfWeek ?? '',
@@ -1168,6 +1171,8 @@ class FirestoreService {
       'subjectName': slot.subjectName,
       'lecturerId': slot.lecturerId,
       'lecturerName': slot.lecturerName,
+      'lecturerEmail': slot.lecturerEmail,
+      'lecturerProfileId': slot.lecturerProfileId,
       'roomId': slot.roomId ?? slot.room,
       'roomName': slot.roomName ?? slot.room,
       'dayOfWeek': slot.dayOfWeek ?? slot.day,
@@ -1317,6 +1322,7 @@ class FirestoreService {
         UserFields.programId: user.programId,
         UserFields.departmentId: user.departmentId,
         UserFields.phoneNumber: user.phoneNumber,
+        UserFields.lecturerProfileId: user.lecturerProfileId,
         UserFields.isActive: user.isActive,
         UserFields.createdAt: user.createdAt ?? FieldValue.serverTimestamp(),
         UserFields.updatedAt: FieldValue.serverTimestamp(),

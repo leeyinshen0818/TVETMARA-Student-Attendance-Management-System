@@ -5,11 +5,12 @@ import 'package:tvetmara_student_attendance/services/timetable_import_service.da
 import 'package:tvetmara_student_attendance/services/timetable_master_validation_service.dart';
 
 const _header =
-    'academicSessionId,programId,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
+    'academicSessionId,programId,programName,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
 
 String _row({
   String academicSessionId = '2026_S1',
   String programId = 'DED',
+  String programName = 'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DED)',
   String classId = 'DED_1A',
   String subjectCode = 'DED10044',
   String subjectName = 'Wiring and Installation Practice',
@@ -29,6 +30,7 @@ String _row({
   return [
     academicSessionId,
     programId,
+    programName,
     classId,
     subjectCode,
     subjectName,
@@ -94,6 +96,7 @@ class _FakeMasterDataSource implements TimetableMasterDataSource {
       role: UserRole.pensyarah,
       programId: 'DED',
       departmentId: 'elektrik',
+      lecturerProfileId: 'REAL_L_046',
       isActive: true,
     ),
     'pensyarah_dgs@tvetmara.edu.my': AppUser(
@@ -173,6 +176,8 @@ void main() {
     expect(draft.programId, 'DED');
     expect(draft.departmentId, 'elektrik');
     expect(draft.lecturerId, 'UID_DED');
+    expect(draft.lecturerEmail, 'pensyarah_ded@tvetmara.edu.my');
+    expect(draft.lecturerProfileId, 'REAL_L_046');
     expect(draft.lecturerName, 'Pensyarah DED');
     expect(draft.roomName, 'BILIK KULIAH 1');
   });

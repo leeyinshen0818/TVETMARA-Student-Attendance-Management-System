@@ -19,13 +19,13 @@ import '../services/lecturer_timetable_service.dart';
 // Colour tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Color _kTeal      = Color(0xFF1B8CA6);
+const Color _kTeal = Color(0xFF1B8CA6);
 const Color _kTableHead = Color(0xFFF5F0E8);
-const Color _kPageBg    = Color(0xFFF7F9FB);
-const Color _kCardBg    = Colors.white;
-const Color _kBorder    = Color(0xFFE2E8EF);
-const Color _kText      = Color(0xFF1A2E3F);
-const Color _kMuted     = Color(0xFF5C7A8A);
+const Color _kPageBg = Color(0xFFF7F9FB);
+const Color _kCardBg = Colors.white;
+const Color _kBorder = Color(0xFFE2E8EF);
+const Color _kText = Color(0xFF1A2E3F);
+const Color _kMuted = Color(0xFF5C7A8A);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry-point widget
@@ -36,7 +36,9 @@ class LecturerTimetableGridScreen extends StatefulWidget {
     super.key,
     required this.lecturerId,
     required this.lecturerName,
+    required this.lecturerEmail,
     required this.programId,
+    this.lecturerProfileId,
     this.onSlotSelected,
     this.onNavigateToAttendance,
     this.onNavigateToTempahan,
@@ -44,14 +46,16 @@ class LecturerTimetableGridScreen extends StatefulWidget {
 
   final String lecturerId;
   final String lecturerName;
+  final String lecturerEmail;
   final String programId;
+  final String? lecturerProfileId;
 
   /// Placeholder callback — Yee Wen wires attendance-taking here.
   final void Function(String slotId, String week)? onSlotSelected;
-  
+
   /// Callback to switch to Attendance tab in parent shell
   final VoidCallback? onNavigateToAttendance;
-  
+
   /// Callback to switch to Tempahan tab in parent shell
   final VoidCallback? onNavigateToTempahan;
 
@@ -85,13 +89,15 @@ class _LecturerTimetableGridScreenState
       child: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) => _LecturerTimetableBody(
-          lecturerId:    widget.lecturerId,
-          lecturerName:  widget.lecturerName,
-          programId:     widget.programId,
+          lecturerId: widget.lecturerId,
+          lecturerName: widget.lecturerName,
+          lecturerEmail: widget.lecturerEmail,
+          programId: widget.programId,
+          lecturerProfileId: widget.lecturerProfileId,
           onSlotSelected: widget.onSlotSelected,
           onNavigateToAttendance: widget.onNavigateToAttendance,
           onNavigateToTempahan: widget.onNavigateToTempahan,
-          controller:    _controller,
+          controller: _controller,
         ),
       ),
     );
@@ -106,7 +112,9 @@ class _LecturerTimetableBody extends StatefulWidget {
   const _LecturerTimetableBody({
     required this.lecturerId,
     required this.lecturerName,
+    required this.lecturerEmail,
     required this.programId,
+    required this.lecturerProfileId,
     required this.onSlotSelected,
     required this.controller,
     this.onNavigateToAttendance,
@@ -115,34 +123,39 @@ class _LecturerTimetableBody extends StatefulWidget {
 
   final String lecturerId;
   final String lecturerName;
+  final String lecturerEmail;
   final String programId;
+  final String? lecturerProfileId;
   final void Function(String slotId, String week)? onSlotSelected;
   final LecturerTimetableController controller;
   final VoidCallback? onNavigateToAttendance;
   final VoidCallback? onNavigateToTempahan;
 
   @override
-  State<_LecturerTimetableBody> createState() =>
-      _LecturerTimetableBodyState();
+  State<_LecturerTimetableBody> createState() => _LecturerTimetableBodyState();
 }
 
-class _LecturerTimetableBodyState
-    extends State<_LecturerTimetableBody> {
-
-  String _filterCourse  = 'Semua Kursus';
+class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
+  String _filterCourse = 'Semua Kursus';
   String _filterSection = 'Semua Seksyen';
-  String _searchQuery   = '';
+  String _searchQuery = '';
 
   List<LecturerSlot> _applyFilters(List<LecturerSlot> raw) {
     return raw.where((s) {
-      if (_filterCourse  != 'Semua Kursus' && s.subjectCode != _filterCourse)  return false;
-      if (_filterSection != 'Semua Seksyen' && s.section     != _filterSection) return false;
+      if (_filterCourse != 'Semua Kursus' && s.subjectCode != _filterCourse) {
+        return false;
+      }
+      if (_filterSection != 'Semua Seksyen' && s.section != _filterSection) {
+        return false;
+      }
       if (_searchQuery.isNotEmpty) {
         final q = _searchQuery.toLowerCase();
         if (!s.subjectCode.toLowerCase().contains(q) &&
             !s.subjectName.toLowerCase().contains(q) &&
-            !s.roomId.toLowerCase().contains(q)      &&
-            !s.section.toLowerCase().contains(q)) return false;
+            !s.roomId.toLowerCase().contains(q) &&
+            !s.section.toLowerCase().contains(q)) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -157,14 +170,21 @@ class _LecturerTimetableBodyState
       child: StreamBuilder<List<LecturerSlot>>(
         stream: widget.controller.slotsStream(
           lecturerId: widget.lecturerId,
-          programId:  widget.programId,
+          lecturerEmail: widget.lecturerEmail,
+          lecturerProfileId: widget.lecturerProfileId,
         ),
         builder: (context, snapshot) {
-          final loading        = snapshot.connectionState == ConnectionState.waiting;
-          final allSlots       = snapshot.data ?? [];
-          final filtered       = _applyFilters(allSlots);
-          final courses        = ['Semua Kursus', ...{...allSlots.map((s) => s.subjectCode)}];
-          final sections       = ['Semua Seksyen', ...{...allSlots.map((s) => s.section)}];
+          final loading = snapshot.connectionState == ConnectionState.waiting;
+          final allSlots = snapshot.data ?? [];
+          final filtered = _applyFilters(allSlots);
+          final courses = [
+            'Semua Kursus',
+            ...{...allSlots.map((s) => s.subjectCode)}
+          ];
+          final sections = [
+            'Semua Seksyen',
+            ...{...allSlots.map((s) => s.section)}
+          ];
           final uniqueSections = {...allSlots.map((s) => s.section)}.length;
 
           return Column(
@@ -174,17 +194,17 @@ class _LecturerTimetableBodyState
               _PageHeader(week: week, controller: widget.controller),
               _StatCardRow(
                 totalSlots: allSlots.length,
-                sections:   uniqueSections,
+                sections: uniqueSections,
               ),
               _FilterBar(
-                course:            _filterCourse,
-                section:           _filterSection,
-                searchQuery:       _searchQuery,
-                courseOptions:     courses,
-                sectionOptions:    sections,
-                onCourseChanged:   (v) => setState(() => _filterCourse   = v),
-                onSectionChanged:  (v) => setState(() => _filterSection  = v),
-                onSearchChanged:   (v) => setState(() => _searchQuery    = v),
+                course: _filterCourse,
+                section: _filterSection,
+                searchQuery: _searchQuery,
+                courseOptions: courses,
+                sectionOptions: sections,
+                onCourseChanged: (v) => setState(() => _filterCourse = v),
+                onSectionChanged: (v) => setState(() => _filterSection = v),
+                onSearchChanged: (v) => setState(() => _searchQuery = v),
               ),
               const SizedBox(height: 16),
               Padding(
@@ -194,12 +214,13 @@ class _LecturerTimetableBodyState
                     : snapshot.hasError
                         ? _ErrorState(error: snapshot.error.toString())
                         : _OfficialTable(
-                            slots:          filtered,
-                            week:           week,
-                            lecturerName:   widget.lecturerName,
-                            programId:      widget.programId,
+                            slots: filtered,
+                            week: week,
+                            lecturerName: widget.lecturerName,
+                            programId: widget.programId,
                             onSlotSelected: widget.onSlotSelected,
-                            onNavigateToAttendance: widget.onNavigateToAttendance,
+                            onNavigateToAttendance:
+                                widget.onNavigateToAttendance,
                             onNavigateToTempahan: widget.onNavigateToTempahan,
                           ),
               ),
@@ -263,7 +284,7 @@ class _StatCardRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(child: const _StatCard(label: 'KELAS GANTI', value: '6')),
           const SizedBox(width: 12),
-          Expanded(child: _StatCard(label: 'SECTION',     value: '$sections')),
+          Expanded(child: _StatCard(label: 'SECTION', value: '$sections')),
         ],
       ),
     );
@@ -363,19 +384,19 @@ class _FilterBar extends StatelessWidget {
             final isWide = c.maxWidth > 560;
             final widgets = [
               _FilterDropdown(
-                label:     'Kursus',
-                value:     course,
-                options:   courseOptions,
+                label: 'Kursus',
+                value: course,
+                options: courseOptions,
                 onChanged: onCourseChanged,
               ),
               _FilterDropdown(
-                label:     'Seksyen',
-                value:     section,
-                options:   sectionOptions,
+                label: 'Seksyen',
+                value: section,
+                options: sectionOptions,
                 onChanged: onSectionChanged,
               ),
               _SearchField(
-                hint:      'Kod, subjek, bilik',
+                hint: 'Kod, subjek, bilik',
                 onChanged: onSearchChanged,
               ),
             ];
@@ -437,13 +458,11 @@ class _FilterDropdown extends StatelessWidget {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value:      safeValue,
+              value: safeValue,
               isExpanded: true,
-              isDense:    true,
+              isDense: true,
               style: const TextStyle(
-                  fontSize: 13,
-                  color: _kText,
-                  fontWeight: FontWeight.w500),
+                  fontSize: 13, color: _kText, fontWeight: FontWeight.w500),
               items: options
                   .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                   .toList(),
@@ -477,20 +496,20 @@ class _SearchField extends StatelessWidget {
             style: const TextStyle(fontSize: 13, color: _kText),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(
-                  fontSize: 13, color: Color(0xFFBDD0DA)),
-              prefixIcon: const Icon(Icons.search_rounded,
-                  size: 17, color: _kMuted),
+              hintStyle:
+                  const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
+              prefixIcon:
+                  const Icon(Icons.search_rounded, size: 17, color: _kMuted),
               contentPadding: EdgeInsets.zero,
-              filled:    true,
+              filled: true,
               fillColor: _kCardBg,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(7),
-                borderSide:   const BorderSide(color: _kBorder),
+                borderSide: const BorderSide(color: _kBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(7),
-                borderSide:   const BorderSide(color: _kTeal),
+                borderSide: const BorderSide(color: _kTeal),
               ),
             ),
           ),
@@ -545,8 +564,7 @@ class _OfficialTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.table_chart_outlined,
-                    size: 16, color: _kTeal),
+                const Icon(Icons.table_chart_outlined, size: 16, color: _kTeal),
                 const SizedBox(width: 8),
                 const Text('Jadual waktu rasmi',
                     style: TextStyle(
@@ -594,8 +612,8 @@ class _OfficialTable extends StatelessWidget {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: _DataTable(
-                slots:         slots,
-                week:          week,
+                slots: slots,
+                week: week,
                 onSlotSelected: onSlotSelected,
                 onNavigateToAttendance: onNavigateToAttendance,
                 onNavigateToTempahan: onNavigateToTempahan,
@@ -643,15 +661,15 @@ class _DataTable extends StatelessWidget {
     return Table(
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       columnWidths: const {
-        0: FixedColumnWidth(44),   // NO.
-        1: FixedColumnWidth(76),   // CODE
-        2: FixedColumnWidth(200),  // NAMA KURSUS
-        3: FixedColumnWidth(110),  // SEKSYEN
-        4: FixedColumnWidth(150),  // PROGRAM
-        5: FixedColumnWidth(80),   // CAPACITY
-        6: FixedColumnWidth(152),  // HARI/MASA LOKASI
-        7: FixedColumnWidth(120),  // JENIS
-        8: FixedColumnWidth(250),  // TINDAKAN
+        0: FixedColumnWidth(44), // NO.
+        1: FixedColumnWidth(76), // CODE
+        2: FixedColumnWidth(200), // NAMA KURSUS
+        3: FixedColumnWidth(110), // SEKSYEN
+        4: FixedColumnWidth(150), // PROGRAM
+        5: FixedColumnWidth(80), // CAPACITY
+        6: FixedColumnWidth(152), // HARI/MASA LOKASI
+        7: FixedColumnWidth(120), // JENIS
+        8: FixedColumnWidth(250), // TINDAKAN
       },
       children: [
         TableRow(
@@ -695,9 +713,7 @@ class _DataTable extends StatelessWidget {
                   fontSize: 11)),
         )),
         _td(Text(slot.subjectName,
-            style: _cellStyle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis)),
+            style: _cellStyle, maxLines: 2, overflow: TextOverflow.ellipsis)),
         _td(Text(slot.section, style: _cellStyle)),
         _td(Text(slot.programId, style: _cellStyle)),
         _td(Text('-', style: _cellStyle.copyWith(color: _kMuted))),
@@ -705,16 +721,22 @@ class _DataTable extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(slot.day, style: _cellStyle.copyWith(fontWeight: FontWeight.w700, fontSize: 11)),
-            Text('${slot.startTime}-${slot.endTime}', style: _cellStyle.copyWith(color: _kMuted, fontSize: 11)),
+            Text(slot.day,
+                style: _cellStyle.copyWith(
+                    fontWeight: FontWeight.w700, fontSize: 11)),
+            Text('${slot.startTime}-${slot.endTime}',
+                style: _cellStyle.copyWith(color: _kMuted, fontSize: 11)),
             if (slot.roomId.isNotEmpty)
-              Text(slot.roomId, style: _cellStyle.copyWith(color: _kTeal, fontSize: 10)),
+              Text(slot.roomId,
+                  style: _cellStyle.copyWith(color: _kTeal, fontSize: 10)),
           ],
         )),
-        _td(_JenisChip(label: slot.classType.isNotEmpty ? slot.classType : 'Normal Class')),
+        _td(_JenisChip(
+            label:
+                slot.classType.isNotEmpty ? slot.classType : 'Normal Class')),
         _td(_ActionButtons(
-          slot:   slot,
-          week:   week,
+          slot: slot,
+          week: week,
           onTake: onSlotSelected,
           onNavigateToAttendance: onNavigateToAttendance,
           onNavigateToTempahan: onNavigateToTempahan,
@@ -798,13 +820,15 @@ class _ActionButtons extends StatefulWidget {
 class _ActionButtonsState extends State<_ActionButtons>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
-  late final Animation<double>   _scale;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    _anim  = AnimationController(vsync: this, duration: const Duration(milliseconds: 110));
-    _scale = Tween(begin: 1.0, end: 0.91).animate(CurvedAnimation(parent: _anim, curve: Curves.easeIn));
+    _anim = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 110));
+    _scale = Tween(begin: 1.0, end: 0.91)
+        .animate(CurvedAnimation(parent: _anim, curve: Curves.easeIn));
   }
 
   @override
@@ -817,11 +841,13 @@ class _ActionButtonsState extends State<_ActionButtons>
     await _anim.forward();
     await _anim.reverse();
     widget.onTake?.call(widget.slot.slotId, widget.week);
-    widget.onNavigateToAttendance?.call(); // Menukar tab paparan induk kepada Kehadiran
+    widget.onNavigateToAttendance
+        ?.call(); // Menukar tab paparan induk kepada Kehadiran
   }
 
   Future<void> _onReplace() async {
-    widget.onNavigateToTempahan?.call(); // Menukar tab paparan induk kepada Tempahan Bilik
+    widget.onNavigateToTempahan
+        ?.call(); // Menukar tab paparan induk kepada Tempahan Bilik
   }
 
   @override
@@ -832,7 +858,7 @@ class _ActionButtonsState extends State<_ActionButtons>
         ScaleTransition(
           scale: _scale,
           child: _OutlineBtn(
-            icon:  Icons.check_circle_outline_rounded,
+            icon: Icons.check_circle_outline_rounded,
             label: 'Ambil Kehadiran',
             color: _kTeal,
             onTap: _onTake,
@@ -840,7 +866,7 @@ class _ActionButtonsState extends State<_ActionButtons>
         ),
         const SizedBox(width: 6),
         _OutlineBtn(
-          icon:  Icons.swap_horiz_rounded,
+          icon: Icons.swap_horiz_rounded,
           label: 'Ganti Kelas',
           color: const Color(0xFFE67E22),
           onTap: _onReplace,
@@ -857,9 +883,9 @@ class _OutlineBtn extends StatelessWidget {
     required this.color,
     required this.onTap,
   });
-  final IconData  icon;
-  final String    label;
-  final Color     color;
+  final IconData icon;
+  final String label;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -878,7 +904,9 @@ class _OutlineBtn extends StatelessWidget {
           children: [
             Icon(icon, size: 13, color: color),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
           ],
         ),
       ),
@@ -904,7 +932,8 @@ class _LoadingState extends StatelessWidget {
                 strokeWidth: 3,
               ),
               SizedBox(height: 16),
-              Text('Memuatkan jadual waktu…', style: TextStyle(color: _kMuted, fontSize: 14)),
+              Text('Memuatkan jadual waktu…',
+                  style: TextStyle(color: _kMuted, fontSize: 14)),
             ],
           ),
         ),
@@ -925,15 +954,19 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64, height: 64,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: _kTeal.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.calendar_today_outlined, color: _kTeal, size: 28),
+              child: const Icon(Icons.calendar_today_outlined,
+                  color: _kTeal, size: 28),
             ),
             const SizedBox(height: 14),
-            const Text('Tiada Slot Dijumpai', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
+            const Text('Tiada Slot Dijumpai',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
             const SizedBox(height: 8),
             Text(
               lecturerName.isNotEmpty
@@ -964,15 +997,19 @@ class _ErrorState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 64, height: 64,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.07),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.wifi_off_rounded, color: Colors.red, size: 28),
+              child: const Icon(Icons.wifi_off_rounded,
+                  color: Colors.red, size: 28),
             ),
             const SizedBox(height: 14),
-            const Text('Ralat Sambungan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
+            const Text('Ralat Sambungan',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
             const SizedBox(height: 8),
             Text(error,
                 textAlign: TextAlign.center,
@@ -982,7 +1019,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () {},
-              icon:  const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded),
               label: const Text('Cuba Semula'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _kTeal,

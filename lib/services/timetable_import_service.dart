@@ -162,7 +162,9 @@ class TimetableImportService {
     List<String> warnings,
   ) {
     final academicSessionId = _required(rawData, 'academicSessionId', errors);
-    final programId = _required(rawData, 'programId', errors);
+    final programId = _normalizeProgramId(
+      _required(rawData, 'programId', errors),
+    );
     final classId = _required(rawData, 'classId', errors);
     final subjectCode = _required(rawData, 'subjectCode', errors);
     final subjectName = _required(rawData, 'subjectName', errors);
@@ -248,6 +250,14 @@ class TimetableImportService {
   String? _optional(Map<String, String> rawData, String column) {
     final value = (rawData[column] ?? '').trim();
     return value.isEmpty ? null : value;
+  }
+
+  String _normalizeProgramId(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final trailingCode =
+        RegExp(r'\(([A-Za-z0-9]{2,4})\)\s*$').firstMatch(trimmed)?.group(1);
+    return (trailingCode ?? trimmed).toUpperCase();
   }
 
   String? _normalizeDay(String value, List<String> errors) {

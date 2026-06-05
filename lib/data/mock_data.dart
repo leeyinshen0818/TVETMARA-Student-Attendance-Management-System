@@ -3,16 +3,29 @@ import '../data/lecturer_seed_data.dart' as lecturer_seed;
 import '../data/subject_seed_data.dart' as subject_seed;
 import '../models/app_models.dart';
 
-const demoLecturerDedName = 'SYARIFAH BINTI ABDUL RAHIM';
-const demoLecturerDgsName = 'Zabhin bin Mohd Arbai';
+const demoLecturerDedName = 'Pensyarah DED (Demo)';
+const demoLecturerDgsName = 'Pensyarah DGS (Demo)';
 
 String _demoLecturerName(String programId) {
   return switch (programId) {
     'DED' => demoLecturerDedName,
     'DGS' => demoLecturerDgsName,
-    _ => 'Pensyarah $programId',
+    _ => 'Pensyarah $programId (Demo)',
   };
 }
+
+const realLecturerLoginProfileIds = {
+  'REAL_L_001',
+  'REAL_L_042',
+  'REAL_L_044',
+  'REAL_L_046',
+  'REAL_L_047',
+  'REAL_L_049',
+  'REAL_L_050',
+  'REAL_L_055',
+  'REAL_L_057',
+  'REAL_L_072',
+};
 
 const List<ProgramCode> programs = [
   ProgramCode(
@@ -258,7 +271,9 @@ final List<AppUser> demoAuthUsers = [
       updatedAt: '2026-05-01 08:00')),
 ];
 
-final List<AppUser> realLecturerUsers = lecturer_seed.realLecturerProfiles
+final List<AppUser> realLecturerLoginUsers = lecturer_seed.realLecturerProfiles
+    .where(
+        (profile) => realLecturerLoginProfileIds.contains(profile.lecturerId))
     .map((profile) => AppUser(
           uid: profile.lecturerId,
           name: profile.name,
@@ -269,15 +284,18 @@ final List<AppUser> realLecturerUsers = lecturer_seed.realLecturerProfiles
           departmentId: profile.departmentIds.length == 1
               ? profile.departmentIds.first
               : null,
+          lecturerProfileId: profile.lecturerId,
           isActive: true,
           createdAt: '2026-05-01 08:00',
           updatedAt: '2026-05-01 08:00',
         ))
     .toList();
 
+final List<AppUser> realLecturerUsers = realLecturerLoginUsers;
+
 final List<AppUser> users = [
   ...demoAuthUsers,
-  ...realLecturerUsers,
+  ...realLecturerLoginUsers,
 ];
 
 final List<Lecturer> lecturers = [
@@ -603,7 +621,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         subject: _subjectsForProgram('SMI').first.subjectName,
         subjectCode: _subjectsForProgram('SMI').first.subjectCode,
         subjectName: _subjectsForProgram('SMI').first.subjectName,
-        lecturer: 'Pensyarah SMI',
+        lecturer: 'Pensyarah SMI (Demo)',
         date: '2026-05-21',
         issueType: 'Tidak mematuhi peraturan kelas',
         severity: 'Low',
@@ -612,7 +630,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         followUp: false,
         status: 'action_taken',
         createdBy: 'L_SMI',
-        createdByName: 'Pensyarah SMI',
+        createdByName: 'Pensyarah SMI (Demo)',
         assignedReviewerRoles: ['ketua_program', 'ketua_jabatan'],
       ),
       DisciplineReport(
@@ -626,7 +644,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         subject: _subjectsForProgram('SMM').first.subjectName,
         subjectCode: _subjectsForProgram('SMM').first.subjectCode,
         subjectName: _subjectsForProgram('SMM').first.subjectName,
-        lecturer: 'Pensyarah SMM',
+        lecturer: 'Pensyarah SMM (Demo)',
         date: '2026-05-22',
         issueType: 'Masalah disiplin ringan',
         severity: 'Medium',
@@ -634,7 +652,7 @@ List<DisciplineReport> get disciplineReports => <DisciplineReport>[
         followUp: true,
         status: 'closed',
         createdBy: 'L_SMM',
-        createdByName: 'Pensyarah SMM',
+        createdByName: 'Pensyarah SMM (Demo)',
         assignedReviewerRoles: ['ketua_program', 'ketua_jabatan'],
       ),
     ];
@@ -684,7 +702,7 @@ final bookings = <BookingRequest>[
   const BookingRequest(
     id: 'B003',
     lecturerId: 'L_DCP',
-    lecturerName: 'Pensyarah DCP',
+    lecturerName: 'Pensyarah DCP (Demo)',
     programId: 'DCP',
     departmentId: 'elektrik',
     subject: 'Demo kelas ganti DCP',
@@ -724,7 +742,7 @@ final bookings = <BookingRequest>[
   const BookingRequest(
     id: 'B005',
     lecturerId: 'L_SMI',
-    lecturerName: 'Pensyarah SMI',
+    lecturerName: 'Pensyarah SMI (Demo)',
     programId: 'SMI',
     departmentId: 'mekanikal',
     subject: 'Demo kelas ganti SMI',
@@ -744,7 +762,7 @@ final bookings = <BookingRequest>[
   const BookingRequest(
     id: 'B006',
     lecturerId: 'L_SMM',
-    lecturerName: 'Pensyarah SMM',
+    lecturerName: 'Pensyarah SMM (Demo)',
     programId: 'SMM',
     departmentId: 'automotif',
     subject: 'Demo kelas ganti SMM',
@@ -942,6 +960,9 @@ TimetableSlot _slot({
       (lecturerProgramId.isEmpty
           ? _demoLecturerName(programId)
           : _demoLecturerName(lecturerProgramId));
+  final lecturerEmail = assignedLecturer?.lecturerEmail ??
+      'pensyarah_${(lecturerProgramId.isEmpty ? programId : lecturerProgramId).toLowerCase()}@tvetmara.edu.my';
+  final lecturerProfileId = assignedLecturer?.lecturerId;
   return TimetableSlot(
     id: id,
     timetableSlotId: id,
@@ -958,6 +979,8 @@ TimetableSlot _slot({
     subjectName: subject.subjectName,
     lecturerId: lecturerId,
     lecturerName: lecturerName,
+    lecturerEmail: lecturerEmail,
+    lecturerProfileId: lecturerProfileId,
     roomId: _roomId(roomName),
     roomName: roomName,
     day: day,

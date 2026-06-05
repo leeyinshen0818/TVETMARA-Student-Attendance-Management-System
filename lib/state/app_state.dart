@@ -463,12 +463,26 @@ class AppState extends ChangeNotifier {
           .toList();
     }
 
-    // Pensyarah. Prefer stable lecturerId matches when present; name fallback
-    // is only for older/seeded rows that cannot be linked by ID.
-    final directMatches =
-        timetable.where((slot) => slot.lecturerId == user.uid).toList();
-    if (directMatches.isNotEmpty) return directMatches;
-    return timetable.where((slot) => slot.lecturerName == user.name).toList();
+    // Pensyarah scope is assignment-based. New slots match by Auth UID,
+    // lecturer email, or master lecturer profile id. Name matching is kept
+    // only for legacy rows that have no stable identity fields.
+    final userEmail = user.email.trim().toLowerCase();
+    final userProfileId = user.lecturerProfileId;
+    return timetable.where((slot) {
+      final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+      if (slot.lecturerId == user.uid) return true;
+      if (slotEmail != null && slotEmail == userEmail) return true;
+      if (userProfileId != null &&
+          userProfileId.isNotEmpty &&
+          slot.lecturerProfileId == userProfileId) {
+        return true;
+      }
+      final hasStableIdentity = slot.lecturerId.isNotEmpty ||
+          (slotEmail != null && slotEmail.isNotEmpty) ||
+          (slot.lecturerProfileId != null &&
+              slot.lecturerProfileId!.isNotEmpty);
+      return !hasStableIdentity && slot.lecturerName == user.name;
+    }).toList();
   }
 
   List<Student> get scopedStudents {
@@ -699,8 +713,7 @@ class AppState extends ChangeNotifier {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final index = disciplineReports.indexWhere((report) => report.id == id);
     if (index != -1) {
-      disciplineReports[index] =
-          disciplineReports[index].copyWith(
+      disciplineReports[index] = disciplineReports[index].copyWith(
         status: normalizedStatus,
         actionTakenBy: normalizedStatus == 'action_taken'
             ? currentUser?.uid
@@ -769,6 +782,8 @@ class AppState extends ChangeNotifier {
         subjectName: booking.subject,
         lecturerId: booking.lecturerId,
         lecturerName: booking.lecturerName,
+        lecturerEmail: source?.lecturerEmail,
+        lecturerProfileId: source?.lecturerProfileId,
         day: 'Ganti',
         date: booking.replacementDate,
         startTime: booking.replacementStart,

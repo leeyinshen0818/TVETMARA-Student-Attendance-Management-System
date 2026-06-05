@@ -24,6 +24,7 @@ class TimetableCsvTemplate {
   ];
 
   static const optionalColumns = [
+    'programName',
     'subjectId',
     'lecturerName',
     'roomName',
@@ -34,6 +35,7 @@ class TimetableCsvTemplate {
   static const fullHeader = [
     'academicSessionId',
     'programId',
+    'programName',
     'classId',
     'subjectCode',
     'subjectName',

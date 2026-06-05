@@ -79,16 +79,15 @@ class LecturerTimetableController extends ChangeNotifier {
 
   /// Returns a live stream of slots.
   ///
-  /// Both [lecturerId] (Auth UID or seeded ID) and [programId] (e.g. "DED",
-  /// "DGS") are forwarded to the service so it can fall back to a programId
-  /// query when lecturerId doesn't match any Firestore document.
   Stream<List<LecturerSlot>> slotsStream({
     required String lecturerId,
-    required String programId,
+    required String lecturerEmail,
+    String? lecturerProfileId,
   }) =>
       _service.watchSlots(
         lecturerId: lecturerId,
-        programId: programId,
+        lecturerEmail: lecturerEmail,
+        lecturerProfileId: lecturerProfileId,
       );
 
   /// Builds a fast lookup map: day → (startTime → LecturerSlot).

@@ -211,6 +211,7 @@ class AppUser {
     required this.role,
     this.programId,
     this.departmentId,
+    this.lecturerProfileId,
     this.phoneNumber,
     required this.isActive,
     this.createdAt,
@@ -223,6 +224,7 @@ class AppUser {
   final UserRole role;
   final String? programId;
   final String? departmentId;
+  final String? lecturerProfileId;
   final String? phoneNumber;
   final bool isActive;
   final String? createdAt;
@@ -321,6 +323,8 @@ class TimetableSlot {
     required this.subjectName,
     required this.lecturerId,
     required this.lecturerName,
+    this.lecturerEmail,
+    this.lecturerProfileId,
     this.roomId,
     this.roomName,
     required this.day,
@@ -357,6 +361,8 @@ class TimetableSlot {
   final String subjectName;
   final String lecturerId;
   final String lecturerName;
+  final String? lecturerEmail;
+  final String? lecturerProfileId;
   final String? roomId;
   final String? roomName;
   final String day;
@@ -394,6 +400,8 @@ class TimetableSlot {
       subjectName: subjectName,
       lecturerId: lecturerId,
       lecturerName: lecturerName,
+      lecturerEmail: lecturerEmail,
+      lecturerProfileId: lecturerProfileId,
       roomId: roomId,
       roomName: roomName,
       day: day,

@@ -59,7 +59,7 @@ Future<bool> seedFirestore() async {
   // 3. Create Firebase Auth accounts and align users/{uid}
   // ------------------------------------------------------------------
   final authUidByMockId = <String, String>{};
-  for (final user in mock.demoAuthUsers) {
+  for (final user in [...mock.demoAuthUsers, ...mock.realLecturerLoginUsers]) {
     final password =
         user.role == UserRole.pentadbir ? 'admin123' : 'password123';
     UserCredential credential;
@@ -88,6 +88,7 @@ Future<bool> seedFirestore() async {
             programId: user.programId,
             departmentId: user.departmentId,
             phoneNumber: user.phoneNumber,
+            lecturerProfileId: user.lecturerProfileId,
             isActive: user.isActive,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
@@ -96,7 +97,9 @@ Future<bool> seedFirestore() async {
 
   final seededLecturers = mock.lecturers
       .map((lecturer) => Lecturer(
-            id: authUidByMockId[lecturer.id] ?? lecturer.id,
+            id: lecturer.id.startsWith('REAL_L_')
+                ? lecturer.id
+                : authUidByMockId[lecturer.id] ?? lecturer.id,
             name: lecturer.name,
             email: lecturer.email,
             department: lecturer.department,
@@ -121,6 +124,8 @@ Future<bool> seedFirestore() async {
             subjectName: slot.subjectName,
             lecturerId: authUidByMockId[slot.lecturerId] ?? slot.lecturerId,
             lecturerName: slot.lecturerName,
+            lecturerEmail: slot.lecturerEmail,
+            lecturerProfileId: slot.lecturerProfileId,
             roomId: slot.roomId,
             roomName: slot.roomName,
             day: slot.day,

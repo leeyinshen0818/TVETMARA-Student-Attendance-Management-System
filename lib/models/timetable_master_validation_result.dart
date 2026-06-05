@@ -13,6 +13,7 @@ class TimetablePreviewSlotDraft {
     required this.lecturerId,
     required this.lecturerEmail,
     required this.lecturerName,
+    required this.lecturerProfileId,
     required this.roomId,
     required this.roomName,
     required this.dayOfWeek,
@@ -35,6 +36,7 @@ class TimetablePreviewSlotDraft {
   final String lecturerId;
   final String lecturerEmail;
   final String lecturerName;
+  final String? lecturerProfileId;
   final String roomId;
   final String roomName;
   final String dayOfWeek;

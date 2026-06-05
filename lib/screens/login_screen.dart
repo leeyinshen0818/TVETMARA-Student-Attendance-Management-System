@@ -305,11 +305,23 @@ class _LoginForm extends StatelessWidget {
                           label: 'SYARIFAH BINTI ABDUL RAHIM',
                           icon: Icons.menu_book,
                           onPressed: () => onFillDemo(
-                              'pensyarah_ded@tvetmara.edu.my', 'password123'),
+                              'lecturer046@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
                           label: 'Zabhin bin Mohd Arbai',
                           icon: Icons.menu_book,
+                          onPressed: () => onFillDemo(
+                              'lecturer001@tvetmara.edu.my', 'password123'),
+                        ),
+                        _DemoLoginButton(
+                          label: 'Demo Pensyarah DED',
+                          icon: Icons.person_outline,
+                          onPressed: () => onFillDemo(
+                              'pensyarah_ded@tvetmara.edu.my', 'password123'),
+                        ),
+                        _DemoLoginButton(
+                          label: 'Demo Pensyarah DGS',
+                          icon: Icons.person_outline,
                           onPressed: () => onFillDemo(
                               'pensyarah_dgs@tvetmara.edu.my', 'password123'),
                         ),

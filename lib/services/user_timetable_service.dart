@@ -42,6 +42,8 @@ class UserTimetableService {
       subjectName: d['subjectName'] as String? ?? '',
       lecturerId: d['lecturerId'] as String? ?? '',
       lecturerName: d['lecturerName'] as String? ?? '',
+      lecturerEmail: d['lecturerEmail'] as String?,
+      lecturerProfileId: d['lecturerProfileId'] as String?,
       roomId: roomId,
       roomName: roomName,
       day: d['day'] as String? ?? dayOfWeek ?? '',
@@ -76,6 +78,7 @@ class UserTimetableService {
       departmentId:
           d[UserFields.departmentId] as String? ?? d['department'] as String?,
       phoneNumber: d[UserFields.phoneNumber] as String?,
+      lecturerProfileId: d[UserFields.lecturerProfileId] as String?,
       isActive: d[UserFields.isActive] as bool? ?? d['active'] as bool? ?? true,
       createdAt: _readTimestamp(d[UserFields.createdAt]),
       updatedAt: _readTimestamp(d[UserFields.updatedAt]) ??
@@ -125,12 +128,15 @@ class UserTimetableService {
 
     switch (currentUser.role) {
       case UserRole.pensyarah:
-        final lecturerId = currentUser.id;
-        if (lecturerId.isEmpty) {
-          return Stream.value(<TimetableSlot>[]);
-        }
-        query = query.where('lecturerId', isEqualTo: lecturerId);
-        break;
+        return _db
+            .collection(FirestoreCollections.timetableSlots)
+            .snapshots()
+            .map((snapshot) {
+          return snapshot.docs
+              .map((doc) => _docToSlot(doc))
+              .where((slot) => _matchesLecturerIdentity(slot, currentUser))
+              .toList();
+        });
 
       case UserRole.ketua_program:
         final program = currentUser.program;
@@ -182,7 +188,10 @@ class UserTimetableService {
   /// Helper function to query the 'lecturer_courses' collection (Admin scope requirements).
   /// Maps to raw dynamic maps as there is no specific model for lecturer courses in Phase 1.
   Stream<List<Map<String, dynamic>>> getLecturerCoursesStream() {
-    return _db.collection('lecturer_course_assignments').snapshots().map((snapshot) {
+    return _db
+        .collection('lecturer_course_assignments')
+        .snapshots()
+        .map((snapshot) {
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return {
@@ -205,21 +214,64 @@ class UserTimetableService {
   /// so both 'academicSessionId' and legacy 'session' field names are supported.
   Stream<List<TimetableSlot>> getLecturerTimetableStream({
     required String lecturerId,
+    String? lecturerEmail,
+    String? lecturerProfileId,
     required String academicSessionId,
   }) {
     return _db
         .collection(FirestoreCollections.timetableSlots)
-        .where('lecturerId', isEqualTo: lecturerId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => _docToSlot(doc))
-          .where((slot) {
-            return slot.academicSessionId == academicSessionId ||
-                slot.session == academicSessionId;
-          })
-          .toList();
+      return snapshot.docs.map((doc) => _docToSlot(doc)).where((slot) {
+        final sameSession = slot.academicSessionId == academicSessionId ||
+            slot.session == academicSessionId;
+        if (!sameSession) return false;
+        return _matchesLecturerFields(
+          slot,
+          lecturerId: lecturerId,
+          lecturerEmail: lecturerEmail,
+          lecturerProfileId: lecturerProfileId,
+        );
+      }).toList();
     });
+  }
+
+  bool _matchesLecturerIdentity(TimetableSlot slot, AppUser user) {
+    return _matchesLecturerFields(
+      slot,
+      lecturerId: user.uid,
+      lecturerEmail: user.email,
+      lecturerProfileId: user.lecturerProfileId,
+      legacyName: user.name,
+    );
+  }
+
+  bool _matchesLecturerFields(
+    TimetableSlot slot, {
+    required String lecturerId,
+    String? lecturerEmail,
+    String? lecturerProfileId,
+    String? legacyName,
+  }) {
+    final normalizedEmail = lecturerEmail?.trim().toLowerCase();
+    final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+    if (slot.lecturerId == lecturerId) return true;
+    if (normalizedEmail != null &&
+        normalizedEmail.isNotEmpty &&
+        slotEmail == normalizedEmail) {
+      return true;
+    }
+    if (lecturerProfileId != null &&
+        lecturerProfileId.isNotEmpty &&
+        slot.lecturerProfileId == lecturerProfileId) {
+      return true;
+    }
+    final hasStableIdentity = slot.lecturerId.isNotEmpty ||
+        (slotEmail != null && slotEmail.isNotEmpty) ||
+        (slot.lecturerProfileId != null && slot.lecturerProfileId!.isNotEmpty);
+    return !hasStableIdentity &&
+        legacyName != null &&
+        slot.lecturerName == legacyName;
   }
 
   /// Asynchronously updates a user's active status in the 'users' collection.
@@ -230,19 +282,18 @@ class UserTimetableService {
         UserFields.updatedAt: FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      throw Exception('Gagal mengemas kini status aktif pengguna di Firestore: $e');
+      throw Exception(
+          'Gagal mengemas kini status aktif pengguna di Firestore: $e');
     }
   }
 
-  Future<void> updateTimetableOverride(
-      String documentId, bool isActive) async {
+  Future<void> updateTimetableOverride(String documentId, bool isActive) async {
     try {
       // Try timetable_slots first (used by the dialog cancel)
-      final slotRef = _db
-          .collection(FirestoreCollections.timetableSlots)
-          .doc(documentId);
+      final slotRef =
+          _db.collection(FirestoreCollections.timetableSlots).doc(documentId);
       final slotSnap = await slotRef.get();
- 
+
       if (slotSnap.exists) {
         await slotRef.update({
           'status': isActive ? 'active' : 'cancelled',
@@ -250,13 +301,12 @@ class UserTimetableService {
         });
         return;
       }
- 
+
       // Fall back to lecturer_course_assignments (used by Tab 3 row cancel)
-      final assignRef = _db
-          .collection('lecturer_course_assignments')
-          .doc(documentId);
+      final assignRef =
+          _db.collection('lecturer_course_assignments').doc(documentId);
       final assignSnap = await assignRef.get();
- 
+
       if (assignSnap.exists) {
         await assignRef.update({
           'isActive': isActive,
@@ -264,7 +314,7 @@ class UserTimetableService {
         });
         return;
       }
- 
+
       throw Exception(
           'Dokumen "$documentId" tidak dijumpai dalam timetable_slots atau lecturer_course_assignments.');
     } catch (e) {
