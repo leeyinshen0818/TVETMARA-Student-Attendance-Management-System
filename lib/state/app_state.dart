@@ -691,15 +691,36 @@ class AppState extends ChangeNotifier {
     await _fs.addDisciplineReport(routed);
   }
 
-  Future<void> updateDiscipline(String id, String status) async {
+  Future<void> updateDiscipline(
+    String id,
+    String status, {
+    String? actionTakenNote,
+  }) async {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final index = disciplineReports.indexWhere((report) => report.id == id);
     if (index != -1) {
       disciplineReports[index] =
-          disciplineReports[index].copyWith(status: normalizedStatus);
+          disciplineReports[index].copyWith(
+        status: normalizedStatus,
+        actionTakenBy: normalizedStatus == 'action_taken'
+            ? currentUser?.uid
+            : disciplineReports[index].actionTakenBy,
+        actionTakenByName: normalizedStatus == 'action_taken'
+            ? currentUser?.name
+            : disciplineReports[index].actionTakenByName,
+        actionTakenNote: normalizedStatus == 'action_taken'
+            ? actionTakenNote
+            : disciplineReports[index].actionTakenNote,
+      );
     }
     notifyListeners();
-    await _fs.updateDisciplineStatus(id, normalizedStatus);
+    await _fs.updateDisciplineStatus(
+      id,
+      normalizedStatus,
+      actionTakenBy: currentUser?.uid,
+      actionTakenByName: currentUser?.name,
+      actionTakenNote: actionTakenNote,
+    );
   }
 
   Future<void> addBooking(BookingRequest booking) async {
@@ -1141,6 +1162,7 @@ class AppState extends ChangeNotifier {
   String _normalizeDisciplineStatus(String status) {
     return switch (status) {
       'New' => 'pending',
+      'Submitted' => 'pending',
       'Under Review' => 'reviewed',
       'Approved' => 'action_taken',
       _ => status,

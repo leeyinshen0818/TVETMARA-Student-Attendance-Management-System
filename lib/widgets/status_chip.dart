@@ -12,6 +12,8 @@ class StatusChip extends StatelessWidget {
       'active' ||
       'Approved' ||
       'approved' ||
+      'Action Taken' ||
+      'Closed' ||
       'Completed' ||
       'completed' ||
       'Attendance Completed' ||
@@ -33,6 +35,7 @@ class StatusChip extends StatelessWidget {
         scheme.error,
       'pending' ||
       'Pending' ||
+      'Reviewed' ||
       'Under Review' ||
       'Attendance Not Taken' ||
       'Ongoing' ||
@@ -47,6 +50,8 @@ class StatusChip extends StatelessWidget {
       'active' => 'Aktif',
       'Approved' => 'Diluluskan',
       'approved' => 'Diluluskan',
+      'Action Taken' => 'Tindakan Diambil',
+      'Closed' => 'Ditutup',
       'Completed' => 'Selesai',
       'completed' => 'Selesai',
       'Attendance Completed' => 'Kehadiran Selesai',
@@ -66,6 +71,7 @@ class StatusChip extends StatelessWidget {
       'Unavailable' => 'Tidak Tersedia',
       'pending' => 'Menunggu',
       'Pending' => 'Menunggu',
+      'Reviewed' => 'Disemak',
       'Under Review' => 'Dalam Semakan',
       'Attendance Not Taken' => 'Belum Diambil',
       'Attendance Pending' => 'Menunggu Kehadiran',

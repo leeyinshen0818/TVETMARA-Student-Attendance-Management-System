@@ -566,6 +566,9 @@ class DisciplineReport {
     this.reviewedAt,
     this.reviewedBy,
     this.actionTakenAt,
+    this.actionTakenBy,
+    this.actionTakenByName,
+    this.actionTakenNote,
     this.closedAt,
   });
 
@@ -596,6 +599,9 @@ class DisciplineReport {
   final String? reviewedAt;
   final String? reviewedBy;
   final String? actionTakenAt;
+  final String? actionTakenBy;
+  final String? actionTakenByName;
+  final String? actionTakenNote;
   final String? closedAt;
 
   DisciplineReport copyWith({
@@ -615,6 +621,9 @@ class DisciplineReport {
     String? reviewedAt,
     String? reviewedBy,
     String? actionTakenAt,
+    String? actionTakenBy,
+    String? actionTakenByName,
+    String? actionTakenNote,
     String? closedAt,
   }) {
     return DisciplineReport(
@@ -647,6 +656,9 @@ class DisciplineReport {
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       actionTakenAt: actionTakenAt ?? this.actionTakenAt,
+      actionTakenBy: actionTakenBy ?? this.actionTakenBy,
+      actionTakenByName: actionTakenByName ?? this.actionTakenByName,
+      actionTakenNote: actionTakenNote ?? this.actionTakenNote,
       closedAt: closedAt ?? this.closedAt,
     );
   }

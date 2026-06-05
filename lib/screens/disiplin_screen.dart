@@ -16,9 +16,11 @@ class DisiplinScreen extends StatefulWidget {
 
 class _DisiplinScreenState extends State<DisiplinScreen> {
   String? selectedStudentId;
+  String? selectedSlotId;
   String issueType = 'Kerap Tidak Hadir';
   String severity = 'Medium';
   final _descCtrl = TextEditingController(text: '');
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -42,8 +44,19 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     }
     final visibleDiscipline = state.scopedDisciplineReports;
 
-    // For Pensyarah: use students from the classes they teach.
-    final studentsList = state.scopedStudents;
+    final slots = state.scopedTimetable;
+    selectedSlotId ??= slots.firstOrNull?.id;
+    final selectedSlot =
+        slots.where((slot) => slot.id == selectedSlotId).firstOrNull;
+    final studentsList = selectedSlot == null
+        ? state.scopedStudents
+        : state.scopedStudents
+            .where((student) => student.section == selectedSlot.section)
+            .toList();
+    if (selectedStudentId == null ||
+        !studentsList.any((student) => student.id == selectedStudentId)) {
+      selectedStudentId = studentsList.firstOrNull?.id;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,106 +76,129 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
           AppPanel(
             title: 'Lapor Disiplin Baharu',
             subtitle: studentsList.isNotEmpty
-                ? 'Pilih pelajar dan nyatakan isu yang berlaku.'
-                : 'Tiada pelajar dijumpai. Sila hubungi pentadbir.',
+                ? 'Pilih kelas, pelajar dan nyatakan isu yang berlaku.'
+                : 'Tiada pelajar dijumpai untuk kelas anda. Sila semak jadual atau hubungi pentadbir.',
             child: studentsList.isNotEmpty
-                ? Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 300,
-                        child: DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue:
-                              selectedStudentId ?? studentsList.firstOrNull?.id,
-                          decoration:
-                              const InputDecoration(labelText: 'Pilih Pelajar'),
-                          items: studentsList
-                              .map((s) => DropdownMenuItem(
-                                  value: s.id,
-                                  child: Text('${s.name} (${s.section})')))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => selectedStudentId = value),
+                      if (selectedSlot != null) ...[
+                        _ClassSummary(slot: selectedSlot),
+                        const SizedBox(height: 16),
+                      ],
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 320,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: selectedSlot?.id,
+                              decoration:
+                                  const InputDecoration(labelText: 'Kelas'),
+                              items: slots
+                                  .map((slot) => DropdownMenuItem(
+                                        value: slot.id,
+                                        child: Text(
+                                            '${slot.subjectCode} - ${slot.section}'),
+                                      ))
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedSlotId = value;
+                                  selectedStudentId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: 320,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: selectedStudentId,
+                              decoration: const InputDecoration(
+                                  labelText: 'Pilih Pelajar'),
+                              items: studentsList
+                                  .map((s) => DropdownMenuItem(
+                                      value: s.id,
+                                      child: Text('${s.name} (${s.section})')))
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => selectedStudentId = value),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 220,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: issueType,
+                              decoration:
+                                  const InputDecoration(labelText: 'Jenis Isu'),
+                              items: [
+                                'Kerap Tidak Hadir',
+                                'Ponteng Kelas',
+                                'Masalah Tingkah Laku',
+                                'Lain-lain'
+                              ]
+                                  .map((i) => DropdownMenuItem(
+                                      value: i, child: Text(i)))
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => issueType = value!),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 160,
+                            child: DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              initialValue: severity,
+                              decoration:
+                                  const InputDecoration(labelText: 'Tahap'),
+                              items: ['Low', 'Medium', 'High']
+                                  .map((i) => DropdownMenuItem(
+                                      value: i, child: Text(i)))
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => severity = value!),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _descCtrl,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Keterangan / Catatan',
+                          alignLabelWithHint: true,
                         ),
                       ),
-                      SizedBox(
-                        width: 200,
-                        child: DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue: issueType,
-                          decoration:
-                              const InputDecoration(labelText: 'Jenis Isu'),
-                          items: [
-                            'Kerap Tidak Hadir',
-                            'Ponteng Kelas',
-                            'Masalah Tingkah Laku',
-                            'Lain-lain'
-                          ]
-                              .map((i) =>
-                                  DropdownMenuItem(value: i, child: Text(i)))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => issueType = value!),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          onPressed: _submitting
+                              ? null
+                              : () => _submitReport(
+                                    state: state,
+                                    user: user,
+                                    studentsList: studentsList,
+                                    selectedSlot: selectedSlot,
+                                  ),
+                          icon: _submitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send),
+                          label: Text(_submitting
+                              ? 'Menghantar...'
+                              : 'Hantar Laporan'),
                         ),
-                      ),
-                      SizedBox(
-                        width: 150,
-                        child: DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue: severity,
-                          decoration: const InputDecoration(
-                              labelText: 'Tahap (Severity)'),
-                          items: ['Low', 'Medium', 'High']
-                              .map((i) =>
-                                  DropdownMenuItem(value: i, child: Text(i)))
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => severity = value!),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 300,
-                        child: TextField(
-                          controller: _descCtrl,
-                          decoration: const InputDecoration(
-                              labelText: 'Keterangan / Catatan'),
-                        ),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () {
-                          final targetId =
-                              selectedStudentId ?? studentsList.firstOrNull?.id;
-                          if (targetId == null) return;
-                          final student =
-                              studentsList.firstWhere((s) => s.id == targetId);
-
-                          state.addDiscipline(DisciplineReport(
-                            id: 'D${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-                            studentId: student.id,
-                            studentName: student.name,
-                            section: student.section,
-                            subject: '-',
-                            lecturer: user.name,
-                            date: DateTime.now()
-                                .toIso8601String()
-                                .substring(0, 10),
-                            issueType: issueType,
-                            severity: severity,
-                            description: _descCtrl.text.trim(),
-                            followUp: false,
-                            status: 'pending',
-                          ));
-                          _descCtrl.clear();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Laporan disiplin telah dihantar.')));
-                        },
-                        icon: const Icon(Icons.send),
-                        label: const Text('Hantar Laporan'),
                       ),
                     ],
                   )
@@ -183,63 +219,285 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
         AppPanel(
           title: 'Senarai Laporan Disiplin',
           subtitle: 'Item susulan daripada semakan kehadiran dan tingkah laku.',
-          child: AppDataTable(
-            columns: const [
-              DataColumn(label: Text('ID Laporan')),
-              DataColumn(label: Text('Pelajar')),
-              DataColumn(label: Text('Program / Kelas')),
-              DataColumn(label: Text('Subjek')),
-              DataColumn(label: Text('Isu & Keterangan')),
-              DataColumn(label: Text('Dilapor Oleh')),
-              DataColumn(label: Text('Tarikh')),
-              DataColumn(label: Text('Reviewer')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Tindakan')),
-            ],
-            rows: visibleDiscipline.map((report) {
-              final status = _normalizedStatus(report.status);
-              return DataRow(cells: [
-                DataCell(Text(report.id)),
-                DataCell(Text(report.studentName)),
-                DataCell(Text(
-                    '${report.programName ?? report.programId ?? '-'}\n${report.section}')),
-                DataCell(Text(report.subjectName ??
-                    report.subjectCode ??
-                    (report.subject == '-' ? '-' : report.subject))),
-                DataCell(SizedBox(
-                  width: 260,
-                  child: Text(
-                    '${report.issueType} (${report.severity})\n${report.description.isEmpty ? '-' : report.description}',
+          child: Column(
+            children: [
+              for (final report in visibleDiscipline)
+                _DisciplineReportItem(
+                  report: report,
+                  status: _normalizedStatus(report.status),
+                  canApprove: canApproveDiscipline,
+                  onStatusChanged: (nextStatus, {actionTakenNote}) =>
+                      state.updateDiscipline(
+                    report.id,
+                    nextStatus,
+                    actionTakenNote: actionTakenNote,
                   ),
-                )),
-                DataCell(Text(report.createdByName ?? report.lecturer)),
-                DataCell(Text(report.createdAt ?? report.date)),
-                DataCell(Text(report.assignedReviewerRoles.isEmpty
-                    ? '-'
-                    : report.assignedReviewerRoles.join(', '))),
-                DataCell(StatusChip(status)),
-                DataCell(canApproveDiscipline
-                    ? _DisciplineStatusActions(
-                        status: status,
-                        onChanged: (nextStatus) =>
-                            state.updateDiscipline(report.id, nextStatus),
-                      )
-                    : const Text('-')),
-              ]);
-            }).toList(),
+                ),
+              if (visibleDiscipline.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(
+                    child: Text(
+                      'Tiada laporan disiplin ditemui.',
+                      style: TextStyle(color: Color(0xff64748b)),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
     );
   }
 
+  Future<void> _submitReport({
+    required dynamic state,
+    required AppUser user,
+    required List<Student> studentsList,
+    required TimetableSlot? selectedSlot,
+  }) async {
+    final targetId = selectedStudentId ?? studentsList.firstOrNull?.id;
+    final description = _descCtrl.text.trim();
+    if (targetId == null) return;
+    if (description.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Sila isi keterangan sebelum menghantar laporan.')));
+      return;
+    }
+
+    final student = studentsList.firstWhere((s) => s.id == targetId);
+    setState(() => _submitting = true);
+    try {
+      await state.addDiscipline(DisciplineReport(
+        id: 'D${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
+        studentId: student.id,
+        studentName: student.name,
+        programId: selectedSlot?.programId,
+        programName: selectedSlot?.program ?? student.program,
+        departmentId: selectedSlot?.departmentId,
+        section: student.section,
+        subject: selectedSlot?.subjectName ?? '-',
+        subjectCode: selectedSlot?.subjectCode,
+        subjectName: selectedSlot?.subjectName,
+        slotId: selectedSlot?.id,
+        lecturer: user.name,
+        createdBy: user.uid,
+        createdByName: user.name,
+        date: DateTime.now().toIso8601String().substring(0, 10),
+        issueType: issueType,
+        severity: severity,
+        description: description,
+        followUp: false,
+        status: 'pending',
+      ));
+      _descCtrl.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Laporan disiplin telah dihantar.')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   String _normalizedStatus(String status) {
     return switch (status) {
       'New' => 'pending',
+      'Submitted' => 'pending',
       'Under Review' => 'reviewed',
       'Approved' => 'action_taken',
       _ => status,
     };
+  }
+}
+
+class _ClassSummary extends StatelessWidget {
+  const _ClassSummary({required this.slot});
+
+  final TimetableSlot slot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _MiniChip(Icons.groups_outlined, slot.section),
+        _MiniChip(Icons.menu_book_outlined, slot.subjectCode),
+        _MiniChip(Icons.schedule, '${slot.startTime}-${slot.endTime}'),
+        _MiniChip(Icons.meeting_room_outlined, slot.room),
+      ],
+    );
+  }
+}
+
+class _MiniChip extends StatelessWidget {
+  const _MiniChip(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xffeff6ff),
+        border: Border.all(color: const Color(0xffbfdbfe)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17, color: const Color(0xff2563eb)),
+          const SizedBox(width: 7),
+          Text(
+            label.isEmpty ? '-' : label,
+            style: const TextStyle(
+              color: Color(0xff1e3a8a),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisciplineReportItem extends StatelessWidget {
+  const _DisciplineReportItem({
+    required this.report,
+    required this.status,
+    required this.canApprove,
+    required this.onStatusChanged,
+  });
+
+  final DisciplineReport report;
+  final String status;
+  final bool canApprove;
+  final Future<void> Function(String status, {String? actionTakenNote})
+      onStatusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final subject = report.subjectName ??
+        report.subjectCode ??
+        (report.subject == '-' ? 'Tiada subjek' : report.subject);
+    final reviewers = report.assignedReviewerRoles.isEmpty
+        ? '-'
+        : report.assignedReviewerRoles.join(', ');
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.studentName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xff0f172a),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${report.programName ?? report.programId ?? '-'} | ${report.section} | $subject',
+                      style: const TextStyle(color: Color(0xff64748b)),
+                    ),
+                  ],
+                ),
+              ),
+              StatusChip(_statusLabel(status)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${report.issueType} (${report.severity})',
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: Color(0xff334155),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(report.description.isEmpty ? '-' : report.description),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            children: [
+              _ReportMeta(label: 'Laporan', value: report.id),
+              _ReportMeta(
+                  label: 'Dilapor oleh',
+                  value: report.createdByName ?? report.lecturer),
+              _ReportMeta(label: 'Tarikh', value: report.createdAt ?? report.date),
+              _ReportMeta(label: 'Reviewer', value: reviewers),
+            ],
+          ),
+          if (report.actionTakenNote != null &&
+              report.actionTakenNote!.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xfff1f5f9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Tindakan: ${report.actionTakenNote}'
+                '${report.actionTakenByName == null ? '' : ' (${report.actionTakenByName})'}',
+                style: const TextStyle(color: Color(0xff334155)),
+              ),
+            ),
+          ],
+          if (canApprove) ...[
+            const SizedBox(height: 12),
+            _DisciplineStatusActions(
+              status: status,
+              onChanged: onStatusChanged,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _statusLabel(String status) {
+    return switch (status) {
+      'pending' => 'Pending',
+      'reviewed' => 'Reviewed',
+      'action_taken' => 'Action Taken',
+      'closed' => 'Closed',
+      'rejected' => 'Rejected',
+      _ => status,
+    };
+  }
+}
+
+class _ReportMeta extends StatelessWidget {
+  const _ReportMeta({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '$label: $value',
+      style: const TextStyle(color: Color(0xff64748b), fontSize: 12),
+    );
   }
 }
 
@@ -250,7 +508,8 @@ class _DisciplineStatusActions extends StatelessWidget {
   });
 
   final String status;
-  final ValueChanged<String> onChanged;
+  final Future<void> Function(String status, {String? actionTakenNote})
+      onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -277,9 +536,71 @@ class _DisciplineStatusActions extends StatelessWidget {
         for (final action in actions)
           IconButton(
             tooltip: action.label,
-            onPressed: () => onChanged(action.status),
+            onPressed: () => _handleAction(context, action.status),
             icon: Icon(action.icon, size: 20),
           ),
+      ],
+    );
+  }
+
+  Future<void> _handleAction(BuildContext context, String nextStatus) async {
+    if (nextStatus != 'action_taken') {
+      await onChanged(nextStatus);
+      return;
+    }
+
+    final note = await showDialog<String>(
+      context: context,
+      builder: (context) => const _ActionTakenDialog(),
+    );
+    if (note == null || note.trim().isEmpty) return;
+    await onChanged(nextStatus, actionTakenNote: note.trim());
+  }
+}
+
+class _ActionTakenDialog extends StatefulWidget {
+  const _ActionTakenDialog();
+
+  @override
+  State<_ActionTakenDialog> createState() => _ActionTakenDialogState();
+}
+
+class _ActionTakenDialogState extends State<_ActionTakenDialog> {
+  final _noteCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Catatan Tindakan'),
+      content: TextField(
+        controller: _noteCtrl,
+        maxLines: 4,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Tindakan yang diambil',
+          hintText: 'Contoh: Kaunseling pelajar dan hubungi penjaga.',
+          alignLabelWithHint: true,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final note = _noteCtrl.text.trim();
+            if (note.isEmpty) return;
+            Navigator.of(context).pop(note);
+          },
+          child: const Text('Simpan'),
+        ),
       ],
     );
   }

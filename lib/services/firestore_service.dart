@@ -520,7 +520,13 @@ class FirestoreService {
         .set(_disciplineReportToMap(routed, existing: false));
   }
 
-  Future<void> updateDisciplineStatus(String id, String status) async {
+  Future<void> updateDisciplineStatus(
+    String id,
+    String status, {
+    String? actionTakenBy,
+    String? actionTakenByName,
+    String? actionTakenNote,
+  }) async {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final updates = <String, dynamic>{
       'status': normalizedStatus,
@@ -530,6 +536,9 @@ class FirestoreService {
       updates['reviewedAt'] = FieldValue.serverTimestamp();
     } else if (normalizedStatus == 'action_taken') {
       updates['actionTakenAt'] = FieldValue.serverTimestamp();
+      updates['actionTakenBy'] = actionTakenBy;
+      updates['actionTakenByName'] = actionTakenByName;
+      updates['actionTakenNote'] = actionTakenNote;
     } else if (normalizedStatus == 'closed') {
       updates['closedAt'] = FieldValue.serverTimestamp();
     }
@@ -1108,6 +1117,9 @@ class FirestoreService {
       reviewedAt: _readTimestamp(d['reviewedAt']),
       reviewedBy: d['reviewedBy'] as String?,
       actionTakenAt: _readTimestamp(d['actionTakenAt']),
+      actionTakenBy: d['actionTakenBy'] as String?,
+      actionTakenByName: d['actionTakenByName'] as String?,
+      actionTakenNote: d['actionTakenNote'] as String?,
       closedAt: _readTimestamp(d['closedAt']),
     );
   }
@@ -1289,6 +1301,11 @@ class FirestoreService {
         if (report.reviewedAt != null) 'reviewedAt': report.reviewedAt,
         if (report.reviewedBy != null) 'reviewedBy': report.reviewedBy,
         if (report.actionTakenAt != null) 'actionTakenAt': report.actionTakenAt,
+        if (report.actionTakenBy != null) 'actionTakenBy': report.actionTakenBy,
+        if (report.actionTakenByName != null)
+          'actionTakenByName': report.actionTakenByName,
+        if (report.actionTakenNote != null)
+          'actionTakenNote': report.actionTakenNote,
         if (report.closedAt != null) 'closedAt': report.closedAt,
       };
 
@@ -1323,6 +1340,7 @@ class FirestoreService {
   String _normalizeDisciplineStatus(String status) {
     return switch (status) {
       'New' => 'pending',
+      'Submitted' => 'pending',
       'Under Review' => 'reviewed',
       'Approved' => 'action_taken',
       _ => status,
