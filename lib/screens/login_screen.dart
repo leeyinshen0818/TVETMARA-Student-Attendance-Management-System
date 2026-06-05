@@ -272,56 +272,114 @@ class _LoginForm extends StatelessWidget {
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Pilih akaun demo mengikut skop ujian. Contoh: gunakan KJ Elektrik untuk jadual DED/DCP/DCB, dan KP DGS untuk jadual DGS.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xff64748b),
+                          ),
+                    ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
+                    _DemoLoginSection(
+                      title: 'Pentadbir',
+                      buttons: [
                         _DemoLoginButton(
-                          label: 'Pentadbir',
+                          label: 'Pentadbir Sistem',
+                          subtitle: 'Daftar akaun dan tetapan',
                           icon: Icons.admin_panel_settings,
+                          email: 'admin@tvetmara.edu.my',
                           onPressed: () =>
                               onFillDemo('admin@tvetmara.edu.my', 'admin123'),
                         ),
+                      ],
+                    ),
+                    _DemoLoginSection(
+                      title: 'Ketua Jabatan',
+                      buttons: [
                         _DemoLoginButton(
-                          label: 'Ketua Jabatan',
+                          label: 'KJ Elektrik',
+                          subtitle: 'Skop: DED / DCP / DCB',
                           icon: Icons.account_balance,
+                          email: 'kj_elektrik@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'kj_elektrik@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
-                          label: 'KP Tanpa KJ',
+                          label: 'KJ Mekanikal',
+                          subtitle: 'Skop: ITW / SLR / SMI',
+                          icon: Icons.account_balance,
+                          email: 'kj_mekanikal@tvetmara.edu.my',
+                          onPressed: () => onFillDemo(
+                              'kj_mekanikal@tvetmara.edu.my', 'password123'),
+                        ),
+                        _DemoLoginButton(
+                          label: 'KJ Automotif',
+                          subtitle: 'Skop: IMF / SMM / DMM',
+                          icon: Icons.account_balance,
+                          email: 'kj_automotif@tvetmara.edu.my',
+                          onPressed: () => onFillDemo(
+                              'kj_automotif@tvetmara.edu.my', 'password123'),
+                        ),
+                      ],
+                    ),
+                    _DemoLoginSection(
+                      title: 'Ketua Program',
+                      buttons: [
+                        _DemoLoginButton(
+                          label: 'KP DGS',
+                          subtitle: 'Program tanpa KJ: DGS sahaja',
                           icon: Icons.school,
+                          email: 'kp_dgs@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'kp_dgs@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
-                          label: 'KP Dengan KJ',
+                          label: 'KP DED',
+                          subtitle: 'Program dengan KJ: DED sahaja',
                           icon: Icons.account_tree,
+                          email: 'kp_ded@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'kp_ded@tvetmara.edu.my', 'password123'),
                         ),
+                      ],
+                    ),
+                    _DemoLoginSection(
+                      title: 'Pensyarah Real Demo',
+                      buttons: [
                         _DemoLoginButton(
                           label: 'SYARIFAH BINTI ABDUL RAHIM',
+                          subtitle: 'Pensyarah Elektrik - akaun sebenar demo',
                           icon: Icons.menu_book,
+                          email: 'lecturer046@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'lecturer046@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
                           label: 'Zabhin bin Mohd Arbai',
+                          subtitle: 'Pensyarah DGS - akaun sebenar demo',
                           icon: Icons.menu_book,
+                          email: 'lecturer001@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'lecturer001@tvetmara.edu.my', 'password123'),
                         ),
+                      ],
+                    ),
+                    _DemoLoginSection(
+                      title: 'Legacy Demo Pensyarah',
+                      buttons: [
                         _DemoLoginButton(
                           label: 'Demo Pensyarah DED',
+                          subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
                           icon: Icons.person_outline,
+                          email: 'pensyarah_ded@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'pensyarah_ded@tvetmara.edu.my', 'password123'),
                         ),
                         _DemoLoginButton(
                           label: 'Demo Pensyarah DGS',
+                          subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
                           icon: Icons.person_outline,
+                          email: 'pensyarah_dgs@tvetmara.edu.my',
                           onPressed: () => onFillDemo(
                               'pensyarah_dgs@tvetmara.edu.my', 'password123'),
                         ),
@@ -401,29 +459,82 @@ class _LoginForm extends StatelessWidget {
   }
 }
 
+class _DemoLoginSection extends StatelessWidget {
+  const _DemoLoginSection({
+    required this.title,
+    required this.buttons,
+  });
+
+  final String title;
+  final List<Widget> buttons;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: const Color(0xff475569),
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: buttons,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DemoLoginButton extends StatelessWidget {
   const _DemoLoginButton({
     required this.label,
+    required this.subtitle,
     required this.icon,
+    required this.email,
     required this.onPressed,
   });
 
   final String label;
+  final String subtitle;
   final IconData icon;
+  final String email;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: label,
+      message: '$label\n$subtitle\n$email',
       child: OutlinedButton.icon(
+        key: ValueKey('demo-login-$email'),
         onPressed: onPressed,
         icon: Icon(icon, size: 18),
         label: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 190),
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
+          constraints: const BoxConstraints(maxWidth: 210),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                subtitle,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: const Color(0xff64748b),
+                    ),
+              ),
+            ],
           ),
         ),
       ),

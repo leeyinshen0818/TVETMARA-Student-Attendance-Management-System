@@ -366,7 +366,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const TimetableImportService().parseAndValidate(file.content);
       final preview = await TimetableMasterValidationService(
         FirestoreTimetableMasterDataSource(),
-      ).preparePreview(parsed);
+      ).preparePreview(
+        parsed,
+        uploadScope: TimetableUploadScope.forUser(
+          state.currentUser!,
+          state.programs,
+        ),
+      );
       final validatedPreview = _withSelectedSessionValidation(
         preview,
         _activeAcademicSession(state),

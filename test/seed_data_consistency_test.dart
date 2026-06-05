@@ -27,6 +27,86 @@ AttendanceSummary _summaryFor(List<AttendanceRecord> records) {
   return summary;
 }
 
+void _expectCleanTimetableCsv({
+  required String path,
+  required Set<String> allowedPrograms,
+  required int minimumRows,
+}) {
+  final file = File(path);
+  expect(file.existsSync(), isTrue, reason: path);
+
+  final content = file.readAsStringSync();
+  final header = content.split(RegExp(r'\r?\n')).first.split(',');
+  const requiredHeaders = {
+    'academicSessionId',
+    'programId',
+    'programName',
+    'classId',
+    'subjectCode',
+    'subjectName',
+    'subjectId',
+    'lecturerEmail',
+    'lecturerName',
+    'roomId',
+    'roomName',
+    'dayOfWeek',
+    'startTime',
+    'endTime',
+    'weekStart',
+    'weekEnd',
+    'status',
+    'remarks',
+  };
+  expect(header.toSet(), containsAll(requiredHeaders), reason: path);
+
+  final result = const TimetableImportService().parseAndValidate(content);
+  expect(result.validationErrors, isEmpty, reason: path);
+  expect(result.errorRows, 0, reason: path);
+  expect(result.duplicateRows, 0, reason: path);
+  expect(result.parsedRows.length, greaterThanOrEqualTo(minimumRows),
+      reason: path);
+
+  final lecturerEmails = mock.users.map((user) => user.email).toSet();
+  final rooms = {
+    for (final room in mock.roomResources)
+      room.name.replaceAll(RegExp(r'[/\\.]'), '_'),
+  };
+  final classes = {for (final item in mock.demoClasses) item.classId: item};
+  final conflictKeys = <String>{};
+
+  for (final row in result.parsedRows) {
+    final draft = row.draft!;
+    expect(allowedPrograms, contains(draft.programId), reason: path);
+    expect(draft.programId, matches(RegExp(r'^[A-Z]{3}$')),
+        reason: '${path}: ${draft.programId}');
+    expect(lecturerEmails, contains(draft.lecturerEmail),
+        reason: '${path}: ${draft.lecturerEmail}');
+    expect(rooms, contains(draft.roomId), reason: '${path}: ${draft.roomId}');
+    expect(classes, contains(draft.classId),
+        reason: '${path}: ${draft.classId}');
+    expect(classes[draft.classId]!.programId, draft.programId,
+        reason: '${path}: ${draft.classId}');
+
+    final scheduleKey = [
+      draft.academicSessionId,
+      draft.dayOfWeek,
+      draft.startTime,
+      draft.endTime,
+      draft.weekStart,
+      draft.weekEnd,
+    ].join('|');
+    expect(conflictKeys.add('room|$scheduleKey|${draft.roomId}'), isTrue,
+        reason: path);
+    expect(
+      conflictKeys.add('lecturer|$scheduleKey|${draft.lecturerEmail}'),
+      isTrue,
+      reason: path,
+    );
+    expect(conflictKeys.add('class|$scheduleKey|${draft.classId}'), isTrue,
+        reason: path);
+  }
+}
+
 void main() {
   setUpAll(mock.initializeMockData);
 
@@ -266,39 +346,28 @@ void main() {
   });
 
   test('clean no-conflict timetable CSV parses and has no core conflicts', () {
-    final file = File('demo_data/clean_no_conflict_timetable_JAN_JUN_2026.csv');
-    expect(file.existsSync(), isTrue);
-    final result = const TimetableImportService()
-        .parseAndValidate(file.readAsStringSync());
-    expect(result.validationErrors, isEmpty);
-    expect(result.errorRows, 0);
-    expect(result.duplicateRows, 0);
-    expect(result.parsedRows.length, greaterThanOrEqualTo(30));
+    _expectCleanTimetableCsv(
+      path: 'demo_data/clean_no_conflict_timetable_JAN_JUN_2026.csv',
+      allowedPrograms: {'DED', 'DCP', 'DCB', 'DGS'},
+      minimumRows: 30,
+    );
+  });
 
-    final lecturerEmails = mock.users.map((user) => user.email).toSet();
-    final rooms = {
-      for (final room in mock.roomResources)
-        room.name.replaceAll(RegExp(r'[/\\.]'), '_'),
-    };
-    final classes = mock.demoClasses.map((item) => item.classId).toSet();
-    final conflictKeys = <String>{};
-    for (final row in result.parsedRows) {
-      final draft = row.draft!;
-      expect(lecturerEmails, contains(draft.lecturerEmail));
-      expect(rooms, contains(draft.roomId));
-      expect(classes, contains(draft.classId));
-      final scheduleKey = [
-        draft.academicSessionId,
-        draft.dayOfWeek,
-        draft.startTime,
-        draft.endTime,
-        draft.weekStart,
-        draft.weekEnd,
-      ].join('|');
-      expect(conflictKeys.add('room|$scheduleKey|${draft.roomId}'), isTrue);
-      expect(conflictKeys.add('lecturer|$scheduleKey|${draft.lecturerEmail}'),
-          isTrue);
-      expect(conflictKeys.add('class|$scheduleKey|${draft.classId}'), isTrue);
-    }
+  test('Elektrik no-conflict timetable CSV is scoped to DED, DCP, and DCB',
+      () {
+    _expectCleanTimetableCsv(
+      path:
+          'demo_data/clean_no_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv',
+      allowedPrograms: {'DED', 'DCP', 'DCB'},
+      minimumRows: 30,
+    );
+  });
+
+  test('DGS no-conflict timetable CSV is scoped to DGS only', () {
+    _expectCleanTimetableCsv(
+      path: 'demo_data/clean_no_conflict_timetable_DGS_JAN_JUN_2026.csv',
+      allowedPrograms: {'DGS'},
+      minimumRows: 10,
+    );
   });
 }
