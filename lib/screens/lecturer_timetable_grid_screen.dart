@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 
 import '../state/lecturer_timetable_controller.dart';
 import '../services/lecturer_timetable_service.dart';
+import '../services/timetable_file_io.dart';
+import '../services/timetable_view_export_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
@@ -191,7 +193,14 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _PageHeader(week: week, controller: widget.controller),
+              _PageHeader(
+                week: week,
+                controller: widget.controller,
+                lecturerName: widget.lecturerName,
+                onExport: filtered.isEmpty
+                    ? null
+                    : () => _exportLecturerTimetable(filtered),
+              ),
               _StatCardRow(
                 totalSlots: allSlots.length,
                 sections: uniqueSections,
@@ -231,32 +240,108 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
       ),
     );
   }
+
+  void _exportLecturerTimetable(List<LecturerSlot> slots) {
+    final filenameName = widget.lecturerName
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final rows = <List<String>>[
+      ['JADUAL WAKTU PENSYARAH'],
+      ['Pensyarah', widget.lecturerName],
+      ['Sesi Akademik', 'JAN_JUN_2026'],
+      ['Dijana Pada', DateTime.now().toIso8601String()],
+      [],
+      [
+        'Hari',
+        'Masa',
+        'Kod Kursus',
+        'Nama Kursus',
+        'Kelas',
+        'Program',
+        'Bilik',
+        'Jenis Kelas',
+      ],
+      ...slots.map((slot) => [
+            _normalDay(slot.day),
+            '${slot.startTime}-${slot.endTime}',
+            slot.subjectCode,
+            slot.subjectName,
+            slot.section,
+            slot.programId,
+            slot.roomId,
+            slot.classType,
+          ]),
+    ];
+    downloadTextFile(
+      filename: 'jadual_pensyarah_${filenameName}_JAN_JUN_2026.csv',
+      content: rowsToCsv(rows),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page header  (title + week selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
+String _normalDay(String value) {
+  final upper = value.trim().toUpperCase();
+  return switch (upper) {
+    'MONDAY' || 'ISNIN' => 'Isnin',
+    'TUESDAY' || 'SELASA' => 'Selasa',
+    'WEDNESDAY' || 'RABU' => 'Rabu',
+    'THURSDAY' || 'KHAMIS' => 'Khamis',
+    'FRIDAY' || 'JUMAAT' => 'Jumaat',
+    'SATURDAY' || 'SABTU' => 'Sabtu',
+    'SUNDAY' || 'AHAD' => 'Ahad',
+    _ => value,
+  };
+}
+
 class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.week, required this.controller});
+  const _PageHeader({
+    required this.week,
+    required this.controller,
+    required this.lecturerName,
+    required this.onExport,
+  });
   final String week;
   final LecturerTimetableController controller;
+  final String lecturerName;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: _kCardBg,
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-      child: const Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Jadual Waktu Pensyarah',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: _kText,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Jadual Waktu Pensyarah',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: _kText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Paparan jadual rasmi yang ditugaskan kepada $lecturerName sahaja.',
+                  style: const TextStyle(color: _kMuted),
+                ),
+              ],
             ),
+          ),
+          OutlinedButton.icon(
+            onPressed: onExport,
+            icon: const Icon(Icons.ios_share_outlined),
+            label: const Text('Eksport Jadual Saya'),
           ),
         ],
       ),

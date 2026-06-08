@@ -1,481 +1,436 @@
 import 'package:flutter/material.dart';
+
 import '../models/app_models.dart';
-import '../services/kp_timetable_service.dart';
+import '../services/timetable_file_io.dart';
+import '../services/timetable_view_export_service.dart';
+import '../state/app_scope.dart';
+import '../widgets/app_layout.dart';
+import '../widgets/class_timetable_generator_dialog.dart';
+import '../widgets/status_chip.dart';
 
 class KpTimetableScreen extends StatefulWidget {
-  final AppUser kpUser;
-
   const KpTimetableScreen({super.key, required this.kpUser});
+
+  final AppUser kpUser;
 
   @override
   State<KpTimetableScreen> createState() => _KpTimetableScreenState();
 }
 
 class _KpTimetableScreenState extends State<KpTimetableScreen> {
-  late KpTimetableService _service;
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _service = KpTimetableService(currentKpOops: widget.kpUser);
-    _service.addListener(_onServiceUpdate);
-  }
-
-  @override
-  void dispose() {
-    _service.removeListener(_onServiceUpdate);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onServiceUpdate() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  String? _selectedSession;
+  String? _selectedClassId;
+  String? _subjectFilter;
+  String? _lecturerFilter;
+  String? _roomFilter;
 
   @override
   Widget build(BuildContext context) {
-    if (_service.isLoading) {
-      return const SizedBox(
-        height: 300,
-        child: Center(
-          child: CircularProgressIndicator(color: Color(0xff1a73e8)),
-        ),
-      );
+    final state = AppScope.of(context);
+    final programId = widget.kpUser.programId ?? '';
+    final program =
+        state.programs.where((item) => item.id == programId).firstOrNull;
+    final sessionOptions = _sessionOptions(state);
+    final activeSession = _selectedSession ??
+        (sessionOptions.contains(state.session)
+            ? state.session
+            : sessionOptions.firstOrNull);
+    final scopedSlots = state.scopedTimetable
+        .where((slot) =>
+            slot.programId == programId && _slotSession(slot) == activeSession)
+        .toList()
+      ..sort(_slotSorter);
+    final classOptions = _sortedUnique(scopedSlots.map(_slotClassId));
+    if (_selectedClassId != null && !classOptions.contains(_selectedClassId)) {
+      _selectedClassId = null;
     }
+    final visibleSlots = scopedSlots.where((slot) {
+      final subject = '${slot.subjectCode} - ${slot.subjectName}';
+      final lecturer = slot.lecturerName;
+      final room = _slotRoom(slot);
+      return (_subjectFilter == null || subject == _subjectFilter) &&
+          (_lecturerFilter == null || lecturer == _lecturerFilter) &&
+          (_roomFilter == null || room == _roomFilter);
+    }).toList();
 
-    // Mengambil semua slot untuk dipaparkan dalam bentuk jadual baris demi baris
-    // (Anda boleh menapis senarai ini menggunakan _searchController.text sekiranya perlu)
-    final allSlots = _service.availableSections.expand((section) {
-      // Mengumpulkan semua slot daripada kombinasi hari (1-5) dan period (1-8) sebagai sandaran data
-      final List<TimetableSlot> slots = [];
-      final List<String> days = ['ISNIN', 'SELASA', 'RABU', 'KHAMIS', 'JUMAAT'];
-      for (var day in days) {
-        for (var period = 1; period <= 8; period++) {
-          slots.addAll(_service.getFilteredSlotsForCell(day, period));
-        }
-      }
-      return slots;
-    }).toSet().toList(); // Memastikan slot adalah unik
-
-    return Container(
-      color: const Color(0xfff8fafc), // Latar belakang aplikasi web yang bersih
-      width: double.infinity,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Jadual Program',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xff202124),
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-            // 1. TOP ROW: Summary Cards Block
-            _buildSummaryCards(allSlots.length),
-            const SizedBox(height: 20),
-
-            // 2. MIDDLE ROW: Unified Filters Section
-            _buildFiltersCard(),
-            const SizedBox(height: 24),
-
-            // 3. BOTTOM SECTION: Official Timetable Slots Table
-            _buildOfficialTimetableTable(allSlots),
-            const SizedBox(height: 40),
-          ],
+    final titleProgram = programId.isEmpty ? 'Program' : programId;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PageHeader(
+          title: 'Jadual Program',
+          subtitle:
+              'Lihat jadual rasmi untuk program $titleProgram sahaja. Gunakan eksport untuk berkongsi jadual dengan pelajar.',
+          trailing: StatusChip('Program: $titleProgram'),
         ),
+        AppPanel(
+          title: 'Skop Paparan',
+          subtitle:
+              'Paparan ini adalah baca sahaja. Muat naik, edit dan tindakan batch diurus oleh Ketua Jabatan.',
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _InfoChip(
+                  'Program',
+                  program == null
+                      ? titleProgram
+                      : '${program.id} - ${program.name}'),
+              _InfoChip('Sesi', activeSession ?? '-'),
+              _InfoChip('Kelas', '${classOptions.length} seksyen'),
+              _InfoChip('Slot', '${scopedSlots.length} slot'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ProgramSlotList(
+          slots: visibleSlots,
+          subjectFilter: _subjectFilter,
+          lecturerFilter: _lecturerFilter,
+          roomFilter: _roomFilter,
+          subjectOptions: _sortedUnique(scopedSlots
+              .map((slot) => '${slot.subjectCode} - ${slot.subjectName}')),
+          lecturerOptions:
+              _sortedUnique(scopedSlots.map((slot) => slot.lecturerName)),
+          roomOptions: _sortedUnique(scopedSlots.map(_slotRoom)),
+          onSubjectChanged: (value) => setState(() => _subjectFilter = value),
+          onLecturerChanged: (value) => setState(() => _lecturerFilter = value),
+          onRoomChanged: (value) => setState(() => _roomFilter = value),
+          onReset: () => setState(() {
+            _subjectFilter = null;
+            _lecturerFilter = null;
+            _roomFilter = null;
+          }),
+        ),
+        const SizedBox(height: 16),
+        _ClassTimetableSecondaryAction(
+          enabled: classOptions.isNotEmpty && activeSession != null,
+          onOpen: () => _showClassTimetableGeneratorDialog(
+            programId: programId,
+            programName: program?.name ?? programId,
+            sessionOptions: sessionOptions,
+            selectedSession: activeSession ?? '',
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<String> _sessionOptions(dynamic state) {
+    final values = state.academicSessions
+        .map<String>((session) => session.academicSessionId as String)
+        .toSet()
+        .toList()
+      ..sort();
+    if (values.isEmpty) values.add(state.session as String);
+    return values;
+  }
+
+  Future<void> _showClassTimetableGeneratorDialog({
+    required String programId,
+    required String programName,
+    required List<String> sessionOptions,
+    required String selectedSession,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => ClassTimetableGeneratorDialog(
+        sessionOptions: sessionOptions,
+        initialSessionId: selectedSession,
+        programOptions: [programId],
+        initialProgramId: programId,
+        lockProgram: true,
+        programLabelFor: (value) => '$value - $programName',
+        classOptionsFor: (academicSessionId, value) {
+          final state = AppScope.of(context);
+          final scopedSlots = state.scopedTimetable
+              .where((slot) =>
+                  slot.programId == value &&
+                  _slotSession(slot) == academicSessionId)
+              .toList();
+          return _sortedUnique(scopedSlots.map(_slotClassId));
+        },
+        slotsFor: (academicSessionId, value, classId) {
+          final state = AppScope.of(context);
+          final scopedSlots = state.scopedTimetable
+              .where((slot) =>
+                  slot.programId == value &&
+                  _slotSession(slot) == academicSessionId)
+              .toList();
+          return filterClassTimetableSlots(
+            scopedSlots,
+            programId: value,
+            classId: classId,
+            academicSessionId: academicSessionId,
+          );
+        },
+        onExport: (academicSessionId, value, classId, slots) {
+          _selectedSession = academicSessionId;
+          _selectedClassId = classId;
+          _exportClassTimetable(
+            programId: value,
+            programName: programName,
+            classId: classId,
+            academicSessionId: academicSessionId,
+            generatedBy: widget.kpUser.name,
+            slots: slots,
+          );
+        },
       ),
     );
   }
 
-  /// 1. Blok Ringkasan Metrik (3-Column Summary Cards)
-  Widget _buildSummaryCards(int totalSlotsCount) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Menggunakan GridView berasaskan nisbah lebar untuk susun atur responsif
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: constraints.maxWidth > 600 ? 3 : 1,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: constraints.maxWidth > 600 ? 3.5 : 4,
-          children: [
-            _buildMetricCard('TOTAL SLOTS', totalSlotsCount.toString(), Colors.blue.shade700),
-            _buildMetricCard('REPLACEMENT', '0', Colors.orange.shade700),
-            _buildMetricCard('SECTION', _service.availableSections.length.toString(), Colors.purple.shade700),
-          ],
-        );
-      },
+  void _exportClassTimetable({
+    required String programId,
+    required String programName,
+    required String classId,
+    required String academicSessionId,
+    required String generatedBy,
+    required List<TimetableSlot> slots,
+  }) {
+    downloadTextFile(
+      filename:
+          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.csv',
+      content: buildClassTimetableCsv(
+        programId: programId,
+        programName: programName,
+        classId: classId,
+        academicSessionId: academicSessionId,
+        generatedBy: generatedBy,
+        generatedAt: DateTime.now(),
+        slots: slots,
+      ),
     );
   }
+}
 
-  Widget _buildMetricCard(String label, String value, Color accentColor) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xffdadce0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+class _ClassTimetableSecondaryAction extends StatelessWidget {
+  const _ClassTimetableSecondaryAction({
+    required this.enabled,
+    required this.onOpen,
+  });
+
+  final bool enabled;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Jana / Eksport Jadual Kelas',
+      subtitle:
+          'Alat sokongan untuk berkongsi jadual kelas kepada pelajar. Senarai Slot Program kekal sebagai paparan utama.',
+      trailing: OutlinedButton.icon(
+        onPressed: enabled ? onOpen : null,
+        icon: const Icon(Icons.view_week_outlined),
+        label: const Text('Jana / Eksport Jadual Kelas'),
+      ),
+      child: const Text(
+        'Pilih tindakan ini untuk menjana jadual satu kelas atau seksyen dalam skop program anda.',
+        style: TextStyle(color: Color(0xff64748b)),
+      ),
+    );
+  }
+}
+
+class _ProgramSlotList extends StatelessWidget {
+  const _ProgramSlotList({
+    required this.slots,
+    required this.subjectFilter,
+    required this.lecturerFilter,
+    required this.roomFilter,
+    required this.subjectOptions,
+    required this.lecturerOptions,
+    required this.roomOptions,
+    required this.onSubjectChanged,
+    required this.onLecturerChanged,
+    required this.onRoomChanged,
+    required this.onReset,
+  });
+
+  final List<TimetableSlot> slots;
+  final String? subjectFilter;
+  final String? lecturerFilter;
+  final String? roomFilter;
+  final List<String> subjectOptions;
+  final List<String> lecturerOptions;
+  final List<String> roomOptions;
+  final ValueChanged<String?> onSubjectChanged;
+  final ValueChanged<String?> onLecturerChanged;
+  final ValueChanged<String?> onRoomChanged;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Senarai Slot Program',
+      subtitle: 'Senarai sokongan untuk semakan subjek, pensyarah dan bilik.',
+      trailing: OutlinedButton.icon(
+        onPressed: onReset,
+        icon: const Icon(Icons.refresh),
+        label: const Text('Reset Penapis'),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Color(0xff70757a),
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              Container(
-                width: 4,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+              _FilterSelect(
+                label: 'Subjek',
+                value: subjectFilter,
+                options: subjectOptions,
+                onChanged: onSubjectChanged,
               ),
-              const SizedBox(width: 10),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xff202124),
-                ),
+              _FilterSelect(
+                label: 'Pensyarah',
+                value: lecturerFilter,
+                options: lecturerOptions,
+                onChanged: onLecturerChanged,
+              ),
+              _FilterSelect(
+                label: 'Bilik',
+                value: roomFilter,
+                options: roomOptions,
+                onChanged: onRoomChanged,
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  /// 2. Kad Penapis Bersepadu (Filters Section)
-  Widget _buildFiltersCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xffdadce0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Penapis
-          Row(
-            children: [
-              const Icon(Icons.tune, color: Color(0xff1a73e8), size: 20),
-              const SizedBox(width: 8),
-              const Spacer(),
-              Text(
-                'Program: ${_service.currentKpOops.programId ?? 'N/A'}',
-                style: const TextStyle(fontSize: 13, color: Color(0xff5f6368), fontWeight: FontWeight.w500),
-              ),
+          const SizedBox(height: 12),
+          AppDataTable(
+            columns: const [
+              DataColumn(label: Text('Kod')),
+              DataColumn(label: Text('Subjek')),
+              DataColumn(label: Text('Kelas')),
+              DataColumn(label: Text('Pensyarah')),
+              DataColumn(label: Text('Hari & Masa')),
+              DataColumn(label: Text('Bilik')),
+              DataColumn(label: Text('Minggu')),
             ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(color: Color(0xfff1f3f4), height: 1),
-          ),
-          // Baris Input Penapis (Responsif)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              bool isDesktop = constraints.maxWidth > 750;
-              return isDesktop
-                  ? Row(
-                      children: [
-                        Expanded(child: _buildCourseDropdown()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildSectionDropdown()),
-                        const SizedBox(width: 16),
-                        Expanded(flex: 2, child: _buildSearchBar()),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        _buildCourseDropdown(),
-                        const SizedBox(height: 12),
-                        _buildSectionDropdown(),
-                        const SizedBox(height: 12),
-                        _buildSearchBar(),
-                      ],
-                    );
-            },
+            rows: slots
+                .map(
+                  (slot) => DataRow(cells: [
+                    DataCell(Text(slot.subjectCode)),
+                    DataCell(Text(slot.subjectName)),
+                    DataCell(Text(_slotClassId(slot))),
+                    DataCell(Text(slot.lecturerName)),
+                    DataCell(Text(
+                        '${_normalDay(slot.dayOfWeek ?? slot.day)} ${slot.startTime}-${slot.endTime}')),
+                    DataCell(Text(_slotRoom(slot))),
+                    DataCell(Text(
+                        '${slot.weekStart ?? '1'}-${slot.weekEnd ?? '18'}')),
+                  ]),
+                )
+                .toList(),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCourseDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Kursus', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff5f6368))),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xffdadce0)),
+class _FilterSelect extends StatelessWidget {
+  const _FilterSelect({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String? value;
+  final List<String> options;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 230,
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('Semua')),
+          ...options.map(
+            (option) => DropdownMenuItem(value: option, child: Text(option)),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: 'SEMUA KURSUS',
-              items: const [
-                DropdownMenuItem(value: 'SEMUA KURSUS', child: Text('SEMUA KURSUS')),
-              ],
-              onChanged: (_) {},
-            ),
-          ),
-        ),
-      ],
+        ],
+        onChanged: onChanged,
+      ),
     );
   }
+}
 
-  Widget _buildSectionDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Seksyen', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff5f6368))),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xffdadce0)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: _service.selectedSection,
-              dropdownColor: Colors.white,
-              items: _service.availableSections.map((String section) {
-                return DropdownMenuItem<String>(
-                  value: section,
-                  child: Text(section),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  _service.changeSection(val);
-                }
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+class _InfoChip extends StatelessWidget {
+  const _InfoChip(this.label, this.value);
 
-  Widget _buildSearchBar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Carian Pantas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xff5f6368))),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: 'Kod, subjek, bilik',
-            hintStyle: const TextStyle(fontSize: 14, color: Color(0xffa0a0a0)),
-            prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xff5f6368)),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xffdadce0)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xffdadce0)),
-            ),
-          ),
-          onChanged: (value) {
-            setState(() {}); // Mengemas kini UI berdasarkan penapis teks semata-mata
-          },
-        ),
-      ],
-    );
-  }
+  final String label;
+  final String value;
 
-  /// 3. Jadual Slot Jadual Waktu Rasmi (Official Timetable Slots Table)
-  /// 3. Jadual Slot Jadual Waktu Rasmi (Official Timetable Slots Table)
-  Widget _buildOfficialTimetableTable(List<TimetableSlot> slots) {
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xffdadce0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.01),
-            spreadRadius: 2,
-            blurRadius: 8,
-          )
-        ],
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Banner Pengepala Biru Gelap
-          Container(
-            color: const Color(0xff0f2027),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'JADUAL WAKTU SEMESTER SESI 2025/2026',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'PAPARAN SLOT JADUAL',
-                  style: TextStyle(
-                    color: Color(0xff94a3b8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // PERBETULAN LEBAR: Menggunakan LayoutBuilder & SizedBox untuk memenuhi ruang desktop sepenuhnya
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: SizedBox(
-                  // Memaksa lebar jadual mengikut saiz maksimum skrin desktop/parent widget
-                  width: constraints.maxWidth > 1000 ? constraints.maxWidth : 1100,
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(const Color(0xfff5f5f0)),
-                    dataRowMaxHeight: 75,
-                    dataRowMinHeight: 65,
-                    // Memberi ruang spacing yang sekata antara lajur secara automatik
-                    columnSpacing: constraints.maxWidth > 1000 ? null : 24,
-                    columns: const [
-                      DataColumn(label: Text('NO.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('KOD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('NAMA KURSUS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('SEKSYEN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('PROGRAM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('CAPACITY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('HARI / MASA LOKASI', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      DataColumn(label: Text('JENIS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                    ],
-                    rows: slots.isEmpty
-                        ? [
-                            const DataRow(cells: [
-                              DataCell(Text('-')),
-                              DataCell(Text('Tiada Data')),
-                              DataCell(Text('Sila ubah suai tetapan penapis')),
-                              DataCell(Text('-')),
-                              DataCell(Text('-')),
-                              DataCell(Text('-')),
-                              DataCell(Text('-')),
-                              DataCell(Text('-')),
-                            ])
-                          ]
-                        : List.generate(slots.length, (index) {
-                            final slot = slots[index];
-                            return DataRow(
-                              cells: [
-                                DataCell(Text('${index + 1}', style: const TextStyle(color: Color(0xff5f6368)))),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xffe6f4ea),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      slot.subjectCode,
-                                      style: const TextStyle(
-                                        color: Color(0xff137333),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(Text('Kursus ${slot.subjectCode}', style: const TextStyle(fontWeight: FontWeight.w500))),
-                                DataCell(Text(slot.section)),
-                                DataCell(Text(_service.currentKpOops.programId ?? 'N/A')),
-                                const DataCell(Text('30')),
-                                DataCell(
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        const Text('JUMAAT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                        const Text('15:00 - 17:00', style: TextStyle(color: Color(0xff5f6368), fontSize: 11)),
-                                        Text(
-                                          slot.room.isNotEmpty ? slot.room : 'N/A',
-                                          style: const TextStyle(color: Color(0xff1a73e8), fontWeight: FontWeight.bold, fontSize: 11),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xfff1f3f4),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xffdadce0)),
-                                    ),
-                                    child: const Text('Teori/Amali', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xff5f6368))),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      child: Text('$label: $value'),
     );
   }
+}
+
+String _slotSession(TimetableSlot slot) =>
+    slot.academicSessionId ?? slot.session;
+String _slotClassId(TimetableSlot slot) => slot.classId ?? slot.section;
+String _slotRoom(TimetableSlot slot) => slot.roomName ?? slot.room;
+
+String _normalDay(String value) {
+  final upper = value.trim().toUpperCase();
+  return switch (upper) {
+    'MONDAY' || 'ISNIN' => 'Isnin',
+    'TUESDAY' || 'SELASA' => 'Selasa',
+    'WEDNESDAY' || 'RABU' => 'Rabu',
+    'THURSDAY' || 'KHAMIS' => 'Khamis',
+    'FRIDAY' || 'JUMAAT' => 'Jumaat',
+    'SATURDAY' || 'SABTU' => 'Sabtu',
+    'SUNDAY' || 'AHAD' => 'Ahad',
+    _ => value,
+  };
+}
+
+List<String> _sortedUnique(Iterable<String> values) {
+  return values
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
+}
+
+int _slotSorter(TimetableSlot a, TimetableSlot b) {
+  final day = _dayOrder(_normalDay(a.dayOfWeek ?? a.day))
+      .compareTo(_dayOrder(_normalDay(b.dayOfWeek ?? b.day)));
+  if (day != 0) return day;
+  final time = a.startTime.compareTo(b.startTime);
+  if (time != 0) return time;
+  return _slotClassId(a).compareTo(_slotClassId(b));
+}
+
+int _dayOrder(String day) {
+  return switch (day) {
+    'Isnin' => 1,
+    'Selasa' => 2,
+    'Rabu' => 3,
+    'Khamis' => 4,
+    'Jumaat' => 5,
+    'Sabtu' => 6,
+    'Ahad' => 7,
+    _ => 99,
+  };
+}
+
+String _safeFileSegment(String value) {
+  return value.trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
 }

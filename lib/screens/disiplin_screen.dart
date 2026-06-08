@@ -5,8 +5,6 @@ import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/status_chip.dart';
 
-/// Laporan Disiplin screen — Pensyarah creates discipline reports,
-/// KJ reviews / approves them.
 class DisiplinScreen extends StatefulWidget {
   const DisiplinScreen({super.key});
 
@@ -21,6 +19,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
   String severity = 'Medium';
   final _descCtrl = TextEditingController(text: '');
   bool _submitting = false;
+  int _selectedTab = 0;
 
   @override
   void dispose() {
@@ -33,17 +32,20 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     final isPensyarah = user.role == UserRole.pensyarah;
-    final canApproveDiscipline = user.role == UserRole.ketua_jabatan ||
+    final canReviewDiscipline = user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program;
-    if (!isPensyarah && !canApproveDiscipline) {
+    if (!isPensyarah && !canReviewDiscipline) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
             'Hanya Pensyarah boleh melapor disiplin. Ketua Jabatan dan Ketua Program boleh membuat semakan mengikut skop.',
       );
     }
-    final visibleDiscipline = state.scopedDisciplineReports;
 
+    final visibleReports = state.scopedDisciplineReports;
+    final actionRequiredReports = visibleReports
+        .where((report) => _isActionRequiredStatus(report.status))
+        .toList();
     final slots = state.scopedTimetable;
     selectedSlotId ??= slots.firstOrNull?.id;
     final selectedSlot =
@@ -58,6 +60,11 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
       selectedStudentId = studentsList.firstOrNull?.id;
     }
 
+    final tabLabels = isPensyarah
+        ? const ['Lapor Disiplin Baharu', 'Semua Laporan Saya']
+        : const ['Tindakan Diperlukan', 'Semua Laporan'];
+    if (_selectedTab >= tabLabels.length) _selectedTab = 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -68,184 +75,79 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
           subtitle: isPensyarah
               ? 'Laporkan masalah kehadiran atau tingkah laku pelajar anda.'
               : 'Semak dan ambil tindakan ke atas laporan disiplin.',
-          trailing: StatusChip('${visibleDiscipline.length} laporan'),
+          trailing: StatusChip('${visibleReports.length} laporan'),
         ),
-
-        // ── Create Form (Pensyarah only — ALWAYS shown) ──
-        if (isPensyarah) ...[
-          AppPanel(
-            title: 'Lapor Disiplin Baharu',
-            subtitle: studentsList.isNotEmpty
-                ? 'Pilih kelas, pelajar dan nyatakan isu yang berlaku.'
-                : 'Tiada pelajar dijumpai untuk kelas anda. Sila semak jadual atau hubungi pentadbir.',
-            child: studentsList.isNotEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (selectedSlot != null) ...[
-                        _ClassSummary(slot: selectedSlot),
-                        const SizedBox(height: 16),
-                      ],
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 320,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: selectedSlot?.id,
-                              decoration:
-                                  const InputDecoration(labelText: 'Kelas'),
-                              items: slots
-                                  .map((slot) => DropdownMenuItem(
-                                        value: slot.id,
-                                        child: Text(
-                                            '${slot.subjectCode} - ${slot.section}'),
-                                      ))
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedSlotId = value;
-                                  selectedStudentId = null;
-                                });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: 320,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: selectedStudentId,
-                              decoration: const InputDecoration(
-                                  labelText: 'Pilih Pelajar'),
-                              items: studentsList
-                                  .map((s) => DropdownMenuItem(
-                                      value: s.id,
-                                      child: Text('${s.name} (${s.section})')))
-                                  .toList(),
-                              onChanged: (value) =>
-                                  setState(() => selectedStudentId = value),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 220,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: issueType,
-                              decoration:
-                                  const InputDecoration(labelText: 'Jenis Isu'),
-                              items: [
-                                'Kerap Tidak Hadir',
-                                'Ponteng Kelas',
-                                'Masalah Tingkah Laku',
-                                'Lain-lain'
-                              ]
-                                  .map((i) => DropdownMenuItem(
-                                      value: i, child: Text(i)))
-                                  .toList(),
-                              onChanged: (value) =>
-                                  setState(() => issueType = value!),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 160,
-                            child: DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              initialValue: severity,
-                              decoration:
-                                  const InputDecoration(labelText: 'Tahap'),
-                              items: ['Low', 'Medium', 'High']
-                                  .map((i) => DropdownMenuItem(
-                                      value: i, child: Text(i)))
-                                  .toList(),
-                              onChanged: (value) =>
-                                  setState(() => severity = value!),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _descCtrl,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Keterangan / Catatan',
-                          alignLabelWithHint: true,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton.icon(
-                          onPressed: _submitting
-                              ? null
-                              : () => _submitReport(
-                                    state: state,
-                                    user: user,
-                                    studentsList: studentsList,
-                                    selectedSlot: selectedSlot,
-                                  ),
-                          icon: _submitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.send),
-                          label: Text(_submitting
-                              ? 'Menghantar...'
-                              : 'Hantar Laporan'),
-                        ),
-                      ),
-                    ],
-                  )
-                : const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'Sila muat naik jadual untuk menghubungkan pelajar dengan kelas anda.',
-                        style: TextStyle(color: Color(0xff94a3b8)),
-                      ),
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // ── Discipline History / Approval Table ──
-        AppPanel(
-          title: 'Senarai Laporan Disiplin',
-          subtitle: 'Item susulan daripada semakan kehadiran dan tingkah laku.',
-          child: Column(
-            children: [
-              for (final report in visibleDiscipline)
-                _DisciplineReportItem(
-                  report: report,
-                  status: _normalizedStatus(report.status),
-                  canApprove: canApproveDiscipline,
-                  onStatusChanged: (nextStatus, {actionTakenNote}) =>
-                      state.updateDiscipline(
-                    report.id,
-                    nextStatus,
-                    actionTakenNote: actionTakenNote,
-                  ),
-                ),
-              if (visibleDiscipline.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 28),
-                  child: Center(
-                    child: Text(
-                      'Tiada laporan disiplin ditemui.',
-                      style: TextStyle(color: Color(0xff64748b)),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+        const SizedBox(height: 12),
+        _DisciplineTabSelector(
+          selectedIndex: _selectedTab,
+          labels: tabLabels,
+          onChanged: (index) => setState(() => _selectedTab = index),
         ),
+        const SizedBox(height: 16),
+        if (isPensyarah && _selectedTab == 0)
+          _NewDisciplineReportPanel(
+            slots: slots,
+            studentsList: studentsList,
+            selectedSlot: selectedSlot,
+            selectedStudentId: selectedStudentId,
+            issueType: issueType,
+            severity: severity,
+            descriptionController: _descCtrl,
+            submitting: _submitting,
+            onSlotChanged: (value) => setState(() {
+              selectedSlotId = value;
+              selectedStudentId = null;
+            }),
+            onStudentChanged: (value) =>
+                setState(() => selectedStudentId = value),
+            onIssueTypeChanged: (value) =>
+                setState(() => issueType = value ?? issueType),
+            onSeverityChanged: (value) =>
+                setState(() => severity = value ?? severity),
+            onSubmit: () => _submitReport(
+              state: state,
+              user: user,
+              studentsList: studentsList,
+              selectedSlot: selectedSlot,
+            ),
+          )
+        else if (isPensyarah)
+          _DisciplineReportListPanel(
+            title: 'Semua Laporan Saya',
+            subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
+            reports: visibleReports,
+            canReview: false,
+            emptyText: 'Tiada laporan disiplin ditemui.',
+            onViewDetails: (report) => _showReportDetails(report),
+            onTakeAction: (report) => _showTakeActionDialog(state, report),
+            onReject: (report) => _showRejectDialog(state, report),
+            onClose: (report) => _showCloseDialog(state, report),
+          )
+        else if (_selectedTab == 0)
+          _DisciplineReportListPanel(
+            title: 'Tindakan Diperlukan',
+            subtitle: 'Laporan baharu atau menunggu semakan dalam skop anda.',
+            reports: actionRequiredReports,
+            canReview: canReviewDiscipline,
+            emptyText: 'Tiada laporan yang memerlukan tindakan.',
+            onViewDetails: (report) => _showReportDetails(report),
+            onTakeAction: (report) => _showTakeActionDialog(state, report),
+            onReject: (report) => _showRejectDialog(state, report),
+            onClose: (report) => _showCloseDialog(state, report),
+          )
+        else
+          _DisciplineReportListPanel(
+            title: 'Semua Laporan',
+            subtitle:
+                'Semua laporan disiplin dalam skop peranan dan program anda.',
+            reports: visibleReports,
+            canReview: canReviewDiscipline,
+            emptyText: 'Tiada laporan disiplin ditemui.',
+            onViewDetails: (report) => _showReportDetails(report),
+            onTakeAction: (report) => _showTakeActionDialog(state, report),
+            onReject: (report) => _showRejectDialog(state, report),
+            onClose: (report) => _showCloseDialog(state, report),
+          ),
       ],
     );
   }
@@ -291,6 +193,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
         status: 'pending',
       ));
       _descCtrl.clear();
+      _selectedTab = 1;
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Laporan disiplin telah dihantar.')));
@@ -299,14 +202,353 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     }
   }
 
-  String _normalizedStatus(String status) {
-    return switch (status) {
-      'New' => 'pending',
-      'Submitted' => 'pending',
-      'Under Review' => 'reviewed',
-      'Approved' => 'action_taken',
-      _ => status,
-    };
+  Future<void> _showReportDetails(DisciplineReport report) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => _DisciplineDetailDialog(report: report),
+    );
+  }
+
+  Future<void> _showTakeActionDialog(
+    dynamic state,
+    DisciplineReport report,
+  ) async {
+    final result = await showDialog<_ReviewActionResult>(
+      context: context,
+      builder: (context) => const _TakeActionDialog(),
+    );
+    if (result == null) return;
+    try {
+      await state.updateDiscipline(
+        report.id,
+        'action_taken',
+        reviewerNotes: result.reviewerNotes,
+        actionTaken: result.actionTaken,
+        actionTakenNote: result.actionTaken,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Tindakan laporan disiplin telah direkodkan.'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Gagal merekod tindakan: $error'),
+      ));
+    }
+  }
+
+  Future<void> _showRejectDialog(
+    dynamic state,
+    DisciplineReport report,
+  ) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => const _RejectReportDialog(),
+    );
+    if (reason == null || reason.trim().isEmpty) return;
+    try {
+      await state.updateDiscipline(
+        report.id,
+        'rejected',
+        rejectionReason: reason.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Laporan disiplin telah ditolak.'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Gagal menolak laporan: $error'),
+      ));
+    }
+  }
+
+  Future<void> _showCloseDialog(
+    dynamic state,
+    DisciplineReport report,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tutup Laporan?'),
+        content: const Text(
+          'Laporan ini akan ditandakan sebagai ditutup.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Tutup Laporan'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await state.updateDiscipline(report.id, 'closed');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Laporan disiplin telah ditutup.'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Gagal menutup laporan: $error'),
+      ));
+    }
+  }
+}
+
+class _DisciplineTabSelector extends StatelessWidget {
+  const _DisciplineTabSelector({
+    required this.selectedIndex,
+    required this.labels,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final List<String> labels;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (var index = 0; index < labels.length; index++)
+          ChoiceChip(
+            label: Text(labels[index]),
+            selected: selectedIndex == index,
+            onSelected: (_) => onChanged(index),
+          ),
+      ],
+    );
+  }
+}
+
+class _NewDisciplineReportPanel extends StatelessWidget {
+  const _NewDisciplineReportPanel({
+    required this.slots,
+    required this.studentsList,
+    required this.selectedSlot,
+    required this.selectedStudentId,
+    required this.issueType,
+    required this.severity,
+    required this.descriptionController,
+    required this.submitting,
+    required this.onSlotChanged,
+    required this.onStudentChanged,
+    required this.onIssueTypeChanged,
+    required this.onSeverityChanged,
+    required this.onSubmit,
+  });
+
+  final List<TimetableSlot> slots;
+  final List<Student> studentsList;
+  final TimetableSlot? selectedSlot;
+  final String? selectedStudentId;
+  final String issueType;
+  final String severity;
+  final TextEditingController descriptionController;
+  final bool submitting;
+  final ValueChanged<String?> onSlotChanged;
+  final ValueChanged<String?> onStudentChanged;
+  final ValueChanged<String?> onIssueTypeChanged;
+  final ValueChanged<String?> onSeverityChanged;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Lapor Disiplin Baharu',
+      subtitle: studentsList.isNotEmpty
+          ? 'Pilih kelas, pelajar dan nyatakan isu yang berlaku.'
+          : 'Tiada pelajar dijumpai untuk kelas anda. Sila semak jadual atau hubungi pentadbir.',
+      child: studentsList.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Sila muat naik jadual untuk menghubungkan pelajar dengan kelas anda.',
+                  style: TextStyle(color: Color(0xff94a3b8)),
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (selectedSlot != null) ...[
+                  _ClassSummary(slot: selectedSlot!),
+                  const SizedBox(height: 16),
+                ],
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 320,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: selectedSlot?.id,
+                        decoration: const InputDecoration(labelText: 'Kelas'),
+                        items: slots
+                            .map((slot) => DropdownMenuItem(
+                                  value: slot.id,
+                                  child: Text(
+                                    '${slot.subjectCode} - ${slot.section}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: onSlotChanged,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 320,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: selectedStudentId,
+                        decoration:
+                            const InputDecoration(labelText: 'Pilih Pelajar'),
+                        items: studentsList
+                            .map((s) => DropdownMenuItem(
+                                  value: s.id,
+                                  child: Text(
+                                    '${s.name} (${s.section})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: onStudentChanged,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: issueType,
+                        decoration:
+                            const InputDecoration(labelText: 'Jenis Isu'),
+                        items: [
+                          'Kerap Tidak Hadir',
+                          'Ponteng Kelas',
+                          'Masalah Tingkah Laku',
+                          'Lain-lain'
+                        ]
+                            .map((i) =>
+                                DropdownMenuItem(value: i, child: Text(i)))
+                            .toList(),
+                        onChanged: onIssueTypeChanged,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 160,
+                      child: DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: severity,
+                        decoration: const InputDecoration(labelText: 'Tahap'),
+                        items: ['Low', 'Medium', 'High']
+                            .map((i) =>
+                                DropdownMenuItem(value: i, child: Text(i)))
+                            .toList(),
+                        onChanged: onSeverityChanged,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Keterangan / Catatan',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: submitting ? null : onSubmit,
+                    icon: submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
+                    label:
+                        Text(submitting ? 'Menghantar...' : 'Hantar Laporan'),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _DisciplineReportListPanel extends StatelessWidget {
+  const _DisciplineReportListPanel({
+    required this.title,
+    required this.subtitle,
+    required this.reports,
+    required this.canReview,
+    required this.emptyText,
+    required this.onViewDetails,
+    required this.onTakeAction,
+    required this.onReject,
+    required this.onClose,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<DisciplineReport> reports;
+  final bool canReview;
+  final String emptyText;
+  final ValueChanged<DisciplineReport> onViewDetails;
+  final ValueChanged<DisciplineReport> onTakeAction;
+  final ValueChanged<DisciplineReport> onReject;
+  final ValueChanged<DisciplineReport> onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: title,
+      subtitle: subtitle,
+      child: Column(
+        children: [
+          for (final report in reports)
+            _DisciplineReportItem(
+              report: report,
+              status: _normalizeDisciplineStatus(report.status),
+              canApprove: canReview,
+              onViewDetails: () => onViewDetails(report),
+              onTakeAction: () => onTakeAction(report),
+              onReject: () => onReject(report),
+              onClose: () => onClose(report),
+            ),
+          if (reports.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: Text(
+                  emptyText,
+                  style: const TextStyle(color: Color(0xff64748b)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -368,14 +610,19 @@ class _DisciplineReportItem extends StatelessWidget {
     required this.report,
     required this.status,
     required this.canApprove,
-    required this.onStatusChanged,
+    required this.onViewDetails,
+    required this.onTakeAction,
+    required this.onReject,
+    required this.onClose,
   });
 
   final DisciplineReport report;
   final String status;
   final bool canApprove;
-  final Future<void> Function(String status, {String? actionTakenNote})
-      onStatusChanged;
+  final VoidCallback onViewDetails;
+  final VoidCallback onTakeAction;
+  final VoidCallback onReject;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -441,12 +688,12 @@ class _DisciplineReportItem extends StatelessWidget {
               _ReportMeta(
                   label: 'Dilapor oleh',
                   value: report.createdByName ?? report.lecturer),
-              _ReportMeta(label: 'Tarikh', value: report.createdAt ?? report.date),
+              _ReportMeta(
+                  label: 'Tarikh', value: report.createdAt ?? report.date),
               _ReportMeta(label: 'Reviewer', value: reviewers),
             ],
           ),
-          if (report.actionTakenNote != null &&
-              report.actionTakenNote!.trim().isNotEmpty) ...[
+          if (_reviewSummary(report).isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -456,33 +703,44 @@ class _DisciplineReportItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                'Tindakan: ${report.actionTakenNote}'
-                '${report.actionTakenByName == null ? '' : ' (${report.actionTakenByName})'}',
+                _reviewSummary(report),
                 style: const TextStyle(color: Color(0xff334155)),
               ),
             ),
           ],
-          if (canApprove) ...[
-            const SizedBox(height: 12),
-            _DisciplineStatusActions(
-              status: status,
-              onChanged: onStatusChanged,
-            ),
-          ],
+          const SizedBox(height: 12),
+          _DisciplineCardActions(
+            status: status,
+            canReview: canApprove,
+            onViewDetails: onViewDetails,
+            onTakeAction: onTakeAction,
+            onReject: onReject,
+            onClose: onClose,
+          ),
         ],
       ),
     );
   }
 
-  String _statusLabel(String status) {
-    return switch (status) {
-      'pending' => 'Pending',
-      'reviewed' => 'Reviewed',
-      'action_taken' => 'Action Taken',
-      'closed' => 'Closed',
-      'rejected' => 'Rejected',
-      _ => status,
-    };
+  String _reviewSummary(DisciplineReport report) {
+    final lines = <String>[];
+    final reviewer = report.reviewedByName ?? report.actionTakenByName;
+    if (reviewer != null && reviewer.trim().isNotEmpty) {
+      lines.add('Disemak oleh: $reviewer');
+    }
+    final notes = report.reviewerNotes;
+    if (notes != null && notes.trim().isNotEmpty) {
+      lines.add('Catatan semakan: $notes');
+    }
+    final action = report.actionTaken ?? report.actionTakenNote;
+    if (action != null && action.trim().isNotEmpty) {
+      lines.add('Tindakan: $action');
+    }
+    final rejection = report.rejectionReason;
+    if (rejection != null && rejection.trim().isNotEmpty) {
+      lines.add('Sebab penolakan: $rejection');
+    }
+    return lines.join('\n');
   }
 }
 
@@ -501,91 +759,245 @@ class _ReportMeta extends StatelessWidget {
   }
 }
 
-class _DisciplineStatusActions extends StatelessWidget {
-  const _DisciplineStatusActions({
+class _DisciplineCardActions extends StatelessWidget {
+  const _DisciplineCardActions({
     required this.status,
-    required this.onChanged,
+    required this.canReview,
+    required this.onViewDetails,
+    required this.onTakeAction,
+    required this.onReject,
+    required this.onClose,
   });
 
   final String status;
-  final Future<void> Function(String status, {String? actionTakenNote})
-      onChanged;
+  final bool canReview;
+  final VoidCallback onViewDetails;
+  final VoidCallback onTakeAction;
+  final VoidCallback onReject;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
-    final actions = switch (status) {
-      'pending' => const [
-          _StatusAction('reviewed', 'Reviewed', Icons.rate_review_outlined),
-          _StatusAction('rejected', 'Rejected', Icons.close),
-        ],
-      'reviewed' => const [
-          _StatusAction(
-              'action_taken', 'Action Taken', Icons.task_alt_outlined),
-          _StatusAction('rejected', 'Rejected', Icons.close),
-        ],
-      'action_taken' => const [
-          _StatusAction('closed', 'Closed', Icons.lock_outline),
-        ],
-      _ => const <_StatusAction>[],
-    };
-
-    if (actions.isEmpty) return const Text('-');
     return Wrap(
-      spacing: 6,
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        for (final action in actions)
-          IconButton(
-            tooltip: action.label,
-            onPressed: () => _handleAction(context, action.status),
-            icon: Icon(action.icon, size: 20),
+        OutlinedButton.icon(
+          onPressed: onViewDetails,
+          icon: const Icon(Icons.visibility_outlined, size: 18),
+          label: const Text('Lihat Butiran'),
+        ),
+        if (canReview && status == 'pending') ...[
+          FilledButton.icon(
+            onPressed: onTakeAction,
+            icon: const Icon(Icons.task_alt_outlined, size: 18),
+            label: const Text('Ambil Tindakan'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onReject,
+            icon: const Icon(Icons.close, size: 18),
+            label: const Text('Tolak'),
+          ),
+        ],
+        if (canReview && status == 'action_taken')
+          OutlinedButton.icon(
+            onPressed: onClose,
+            icon: const Icon(Icons.lock_outline, size: 18),
+            label: const Text('Tutup Laporan'),
           ),
       ],
     );
   }
+}
 
-  Future<void> _handleAction(BuildContext context, String nextStatus) async {
-    if (nextStatus != 'action_taken') {
-      await onChanged(nextStatus);
-      return;
-    }
+class _DisciplineDetailDialog extends StatelessWidget {
+  const _DisciplineDetailDialog({required this.report});
 
-    final note = await showDialog<String>(
-      context: context,
-      builder: (context) => const _ActionTakenDialog(),
+  final DisciplineReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Butiran Laporan Disiplin'),
+      content: SizedBox(
+        width: 720,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailSection(
+                title: 'Maklumat Laporan',
+                rows: [
+                  ('ID Laporan', report.id),
+                  ('Status', _statusLabel(report.status)),
+                  ('Tahap', report.severity),
+                  ('Jenis Isu', report.issueType),
+                  ('Tarikh Laporan', report.createdAt ?? report.date),
+                  ('Catatan', report.description),
+                ],
+              ),
+              _DetailSection(
+                title: 'Maklumat Pelajar',
+                rows: [
+                  ('Nama Pelajar', report.studentName),
+                  ('ID Pelajar', report.studentId),
+                  ('Kelas / Seksyen', report.section),
+                  ('Program', report.programName ?? report.programId ?? '-'),
+                ],
+              ),
+              _DetailSection(
+                title: 'Maklumat Kelas / Subjek',
+                rows: [
+                  ('Kod Subjek', report.subjectCode ?? '-'),
+                  ('Nama Subjek', report.subjectName ?? report.subject),
+                  ('Dilapor Oleh', report.createdByName ?? report.lecturer),
+                ],
+              ),
+              _DetailSection(
+                title: 'Maklumat Semakan',
+                rows: [
+                  ('Disemak Oleh', report.reviewedByName ?? '-'),
+                  ('Peranan Penyemak', report.reviewerRole ?? '-'),
+                  ('Tarikh Semakan', report.reviewedAt ?? '-'),
+                  ('Catatan Semakan', report.reviewerNotes ?? '-'),
+                  (
+                    'Tindakan Diambil',
+                    report.actionTaken ?? report.actionTakenNote ?? '-'
+                  ),
+                  ('Sebab Penolakan', report.rejectionReason ?? '-'),
+                  ('Tarikh Ditutup', report.closedAt ?? '-'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Tutup'),
+        ),
+      ],
     );
-    if (note == null || note.trim().isEmpty) return;
-    await onChanged(nextStatus, actionTakenNote: note.trim());
   }
 }
 
-class _ActionTakenDialog extends StatefulWidget {
-  const _ActionTakenDialog();
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({required this.title, required this.rows});
+
+  final String title;
+  final List<(String, String)> rows;
 
   @override
-  State<_ActionTakenDialog> createState() => _ActionTakenDialogState();
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xff0f172a),
+            ),
+          ),
+          const SizedBox(height: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xffe2e8f0)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                for (final row in rows)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 150,
+                          child: Text(
+                            row.$1,
+                            style: const TextStyle(
+                              color: Color(0xff64748b),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                            child: Text(row.$2.trim().isEmpty ? '-' : row.$2)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ActionTakenDialogState extends State<_ActionTakenDialog> {
-  final _noteCtrl = TextEditingController();
+class _ReviewActionResult {
+  const _ReviewActionResult({
+    required this.actionTaken,
+    required this.reviewerNotes,
+  });
+
+  final String actionTaken;
+  final String reviewerNotes;
+}
+
+class _TakeActionDialog extends StatefulWidget {
+  const _TakeActionDialog();
+
+  @override
+  State<_TakeActionDialog> createState() => _TakeActionDialogState();
+}
+
+class _TakeActionDialogState extends State<_TakeActionDialog> {
+  final _notesCtrl = TextEditingController();
+  final _actionCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _noteCtrl.dispose();
+    _notesCtrl.dispose();
+    _actionCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Catatan Tindakan'),
-      content: TextField(
-        controller: _noteCtrl,
-        maxLines: 4,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Tindakan yang diambil',
-          hintText: 'Contoh: Kaunseling pelajar dan hubungi penjaga.',
-          alignLabelWithHint: true,
+      title: const Text('Ambil Tindakan'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _notesCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Catatan Semakan',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _actionCtrl,
+              maxLines: 3,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Tindakan Diambil',
+                hintText: 'Contoh: Kaunseling pelajar dan hubungi penjaga.',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -595,21 +1007,103 @@ class _ActionTakenDialogState extends State<_ActionTakenDialog> {
         ),
         FilledButton(
           onPressed: () {
-            final note = _noteCtrl.text.trim();
-            if (note.isEmpty) return;
-            Navigator.of(context).pop(note);
+            final action = _actionCtrl.text.trim();
+            if (action.isEmpty) return;
+            Navigator.of(context).pop(_ReviewActionResult(
+              actionTaken: action,
+              reviewerNotes: _notesCtrl.text.trim(),
+            ));
           },
-          child: const Text('Simpan'),
+          child: const Text('Simpan Tindakan'),
         ),
       ],
     );
   }
 }
 
-class _StatusAction {
-  const _StatusAction(this.status, this.label, this.icon);
+class _RejectReportDialog extends StatefulWidget {
+  const _RejectReportDialog();
 
-  final String status;
-  final String label;
-  final IconData icon;
+  @override
+  State<_RejectReportDialog> createState() => _RejectReportDialogState();
+}
+
+class _RejectReportDialogState extends State<_RejectReportDialog> {
+  final _reasonCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tolak Laporan'),
+      content: SizedBox(
+        width: 520,
+        child: TextField(
+          controller: _reasonCtrl,
+          maxLines: 4,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Sebab Penolakan',
+            hintText: 'Nyatakan sebab laporan ditolak.',
+            alignLabelWithHint: true,
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final reason = _reasonCtrl.text.trim();
+            if (reason.isEmpty) return;
+            Navigator.of(context).pop(reason);
+          },
+          child: const Text('Tolak Laporan'),
+        ),
+      ],
+    );
+  }
+}
+
+bool _isActionRequiredStatus(String status) {
+  return _normalizeDisciplineStatus(status) == 'pending';
+}
+
+String _normalizeDisciplineStatus(String status) {
+  final normalized = status.trim().toLowerCase().replaceAll(' ', '_');
+  return switch (normalized) {
+    'new' ||
+    'submitted' ||
+    'pending' ||
+    'menunggu' ||
+    'menunggu_semakan' =>
+      'pending',
+    'under_review' || 'reviewed' || 'disemak' => 'reviewed',
+    'approved' ||
+    'resolved' ||
+    'action_taken' ||
+    'tindakan_diambil' =>
+      'action_taken',
+    'closed' || 'ditutup' => 'closed',
+    'rejected' || 'ditolak' => 'rejected',
+    _ => normalized,
+  };
+}
+
+String _statusLabel(String status) {
+  return switch (_normalizeDisciplineStatus(status)) {
+    'pending' => 'Menunggu Semakan',
+    'reviewed' => 'Disemak',
+    'action_taken' => 'Tindakan Diambil',
+    'closed' => 'Ditutup',
+    'rejected' => 'Ditolak',
+    _ => status,
+  };
 }

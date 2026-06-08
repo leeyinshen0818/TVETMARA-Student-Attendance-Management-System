@@ -81,14 +81,12 @@ class _HomeShellState extends State<HomeShell> {
           dataScope: _DataScope.none, // uses its own Firestore stream
         ),
 
-      if (isKetuaProgram)
+      if (isKetuaProgram && !isKetuaProgramWithoutKj)
         _NavItem(
-          'Jadual',
+          'Jadual Program',
           Icons.calendar_month_outlined,
-          isKetuaProgram
-              ? KpTimetableScreen(kpUser: user)
-              : const TimetableScreen(),
-          dataScope: isKetuaProgram ? _DataScope.none : _DataScope.timetable,
+          KpTimetableScreen(kpUser: user),
+          dataScope: _DataScope.timetable,
         ),
 
       // Option A: only Pensyarah takes attendance.
@@ -99,8 +97,8 @@ class _HomeShellState extends State<HomeShell> {
 
       // Option A: KJ uploads timetable; KP inherits this if program has no KJ.
       if (isKetuaJabatan || isKetuaProgramWithoutKj)
-        const _NavItem(
-            'Jadual', Icons.calendar_month_outlined, TimetableScreen(),
+        const _NavItem('Pengurusan Jadual', Icons.calendar_month_outlined,
+            TimetableScreen(),
             dataScope: _DataScope.timetable),
 
       // Option A: KJ reviews department reports, KP reviews program reports.
@@ -116,8 +114,8 @@ class _HomeShellState extends State<HomeShell> {
 
       // Pensyarah submits reports; KJ/KP review according to scoped hierarchy.
       if (isPensyarah || isKetuaJabatan || isKetuaProgram)
-        const _NavItem(
-            'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen(),
+        _NavItem(isPensyarah ? 'Laporan Disiplin Saya' : 'Laporan Disiplin',
+            Icons.warning_amber_outlined, const DisiplinScreen(),
             dataScope: _DataScope.discipline),
 
       // Admin sees all records; KJ/KP see records within their own scope.

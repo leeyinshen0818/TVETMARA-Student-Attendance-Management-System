@@ -709,30 +709,54 @@ class AppState extends ChangeNotifier {
     String id,
     String status, {
     String? actionTakenNote,
+    String? reviewerNotes,
+    String? actionTaken,
+    String? rejectionReason,
   }) async {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final index = disciplineReports.indexWhere((report) => report.id == id);
+    final user = currentUser;
+    final scoped = scopedDisciplineReports.any((report) => report.id == id);
+    if ((user?.role == UserRole.ketua_jabatan ||
+            user?.role == UserRole.ketua_program) &&
+        !scoped) {
+      throw StateError('Laporan disiplin di luar skop pengguna.');
+    }
     if (index != -1) {
       disciplineReports[index] = disciplineReports[index].copyWith(
         status: normalizedStatus,
+        reviewedBy: user?.uid,
+        reviewedByName: user?.name,
+        reviewerRole: user?.role.firestoreValue,
+        reviewerNotes: reviewerNotes,
         actionTakenBy: normalizedStatus == 'action_taken'
-            ? currentUser?.uid
+            ? user?.uid
             : disciplineReports[index].actionTakenBy,
         actionTakenByName: normalizedStatus == 'action_taken'
-            ? currentUser?.name
+            ? user?.name
             : disciplineReports[index].actionTakenByName,
+        actionTaken: normalizedStatus == 'action_taken' ? actionTaken : null,
         actionTakenNote: normalizedStatus == 'action_taken'
-            ? actionTakenNote
+            ? (actionTakenNote ?? actionTaken)
             : disciplineReports[index].actionTakenNote,
+        rejectionReason: normalizedStatus == 'rejected'
+            ? rejectionReason
+            : disciplineReports[index].rejectionReason,
       );
     }
     notifyListeners();
     await _fs.updateDisciplineStatus(
       id,
       normalizedStatus,
-      actionTakenBy: currentUser?.uid,
-      actionTakenByName: currentUser?.name,
-      actionTakenNote: actionTakenNote,
+      actionTakenBy: user?.uid,
+      actionTakenByName: user?.name,
+      actionTakenNote: actionTakenNote ?? actionTaken,
+      reviewedBy: user?.uid,
+      reviewedByName: user?.name,
+      reviewerRole: user?.role.firestoreValue,
+      reviewerNotes: reviewerNotes,
+      actionTaken: actionTaken,
+      rejectionReason: rejectionReason,
     );
   }
 
@@ -1175,12 +1199,23 @@ class AppState extends ChangeNotifier {
   }
 
   String _normalizeDisciplineStatus(String status) {
-    return switch (status) {
-      'New' => 'pending',
-      'Submitted' => 'pending',
-      'Under Review' => 'reviewed',
-      'Approved' => 'action_taken',
-      _ => status,
+    final normalized = status.trim().toLowerCase().replaceAll(' ', '_');
+    return switch (normalized) {
+      'new' ||
+      'submitted' ||
+      'pending' ||
+      'menunggu' ||
+      'menunggu_semakan' =>
+        'pending',
+      'under_review' || 'reviewed' || 'disemak' => 'reviewed',
+      'approved' ||
+      'resolved' ||
+      'action_taken' ||
+      'tindakan_diambil' =>
+        'action_taken',
+      'closed' || 'ditutup' => 'closed',
+      'rejected' || 'ditolak' => 'rejected',
+      _ => normalized,
     };
   }
 
