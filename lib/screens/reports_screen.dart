@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../models/app_models.dart';
+import '../services/reports_pdf_export_service.dart';
 import '../state/app_scope.dart';
+import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
@@ -46,13 +49,15 @@ class ReportsScreen extends StatelessWidget {
           subtitle:
               'Semakan PDF mingguan untuk pelajar bawah ${state.attendanceThreshold}%. MC dan CK dikecualikan daripada peratus kehadiran.',
           trailing: FilledButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content:
-                        Text('Laporan PDF dijana untuk semakan mingguan.')),
-              );
-            },
+            onPressed: () => _exportPdf(
+              context: context,
+              state: state,
+              user: user,
+              students: students,
+              criticalStudents: below,
+              averageAttendance: avg,
+              completedSessions: completed,
+            ),
             icon: const Icon(Icons.download),
             label: const Text('Eksport PDF'),
           ),
@@ -124,5 +129,85 @@ class ReportsScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _exportPdf({
+    required BuildContext context,
+    required AppState state,
+    required AppUser user,
+    required List<Student> students,
+    required List<Student> criticalStudents,
+    required int averageAttendance,
+    required int completedSessions,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    const exportService = ReportsPdfExportService();
+    final report = CriticalAttendancePdfReport(
+      academicSessionId: state.session,
+      generatedAt: DateTime.now(),
+      generatedBy: user.name,
+      scopeLabel: _scopeLabel(state, user),
+      threshold: state.attendanceThreshold,
+      totalStudents: students.length,
+      averageAttendance: averageAttendance,
+      completedSessions: completedSessions,
+      rows: criticalStudents
+          .map(
+            (student) => CriticalAttendanceReportRow(
+              student: student,
+              summary: state.attendanceSummaryForStudent(student),
+            ),
+          )
+          .toList(),
+    );
+
+    try {
+      final bytes = await exportService.buildCriticalAttendancePdf(report);
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: exportService.fileNameFor(state.session),
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Laporan PDF berjaya dijana.')),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gagal menjana PDF laporan. Sila cuba lagi.'),
+        ),
+      );
+    }
+  }
+
+  String _scopeLabel(AppState state, AppUser user) {
+    return switch (user.role) {
+      UserRole.ketua_jabatan => _departmentScopeLabel(state, user),
+      UserRole.ketua_program => _programScopeLabel(state, user),
+      UserRole.pentadbir => 'Pentadbir - Semua Program',
+      UserRole.pensyarah => 'Pensyarah - ${user.name}',
+    };
+  }
+
+  String _departmentScopeLabel(AppState state, AppUser user) {
+    final departmentName = state.departments
+        .where((department) => department.id == user.departmentId)
+        .map((department) => department.name)
+        .firstOrNull;
+    final programIds = state.scopedPrograms.map((program) => program.id).join(
+          '/',
+        );
+    final label = departmentName ?? user.departmentId ?? 'Jabatan';
+    return programIds.isEmpty
+        ? 'Ketua Jabatan - $label'
+        : '$label ($programIds)';
+  }
+
+  String _programScopeLabel(AppState state, AppUser user) {
+    final program = state.programs
+        .where((program) => program.id == user.programId)
+        .firstOrNull;
+    return program == null
+        ? 'Ketua Program - ${user.programId ?? 'Program'}'
+        : '${program.id} - ${program.name}';
   }
 }

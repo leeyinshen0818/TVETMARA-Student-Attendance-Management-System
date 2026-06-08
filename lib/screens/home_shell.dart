@@ -276,7 +276,7 @@ class _HomeShellState extends State<HomeShell> {
   bool _isWaitingForInitialScreenData(_NavItem item, AppState state) {
     return switch (item.dataScope) {
       _DataScope.dashboard =>
-        !state.isDashboardDataLoaded && state.isCollectionLoading('students'),
+        !state.isDashboardDataLoaded && state.isDashboardDataLoading,
       _DataScope.timetable =>
         !state.isTimetableDataLoaded && state.isCollectionLoading('timetable'),
       _DataScope.attendance =>

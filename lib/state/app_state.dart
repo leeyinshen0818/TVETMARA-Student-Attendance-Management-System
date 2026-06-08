@@ -87,8 +87,35 @@ class AppState extends ChangeNotifier {
   bool get isAttendanceDataLoaded => _loadedCollections.containsAll(
       ['students', 'timetable', 'attendance', 'sessionAttendance']);
 
-  bool get isDashboardDataLoaded => _loadedCollections.containsAll(
-      ['students', 'timetable', 'bookings', 'discipline', 'sessionAttendance']);
+  bool get isDashboardDataLoaded {
+    final requiredCollections = [
+      'students',
+      'timetable',
+      'bookings',
+      'discipline',
+      'sessionAttendance',
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        'users',
+        'lecturers',
+      ],
+    ];
+    return _loadedCollections.containsAll(requiredCollections);
+  }
+
+  bool get isDashboardDataLoading {
+    final loadingCollections = [
+      'students',
+      'timetable',
+      'bookings',
+      'discipline',
+      'sessionAttendance',
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        'users',
+        'lecturers',
+      ],
+    ];
+    return loadingCollections.any(isCollectionLoading);
+  }
 
   /// Load all data from Firestore.
   /// Call once after Firebase is initialised and the user is authenticated.
@@ -187,6 +214,10 @@ class AppState extends ChangeNotifier {
       loadBookingsIfNeeded(),
       loadDisciplineIfNeeded(),
       loadSessionAttendanceIfNeeded(),
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        loadUsersIfNeeded(),
+        loadLecturersIfNeeded(),
+      ],
     ]);
   }
 
