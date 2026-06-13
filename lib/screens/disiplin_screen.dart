@@ -380,118 +380,174 @@ class _NewDisciplineReportPanel extends StatelessWidget {
                 ),
               ),
             )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (selectedSlot != null) ...[
-                  _ClassSummary(slot: selectedSlot!),
-                  const SizedBox(height: 16),
-                ],
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 760;
+                final fieldWidth =
+                    isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+                final submitButton = FilledButton.icon(
+                  onPressed: submitting ? null : onSubmit,
+                  icon: submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  label: Text(submitting ? 'Menghantar...' : 'Hantar Laporan'),
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 320,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedSlot?.id,
-                        decoration: const InputDecoration(labelText: 'Kelas'),
-                        items: slots
-                            .map((slot) => DropdownMenuItem(
-                                  value: slot.id,
-                                  child: Text(
-                                    '${slot.subjectCode} - ${slot.section}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: onSlotChanged,
+                    const _FormSectionTitle('Maklumat Sesi'),
+                    if (selectedSlot != null)
+                      _ClassSummary(slot: selectedSlot!)
+                    else
+                      const _EmptySessionSummary(),
+                    const SizedBox(height: 18),
+                    const _FormSectionTitle('Butiran Laporan'),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: selectedSlot?.id,
+                            decoration:
+                                const InputDecoration(labelText: 'Kelas'),
+                            items: slots
+                                .map((slot) => DropdownMenuItem(
+                                      value: slot.id,
+                                      child: Text(
+                                        '${slot.subjectCode} - ${slot.section}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ))
+                                .toList(),
+                            onChanged: onSlotChanged,
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: selectedStudentId,
+                            decoration: const InputDecoration(
+                                labelText: 'Pilih Pelajar'),
+                            items: studentsList
+                                .map((s) => DropdownMenuItem(
+                                      value: s.id,
+                                      child: Text(
+                                        '${s.name} (${s.section})',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ))
+                                .toList(),
+                            onChanged: onStudentChanged,
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: issueType,
+                            decoration:
+                                const InputDecoration(labelText: 'Jenis Isu'),
+                            items: [
+                              'Kerap Tidak Hadir',
+                              'Ponteng Kelas',
+                              'Masalah Tingkah Laku',
+                              'Lain-lain'
+                            ]
+                                .map((i) => DropdownMenuItem(
+                                    value: i, child: Text(i)))
+                                .toList(),
+                            onChanged: onIssueTypeChanged,
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: severity,
+                            decoration: const InputDecoration(
+                                labelText: 'Tahap Keseriusan'),
+                            items: ['Low', 'Medium', 'High']
+                                .map((i) => DropdownMenuItem(
+                                    value: i, child: Text(_severityLabel(i))))
+                                .toList(),
+                            onChanged: onSeverityChanged,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const _FormSectionTitle('Keterangan'),
+                    TextField(
+                      controller: descriptionController,
+                      minLines: 4,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan / Catatan',
+                        alignLabelWithHint: true,
                       ),
                     ),
-                    SizedBox(
-                      width: 320,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedStudentId,
-                        decoration:
-                            const InputDecoration(labelText: 'Pilih Pelajar'),
-                        items: studentsList
-                            .map((s) => DropdownMenuItem(
-                                  value: s.id,
-                                  child: Text(
-                                    '${s.name} (${s.section})',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: onStudentChanged,
-                      ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Contoh: Pelajar tidak hadir 4 minggu berturut-turut tanpa sebab.',
+                      style: TextStyle(color: Color(0xff64748b), fontSize: 13),
                     ),
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: issueType,
-                        decoration:
-                            const InputDecoration(labelText: 'Jenis Isu'),
-                        items: [
-                          'Kerap Tidak Hadir',
-                          'Ponteng Kelas',
-                          'Masalah Tingkah Laku',
-                          'Lain-lain'
-                        ]
-                            .map((i) =>
-                                DropdownMenuItem(value: i, child: Text(i)))
-                            .toList(),
-                        onChanged: onIssueTypeChanged,
+                    const SizedBox(height: 18),
+                    const _FormSectionTitle('Hantar'),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xfff8fafc),
+                        border: Border.all(color: const Color(0xffe2e8f0)),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    SizedBox(
-                      width: 160,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: severity,
-                        decoration: const InputDecoration(labelText: 'Tahap'),
-                        items: ['Low', 'Medium', 'High']
-                            .map((i) =>
-                                DropdownMenuItem(value: i, child: Text(i)))
-                            .toList(),
-                        onChanged: onSeverityChanged,
+                      child: Align(
+                        alignment:
+                            isWide ? Alignment.centerRight : Alignment.center,
+                        child: isWide
+                            ? submitButton
+                            : SizedBox(
+                                width: double.infinity,
+                                child: submitButton,
+                              ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descriptionController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Keterangan / Catatan',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: submitting ? null : onSubmit,
-                    icon: submitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                    label:
-                        Text(submitting ? 'Menghantar...' : 'Hantar Laporan'),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
+    );
+  }
+}
+
+class _FormSectionTitle extends StatelessWidget {
+  const _FormSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Color(0xff0f172a),
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
@@ -559,15 +615,120 @@ class _ClassSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        _MiniChip(Icons.groups_outlined, slot.section),
-        _MiniChip(Icons.menu_book_outlined, slot.subjectCode),
-        _MiniChip(Icons.schedule, '${slot.startTime}-${slot.endTime}'),
-        _MiniChip(Icons.meeting_room_outlined, slot.room),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffdbeafe)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _SessionSummaryItem(
+            icon: Icons.menu_book_outlined,
+            label: 'Subjek',
+            value: '${slot.subjectCode} - ${slot.subjectName}',
+          ),
+          _SessionSummaryItem(
+            icon: Icons.groups_outlined,
+            label: 'Kelas',
+            value: slot.section,
+          ),
+          _SessionSummaryItem(
+            icon: Icons.schedule,
+            label: 'Masa',
+            value: '${slot.startTime}-${slot.endTime}',
+          ),
+          _SessionSummaryItem(
+            icon: Icons.meeting_room_outlined,
+            label: 'Bilik',
+            value: slot.room,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySessionSummary extends StatelessWidget {
+  const _EmptySessionSummary();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'Pilih kelas untuk melihat maklumat sesi.',
+        style: TextStyle(color: Color(0xff64748b)),
+      ),
+    );
+  }
+}
+
+class _SessionSummaryItem extends StatelessWidget {
+  const _SessionSummaryItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xffeff6ff),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: const Color(0xff2563eb)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xff64748b),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value.isEmpty ? '-' : value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xff0f172a),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -632,92 +793,150 @@ class _DisciplineReportItem extends StatelessWidget {
     final reviewers = report.assignedReviewerRoles.isEmpty
         ? '-'
         : report.assignedReviewerRoles.join(', ');
+    final severityTone = _severityTone(report.severity);
+    final statusTone = _statusTone(status);
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        border: Border.all(color: const Color(0xffe2e8f0)),
+        color: Colors.white,
+        border: Border.all(color: severityTone.border),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 5,
+              decoration: BoxDecoration(
+                color: severityTone.color.withValues(alpha: .72),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      report.studentName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xff0f172a),
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                report.studentName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xff0f172a),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${report.programName ?? report.programId ?? '-'} | ${report.section} | $subject',
+                                style:
+                                    const TextStyle(color: Color(0xff64748b)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            _DisciplineToneChip(
+                              label: _severityLabel(report.severity),
+                              tone: severityTone,
+                              icon: Icons.priority_high_rounded,
+                            ),
+                            _DisciplineToneChip(
+                              label: _statusLabel(status),
+                              tone: statusTone,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.report_problem_outlined,
+                          size: 17,
+                          color: severityTone.color,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            report.issueType,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xff334155),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${report.programName ?? report.programId ?? '-'} | ${report.section} | $subject',
-                      style: const TextStyle(color: Color(0xff64748b)),
+                      report.description.isEmpty ? '-' : report.description,
+                      style: const TextStyle(color: Color(0xff334155)),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      children: [
+                        _ReportMeta(label: 'Laporan', value: report.id),
+                        _ReportMeta(
+                          label: 'Dilapor oleh',
+                          value: report.createdByName ?? report.lecturer,
+                        ),
+                        _ReportMeta(
+                          label: 'Tarikh',
+                          value: report.createdAt ?? report.date,
+                        ),
+                        _ReportMeta(label: 'Reviewer', value: reviewers),
+                      ],
+                    ),
+                    if (_reviewSummary(report).isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xfff1f5f9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _reviewSummary(report),
+                          style: const TextStyle(color: Color(0xff334155)),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    _DisciplineCardActions(
+                      status: status,
+                      canReview: canApprove,
+                      onViewDetails: onViewDetails,
+                      onTakeAction: onTakeAction,
+                      onReject: onReject,
+                      onClose: onClose,
                     ),
                   ],
                 ),
               ),
-              StatusChip(_statusLabel(status)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '${report.issueType} (${report.severity})',
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              color: Color(0xff334155),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(report.description.isEmpty ? '-' : report.description),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _ReportMeta(label: 'Laporan', value: report.id),
-              _ReportMeta(
-                  label: 'Dilapor oleh',
-                  value: report.createdByName ?? report.lecturer),
-              _ReportMeta(
-                  label: 'Tarikh', value: report.createdAt ?? report.date),
-              _ReportMeta(label: 'Reviewer', value: reviewers),
-            ],
-          ),
-          if (_reviewSummary(report).isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xfff1f5f9),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                _reviewSummary(report),
-                style: const TextStyle(color: Color(0xff334155)),
-              ),
             ),
           ],
-          const SizedBox(height: 12),
-          _DisciplineCardActions(
-            status: status,
-            canReview: canApprove,
-            onViewDetails: onViewDetails,
-            onTakeAction: onTakeAction,
-            onReject: onReject,
-            onClose: onClose,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -742,6 +961,128 @@ class _DisciplineReportItem extends StatelessWidget {
     }
     return lines.join('\n');
   }
+}
+
+class _DisciplineTone {
+  const _DisciplineTone({
+    required this.color,
+    required this.background,
+    required this.border,
+  });
+
+  final Color color;
+  final Color background;
+  final Color border;
+}
+
+class _DisciplineToneChip extends StatelessWidget {
+  const _DisciplineToneChip({
+    required this.label,
+    required this.tone,
+    this.icon,
+  });
+
+  final String label;
+  final _DisciplineTone tone;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: tone.background,
+        border: Border.all(color: tone.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: tone.color),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: tone.color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _severityLabel(String severity) {
+  return switch (severity.trim().toLowerCase()) {
+    'low' || 'rendah' => 'Rendah',
+    'medium' || 'sederhana' => 'Sederhana',
+    'high' || 'tinggi' => 'Tinggi',
+    _ => severity,
+  };
+}
+
+_DisciplineTone _severityTone(String severity) {
+  return switch (severity.trim().toLowerCase()) {
+    'high' || 'tinggi' => const _DisciplineTone(
+        color: Color(0xffdc2626),
+        background: Color(0xfffff1f2),
+        border: Color(0xfffecdd3),
+      ),
+    'medium' || 'sederhana' => const _DisciplineTone(
+        color: Color(0xffb45309),
+        background: Color(0xfffffbeb),
+        border: Color(0xfffde68a),
+      ),
+    'low' || 'rendah' => const _DisciplineTone(
+        color: Color(0xff15803d),
+        background: Color(0xfff0fdf4),
+        border: Color(0xffbbf7d0),
+      ),
+    _ => const _DisciplineTone(
+        color: Color(0xff475569),
+        background: Color(0xfff8fafc),
+        border: Color(0xffe2e8f0),
+      ),
+  };
+}
+
+_DisciplineTone _statusTone(String status) {
+  return switch (_normalizeDisciplineStatus(status)) {
+    'pending' => const _DisciplineTone(
+        color: Color(0xffb45309),
+        background: Color(0xfffffbeb),
+        border: Color(0xfffde68a),
+      ),
+    'reviewed' => const _DisciplineTone(
+        color: Color(0xff4338ca),
+        background: Color(0xffeef2ff),
+        border: Color(0xffc7d2fe),
+      ),
+    'action_taken' => const _DisciplineTone(
+        color: Color(0xff1d4ed8),
+        background: Color(0xffeff6ff),
+        border: Color(0xffbfdbfe),
+      ),
+    'closed' => const _DisciplineTone(
+        color: Color(0xff166534),
+        background: Color(0xfff0fdf4),
+        border: Color(0xffbbf7d0),
+      ),
+    'rejected' => const _DisciplineTone(
+        color: Color(0xffdc2626),
+        background: Color(0xfffff1f2),
+        border: Color(0xfffecdd3),
+      ),
+    _ => const _DisciplineTone(
+        color: Color(0xff475569),
+        background: Color(0xfff8fafc),
+        border: Color(0xffe2e8f0),
+      ),
+  };
 }
 
 class _ReportMeta extends StatelessWidget {

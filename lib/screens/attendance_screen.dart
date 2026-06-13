@@ -1280,25 +1280,26 @@ class _InfoPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const defaultTone = Color(0xff2563eb);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: tinted ? tone.withValues(alpha: .08) : const Color(0xfff8fafc),
+        color: tinted ? tone.withValues(alpha: .08) : const Color(0xffeff6ff),
         border: Border.all(
             color: tinted
                 ? tone.withValues(alpha: .2)
-                : const Color(0xffe2e8f0)),
+                : const Color(0xffbfdbfe)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: tone),
-          const SizedBox(width: 8),
+          Icon(icon, size: 17, color: tinted ? tone : defaultTone),
+          const SizedBox(width: 7),
           Text(
-            label,
+            label.isEmpty ? '-' : label,
             style: TextStyle(
-              color: tinted ? tone : const Color(0xff334155),
+              color: tinted ? tone : const Color(0xff1e3a8a),
               fontWeight: FontWeight.w700,
             ),
           ),
