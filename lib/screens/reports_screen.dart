@@ -20,6 +20,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   static const _allGroupsKey = 'all';
   String _selectedGroup = _allGroupsKey;
   int _selectedWeek = 1;
+  int? _selectedThresholdFilter;
 
   String _groupKey(Student student) => '${student.program}||${student.section}';
 
@@ -66,8 +67,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final selectedGroup = availableGroups.contains(_selectedGroup)
         ? _selectedGroup
         : _allGroupsKey;
-    final filteredStudents = students.where((student) {
+    final groupFilteredStudents = students.where((student) {
       return selectedGroup == _allGroupsKey || _groupKey(student) == selectedGroup;
+    }).toList();
+    final filteredStudents = groupFilteredStudents.where((student) {
+      if (_selectedThresholdFilter == null) return true;
+      final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+      return _selectedThresholdFilter == 80
+          ? summary.percentage <= 80
+          : summary.percentage < _selectedThresholdFilter!;
     }).toList();
     final summaries = filteredStudents
         .map((student) => state.attendanceSummaryForStudentWeek(student, _selectedWeek))
@@ -122,54 +130,95 @@ class _ReportsScreenState extends State<ReportsScreen> {
           margin: const EdgeInsets.symmetric(vertical: 8),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Wrap(
-              spacing: 24,
-              runSpacing: 12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 300,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: selectedGroup,
-                    decoration: const InputDecoration(
-                      labelText: 'Program / Kelas',
-                      border: OutlineInputBorder(),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final threshold in [95, 90, 85, 80])
+                      FilledButton(
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith(
+                            (states) => _selectedThresholdFilter == threshold
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
+                          foregroundColor: WidgetStateProperty.resolveWith(
+                            (states) => _selectedThresholdFilter == threshold
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : null,
+                          ),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _selectedThresholdFilter = threshold;
+                          });
+                        },
+                        child: Text('Bawah $threshold%'),
+                      ),
+                    OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedThresholdFilter = null;
+                        });
+                      },
+                      child: const Text('Tunjuk Semua'),
                     ),
-                    items: availableGroups
-                        .map((groupKey) => DropdownMenuItem(
-                              value: groupKey,
-                              child: Text(_groupLabel(groupKey)),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedGroup = value;
-                      });
-                    },
-                  ),
+                  ],
                 ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _selectedWeek,
-                    decoration: const InputDecoration(
-                      labelText: 'Minggu',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: List.generate(
-                      18,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('Minggu ${index + 1}'),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 24,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: 300,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedGroup,
+                        decoration: const InputDecoration(
+                          labelText: 'Program / Kelas',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: availableGroups
+                            .map((groupKey) => DropdownMenuItem(
+                                  value: groupKey,
+                                  child: Text(_groupLabel(groupKey)),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedGroup = value;
+                          });
+                        },
                       ),
                     ),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedWeek = value;
-                      });
-                    },
-                  ),
+                    SizedBox(
+                      width: 180,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: _selectedWeek,
+                        decoration: const InputDecoration(
+                          labelText: 'Minggu',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: List.generate(
+                          18,
+                          (index) => DropdownMenuItem(
+                            value: index + 1,
+                            child: Text('Minggu ${index + 1}'),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedWeek = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
