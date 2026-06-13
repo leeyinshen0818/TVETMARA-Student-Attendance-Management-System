@@ -41,6 +41,7 @@ class UserFields {
   static const programId = 'programId';
   static const departmentId = 'departmentId';
   static const phoneNumber = 'phoneNumber';
+  static const lecturerProfileId = 'lecturerProfileId';
   static const isActive = 'isActive';
   static const createdAt = 'createdAt';
   static const updatedAt = 'updatedAt';

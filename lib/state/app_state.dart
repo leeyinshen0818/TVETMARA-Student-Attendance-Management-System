@@ -87,8 +87,35 @@ class AppState extends ChangeNotifier {
   bool get isAttendanceDataLoaded => _loadedCollections.containsAll(
       ['students', 'timetable', 'attendance', 'sessionAttendance']);
 
-  bool get isDashboardDataLoaded => _loadedCollections.containsAll(
-      ['students', 'timetable', 'bookings', 'discipline', 'sessionAttendance']);
+  bool get isDashboardDataLoaded {
+    final requiredCollections = [
+      'students',
+      'timetable',
+      'bookings',
+      'discipline',
+      'sessionAttendance',
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        'users',
+        'lecturers',
+      ],
+    ];
+    return _loadedCollections.containsAll(requiredCollections);
+  }
+
+  bool get isDashboardDataLoading {
+    final loadingCollections = [
+      'students',
+      'timetable',
+      'bookings',
+      'discipline',
+      'sessionAttendance',
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        'users',
+        'lecturers',
+      ],
+    ];
+    return loadingCollections.any(isCollectionLoading);
+  }
 
   /// Load all data from Firestore.
   /// Call once after Firebase is initialised and the user is authenticated.
@@ -187,6 +214,10 @@ class AppState extends ChangeNotifier {
       loadBookingsIfNeeded(),
       loadDisciplineIfNeeded(),
       loadSessionAttendanceIfNeeded(),
+      if (currentUser?.role == UserRole.pentadbir) ...[
+        loadUsersIfNeeded(),
+        loadLecturersIfNeeded(),
+      ],
     ]);
   }
 
@@ -463,11 +494,26 @@ class AppState extends ChangeNotifier {
           .toList();
     }
 
-    // Pensyarah
-    return timetable
-        .where((slot) =>
-            slot.lecturerId == user.uid || slot.lecturerName == user.name)
-        .toList();
+    // Pensyarah scope is assignment-based. New slots match by Auth UID,
+    // lecturer email, or master lecturer profile id. Name matching is kept
+    // only for legacy rows that have no stable identity fields.
+    final userEmail = user.email.trim().toLowerCase();
+    final userProfileId = user.lecturerProfileId;
+    return timetable.where((slot) {
+      final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+      if (slot.lecturerId == user.uid) return true;
+      if (slotEmail != null && slotEmail == userEmail) return true;
+      if (userProfileId != null &&
+          userProfileId.isNotEmpty &&
+          slot.lecturerProfileId == userProfileId) {
+        return true;
+      }
+      final hasStableIdentity = slot.lecturerId.isNotEmpty ||
+          (slotEmail != null && slotEmail.isNotEmpty) ||
+          (slot.lecturerProfileId != null &&
+              slot.lecturerProfileId!.isNotEmpty);
+      return !hasStableIdentity && slot.lecturerName == user.name;
+    }).toList();
   }
 
   List<Student> get scopedStudents {
@@ -502,7 +548,8 @@ class AppState extends ChangeNotifier {
     if (user == null || user.role == UserRole.pentadbir) return [];
 
     if (user.role == UserRole.ketua_jabatan) {
-      final scopedProgramIds = scopedPrograms.map((program) => program.id).toSet();
+      final scopedProgramIds =
+          scopedPrograms.map((program) => program.id).toSet();
       final scopedStudentIds =
           scopedStudents.map((student) => student.id).toSet();
       return disciplineReports
@@ -689,15 +736,59 @@ class AppState extends ChangeNotifier {
     await _fs.addDisciplineReport(routed);
   }
 
-  Future<void> updateDiscipline(String id, String status) async {
+  Future<void> updateDiscipline(
+    String id,
+    String status, {
+    String? actionTakenNote,
+    String? reviewerNotes,
+    String? actionTaken,
+    String? rejectionReason,
+  }) async {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final index = disciplineReports.indexWhere((report) => report.id == id);
+    final user = currentUser;
+    final scoped = scopedDisciplineReports.any((report) => report.id == id);
+    if ((user?.role == UserRole.ketua_jabatan ||
+            user?.role == UserRole.ketua_program) &&
+        !scoped) {
+      throw StateError('Laporan disiplin di luar skop pengguna.');
+    }
     if (index != -1) {
-      disciplineReports[index] =
-          disciplineReports[index].copyWith(status: normalizedStatus);
+      disciplineReports[index] = disciplineReports[index].copyWith(
+        status: normalizedStatus,
+        reviewedBy: user?.uid,
+        reviewedByName: user?.name,
+        reviewerRole: user?.role.firestoreValue,
+        reviewerNotes: reviewerNotes,
+        actionTakenBy: normalizedStatus == 'action_taken'
+            ? user?.uid
+            : disciplineReports[index].actionTakenBy,
+        actionTakenByName: normalizedStatus == 'action_taken'
+            ? user?.name
+            : disciplineReports[index].actionTakenByName,
+        actionTaken: normalizedStatus == 'action_taken' ? actionTaken : null,
+        actionTakenNote: normalizedStatus == 'action_taken'
+            ? (actionTakenNote ?? actionTaken)
+            : disciplineReports[index].actionTakenNote,
+        rejectionReason: normalizedStatus == 'rejected'
+            ? rejectionReason
+            : disciplineReports[index].rejectionReason,
+      );
     }
     notifyListeners();
-    await _fs.updateDisciplineStatus(id, normalizedStatus);
+    await _fs.updateDisciplineStatus(
+      id,
+      normalizedStatus,
+      actionTakenBy: user?.uid,
+      actionTakenByName: user?.name,
+      actionTakenNote: actionTakenNote ?? actionTaken,
+      reviewedBy: user?.uid,
+      reviewedByName: user?.name,
+      reviewerRole: user?.role.firestoreValue,
+      reviewerNotes: reviewerNotes,
+      actionTaken: actionTaken,
+      rejectionReason: rejectionReason,
+    );
   }
 
   Future<void> addBooking(BookingRequest booking) async {
@@ -746,6 +837,8 @@ class AppState extends ChangeNotifier {
         subjectName: booking.subject,
         lecturerId: booking.lecturerId,
         lecturerName: booking.lecturerName,
+        lecturerEmail: source?.lecturerEmail,
+        lecturerProfileId: source?.lecturerProfileId,
         day: 'Ganti',
         date: booking.replacementDate,
         startTime: booking.replacementStart,
@@ -1033,10 +1126,9 @@ class AppState extends ChangeNotifier {
     final student =
         students.where((student) => student.id == report.studentId).firstOrNull;
     final slot = _slotForDisciplineReport(report, student);
-    final slotProgramId =
-        slot?.programId != null && slot!.programId!.isNotEmpty
-            ? slot.programId
-            : null;
+    final slotProgramId = slot?.programId != null && slot!.programId!.isNotEmpty
+        ? slot.programId
+        : null;
     final slotDepartmentId =
         slot?.departmentId != null && slot!.departmentId!.isNotEmpty
             ? slot.departmentId
@@ -1047,8 +1139,10 @@ class AppState extends ChangeNotifier {
         _programForName(report.programName) ??
         _programForName(student?.program) ??
         _programForName(slot?.program);
-    final programName =
-        report.programName ?? program?.name ?? student?.program ?? slot?.program;
+    final programName = report.programName ??
+        program?.name ??
+        student?.program ??
+        slot?.program;
 
     return report.copyWith(
       status: _normalizeDisciplineStatus(report.status),
@@ -1136,11 +1230,23 @@ class AppState extends ChangeNotifier {
   }
 
   String _normalizeDisciplineStatus(String status) {
-    return switch (status) {
-      'New' => 'pending',
-      'Under Review' => 'reviewed',
-      'Approved' => 'action_taken',
-      _ => status,
+    final normalized = status.trim().toLowerCase().replaceAll(' ', '_');
+    return switch (normalized) {
+      'new' ||
+      'submitted' ||
+      'pending' ||
+      'menunggu' ||
+      'menunggu_semakan' =>
+        'pending',
+      'under_review' || 'reviewed' || 'disemak' => 'reviewed',
+      'approved' ||
+      'resolved' ||
+      'action_taken' ||
+      'tindakan_diambil' =>
+        'action_taken',
+      'closed' || 'ditutup' => 'closed',
+      'rejected' || 'ditolak' => 'rejected',
+      _ => normalized,
     };
   }
 

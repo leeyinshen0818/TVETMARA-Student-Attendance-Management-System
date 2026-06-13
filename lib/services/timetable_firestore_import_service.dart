@@ -251,6 +251,8 @@ class TimetableFirestoreImportService {
       'subjectCode': draft.subjectCode,
       'subjectName': draft.subjectName,
       'lecturerId': draft.lecturerId,
+      'lecturerEmail': draft.lecturerEmail,
+      'lecturerProfileId': draft.lecturerProfileId,
       'lecturerName': draft.lecturerName,
       'roomId': draft.roomId,
       'roomName': draft.roomName,

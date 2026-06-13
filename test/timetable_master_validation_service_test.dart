@@ -1,15 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tvetmara_student_attendance/data/mock_data.dart' as mock;
 import 'package:tvetmara_student_attendance/models/app_models.dart';
 import 'package:tvetmara_student_attendance/models/timetable_import_result.dart';
 import 'package:tvetmara_student_attendance/services/timetable_import_service.dart';
 import 'package:tvetmara_student_attendance/services/timetable_master_validation_service.dart';
 
 const _header =
-    'academicSessionId,programId,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
+    'academicSessionId,programId,programName,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
 
 String _row({
   String academicSessionId = '2026_S1',
   String programId = 'DED',
+  String programName = 'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DED)',
   String classId = 'DED_1A',
   String subjectCode = 'DED10044',
   String subjectName = 'Wiring and Installation Practice',
@@ -29,6 +33,7 @@ String _row({
   return [
     academicSessionId,
     programId,
+    programName,
     classId,
     subjectCode,
     subjectName,
@@ -83,7 +88,15 @@ class _FakeMasterDataSource implements TimetableMasterDataSource {
 
   static const _defaultPrograms = {
     'DED': ProgramCode(id: 'DED', name: 'Elektrik', departmentId: 'elektrik'),
+    'DCP': ProgramCode(id: 'DCP', name: 'DCP', departmentId: 'elektrik'),
+    'DCB': ProgramCode(id: 'DCB', name: 'DCB', departmentId: 'elektrik'),
     'DGS': ProgramCode(id: 'DGS', name: 'Gas', departmentId: null),
+    'ITW': ProgramCode(id: 'ITW', name: 'ITW', departmentId: 'mekanikal'),
+    'SLR': ProgramCode(id: 'SLR', name: 'SLR', departmentId: 'mekanikal'),
+    'SMI': ProgramCode(id: 'SMI', name: 'SMI', departmentId: 'mekanikal'),
+    'IMF': ProgramCode(id: 'IMF', name: 'IMF', departmentId: 'automotif'),
+    'SMM': ProgramCode(id: 'SMM', name: 'SMM', departmentId: 'automotif'),
+    'DMM': ProgramCode(id: 'DMM', name: 'DMM', departmentId: 'automotif'),
   };
 
   static const _defaultLecturers = {
@@ -94,6 +107,7 @@ class _FakeMasterDataSource implements TimetableMasterDataSource {
       role: UserRole.pensyarah,
       programId: 'DED',
       departmentId: 'elektrik',
+      lecturerProfileId: 'REAL_L_046',
       isActive: true,
     ),
     'pensyarah_dgs@tvetmara.edu.my': AppUser(
@@ -159,7 +173,115 @@ class _FakeMasterDataSource implements TimetableMasterDataSource {
   }
 }
 
+class _MockMasterDataSource implements TimetableMasterDataSource {
+  const _MockMasterDataSource();
+
+  @override
+  Future<Map<String, ProgramCode>> getProgramsById(Set<String> programIds) {
+    final programs = {for (final program in mock.programs) program.id: program};
+    return Future.value({
+      for (final id in programIds)
+        if (programs[id] != null) id: programs[id]!,
+    });
+  }
+
+  @override
+  Future<Map<String, AppUser>> getLecturersByEmail(Set<String> emails) {
+    final users = {
+      for (final user in mock.users) user.email.toLowerCase(): user,
+    };
+    return Future.value({
+      for (final email in emails)
+        if (users[email.toLowerCase()] != null)
+          email.toLowerCase(): users[email.toLowerCase()]!,
+    });
+  }
+
+  @override
+  Future<Map<String, TimetableRoomMaster>> getRoomsById(Set<String> roomIds) {
+    final rooms = {
+      for (final room in mock.roomResources)
+        room.name.replaceAll(RegExp(r'[/\\.]'), '_'): TimetableRoomMaster(
+          roomId: room.name.replaceAll(RegExp(r'[/\\.]'), '_'),
+          name: room.name,
+        ),
+    };
+    return Future.value({
+      for (final id in roomIds)
+        if (rooms[id] != null) id: rooms[id]!,
+    });
+  }
+
+  @override
+  Future<Set<String>> getExistingSubjectIds(Set<String> subjectIds) {
+    final ids =
+        mock.subjectsForSeed.map((subject) => subject.subjectId).toSet();
+    return Future.value(subjectIds.intersection(ids));
+  }
+
+  @override
+  Future<Set<String>> getExistingClassIds(Set<String> classIds) {
+    final ids = mock.demoClasses.map((item) => item.classId).toSet();
+    return Future.value(classIds.intersection(ids));
+  }
+
+  @override
+  Future<Set<String>> getExistingAcademicSessionIds(Set<String> sessionIds) {
+    final ids = mock.academicSessions
+        .map((session) => session.academicSessionId)
+        .toSet();
+    return Future.value(sessionIds.intersection(ids));
+  }
+
+  @override
+  Future<Set<String>> getExistingTimetableDuplicateKeys() {
+    return Future.value({});
+  }
+}
+
+const _kjElektrik = AppUser(
+  uid: 'KJ_ELEKTRIK',
+  name: 'KJ Elektrik',
+  email: 'kj_elektrik@tvetmara.edu.my',
+  role: UserRole.ketua_jabatan,
+  departmentId: 'elektrik',
+  isActive: true,
+);
+
+const _kjMekanikal = AppUser(
+  uid: 'KJ_MEKANIKAL',
+  name: 'KJ Mekanikal',
+  email: 'kj_mekanikal@tvetmara.edu.my',
+  role: UserRole.ketua_jabatan,
+  departmentId: 'mekanikal',
+  isActive: true,
+);
+
+const _kjAutomotif = AppUser(
+  uid: 'KJ_AUTOMOTIF',
+  name: 'KJ Automotif',
+  email: 'kj_automotif@tvetmara.edu.my',
+  role: UserRole.ketua_jabatan,
+  departmentId: 'automotif',
+  isActive: true,
+);
+
+const _kpDgs = AppUser(
+  uid: 'KP_DGS',
+  name: 'KP DGS',
+  email: 'kp_dgs@tvetmara.edu.my',
+  role: UserRole.ketua_program,
+  programId: 'DGS',
+  isActive: true,
+);
+
+TimetableUploadScope _scopeFor(AppUser user, _FakeMasterDataSource source) {
+  return TimetableUploadScope.forUser(user, source.programs.values);
+}
+
 void main() {
+  setUpAll(mock.initializeMockData);
+
   test('prepares valid preview row with existing program, lecturer, and room',
       () async {
     final result = await TimetableMasterValidationService(
@@ -173,6 +295,8 @@ void main() {
     expect(draft.programId, 'DED');
     expect(draft.departmentId, 'elektrik');
     expect(draft.lecturerId, 'UID_DED');
+    expect(draft.lecturerEmail, 'pensyarah_ded@tvetmara.edu.my');
+    expect(draft.lecturerProfileId, 'REAL_L_046');
     expect(draft.lecturerName, 'Pensyarah DED');
     expect(draft.roomName, 'BILIK KULIAH 1');
   });
@@ -326,5 +450,135 @@ void main() {
     expect(result.duplicateRows, 1);
     expect(result.errorRows, 0);
     expect(result.previewRows.last.status, TimetableImportRowStatus.duplicate);
+  });
+
+  test('KJ Elektrik accepts DED, DCP, and DCB upload rows', () async {
+    final source = _FakeMasterDataSource();
+    final result =
+        await TimetableMasterValidationService(source).preparePreview(
+      _parseRows([
+        _row(programId: 'DED'),
+        _row(programId: 'DCP', subjectId: 'DCP_MEP20012'),
+        _row(programId: 'DCB', subjectId: 'DCB_MEB10023'),
+      ]),
+      uploadScope: _scopeFor(_kjElektrik, source),
+    );
+
+    expect(result.errorRows, 0);
+    expect(result.importableRows, 3);
+  });
+
+  test('KJ Elektrik rejects DGS, ITW, and SMM upload rows', () async {
+    final source = _FakeMasterDataSource();
+    final result =
+        await TimetableMasterValidationService(source).preparePreview(
+      _parseRows([
+        _row(programId: 'DGS'),
+        _row(programId: 'ITW'),
+        _row(programId: 'SMM'),
+      ]),
+      uploadScope: _scopeFor(_kjElektrik, source),
+    );
+
+    expect(result.errorRows, 3);
+    expect(result.importableRows, 0);
+    expect(result.previewRows.first.errors.join(' '), contains('DGS'));
+    expect(
+        result.previewRows.first.errors.join(' '), contains('DED, DCP, DCB'));
+    expect(result.validationWarnings.single, contains('DGS, ITW, SMM'));
+  });
+
+  test('KP DGS accepts DGS and rejects Elektrik programmes', () async {
+    final source = _FakeMasterDataSource();
+    final result =
+        await TimetableMasterValidationService(source).preparePreview(
+      _parseRows([
+        _row(programId: 'DGS'),
+        _row(programId: 'DED'),
+        _row(programId: 'DCP'),
+        _row(programId: 'DCB'),
+      ]),
+      uploadScope: _scopeFor(_kpDgs, source),
+    );
+
+    expect(result.importableRows, 1);
+    expect(result.errorRows, 3);
+    expect(result.previewRows.first.errors, isEmpty);
+    expect(result.previewRows[1].errors.join(' '), contains('Program DED'));
+    expect(result.previewRows[1].errors.join(' '),
+        contains('Skop dibenarkan: DGS'));
+  });
+
+  test('KJ Mekanikal accepts ITW, SLR, and SMI upload rows', () async {
+    final source = _FakeMasterDataSource();
+    final result =
+        await TimetableMasterValidationService(source).preparePreview(
+      _parseRows([
+        _row(programId: 'ITW'),
+        _row(programId: 'SLR'),
+        _row(programId: 'SMI'),
+      ]),
+      uploadScope: _scopeFor(_kjMekanikal, source),
+    );
+
+    expect(result.errorRows, 0);
+    expect(result.importableRows, 3);
+  });
+
+  test('KJ Automotif accepts IMF, SMM, and DMM upload rows', () async {
+    final source = _FakeMasterDataSource();
+    final result =
+        await TimetableMasterValidationService(source).preparePreview(
+      _parseRows([
+        _row(programId: 'IMF'),
+        _row(programId: 'SMM'),
+        _row(programId: 'DMM'),
+      ]),
+      uploadScope: _scopeFor(_kjAutomotif, source),
+    );
+
+    expect(result.errorRows, 0);
+    expect(result.importableRows, 3);
+  });
+
+  test('scoped clean CSV files pass for the correct Ketua users', () async {
+    final source = const _MockMasterDataSource();
+
+    final elektrik =
+        await TimetableMasterValidationService(source).preparePreview(
+      const TimetableImportService().parseAndValidate(
+        File('demo_data/clean_no_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv')
+            .readAsStringSync(),
+      ),
+      uploadScope: TimetableUploadScope.forUser(_kjElektrik, mock.programs),
+    );
+    final dgs = await TimetableMasterValidationService(source).preparePreview(
+      const TimetableImportService().parseAndValidate(
+        File('demo_data/clean_no_conflict_timetable_DGS_JAN_JUN_2026.csv')
+            .readAsStringSync(),
+      ),
+      uploadScope: TimetableUploadScope.forUser(_kpDgs, mock.programs),
+    );
+
+    expect(elektrik.errorRows, 0);
+    expect(elektrik.importableRows, 30);
+    expect(dgs.errorRows, 0);
+    expect(dgs.importableRows, 10);
+  });
+
+  test('mixed legacy CSV fails scope validation for KJ Elektrik', () async {
+    final result = await TimetableMasterValidationService(
+      const _MockMasterDataSource(),
+    ).preparePreview(
+      const TimetableImportService().parseAndValidate(
+        File('demo_data/clean_no_conflict_timetable_JAN_JUN_2026.csv')
+            .readAsStringSync(),
+      ),
+      uploadScope: TimetableUploadScope.forUser(_kjElektrik, mock.programs),
+    );
+
+    expect(result.errorRows, greaterThan(0));
+    expect(result.importableRows, lessThan(result.totalRows));
+    expect(result.validationWarnings.join(' '), contains('DGS'));
   });
 }

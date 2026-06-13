@@ -211,6 +211,7 @@ class AppUser {
     required this.role,
     this.programId,
     this.departmentId,
+    this.lecturerProfileId,
     this.phoneNumber,
     required this.isActive,
     this.createdAt,
@@ -223,6 +224,7 @@ class AppUser {
   final UserRole role;
   final String? programId;
   final String? departmentId;
+  final String? lecturerProfileId;
   final String? phoneNumber;
   final bool isActive;
   final String? createdAt;
@@ -321,6 +323,8 @@ class TimetableSlot {
     required this.subjectName,
     required this.lecturerId,
     required this.lecturerName,
+    this.lecturerEmail,
+    this.lecturerProfileId,
     this.roomId,
     this.roomName,
     required this.day,
@@ -357,6 +361,8 @@ class TimetableSlot {
   final String subjectName;
   final String lecturerId;
   final String lecturerName;
+  final String? lecturerEmail;
+  final String? lecturerProfileId;
   final String? roomId;
   final String? roomName;
   final String day;
@@ -394,6 +400,8 @@ class TimetableSlot {
       subjectName: subjectName,
       lecturerId: lecturerId,
       lecturerName: lecturerName,
+      lecturerEmail: lecturerEmail,
+      lecturerProfileId: lecturerProfileId,
       roomId: roomId,
       roomName: roomName,
       day: day,
@@ -565,7 +573,15 @@ class DisciplineReport {
     this.updatedAt,
     this.reviewedAt,
     this.reviewedBy,
+    this.reviewedByName,
+    this.reviewerRole,
+    this.reviewerNotes,
     this.actionTakenAt,
+    this.actionTakenBy,
+    this.actionTakenByName,
+    this.actionTaken,
+    this.actionTakenNote,
+    this.rejectionReason,
     this.closedAt,
   });
 
@@ -595,7 +611,15 @@ class DisciplineReport {
   final String? updatedAt;
   final String? reviewedAt;
   final String? reviewedBy;
+  final String? reviewedByName;
+  final String? reviewerRole;
+  final String? reviewerNotes;
   final String? actionTakenAt;
+  final String? actionTakenBy;
+  final String? actionTakenByName;
+  final String? actionTaken;
+  final String? actionTakenNote;
+  final String? rejectionReason;
   final String? closedAt;
 
   DisciplineReport copyWith({
@@ -614,7 +638,15 @@ class DisciplineReport {
     String? updatedAt,
     String? reviewedAt,
     String? reviewedBy,
+    String? reviewedByName,
+    String? reviewerRole,
+    String? reviewerNotes,
     String? actionTakenAt,
+    String? actionTakenBy,
+    String? actionTakenByName,
+    String? actionTaken,
+    String? actionTakenNote,
+    String? rejectionReason,
     String? closedAt,
   }) {
     return DisciplineReport(
@@ -646,7 +678,15 @@ class DisciplineReport {
       updatedAt: updatedAt ?? this.updatedAt,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedByName: reviewedByName ?? this.reviewedByName,
+      reviewerRole: reviewerRole ?? this.reviewerRole,
+      reviewerNotes: reviewerNotes ?? this.reviewerNotes,
       actionTakenAt: actionTakenAt ?? this.actionTakenAt,
+      actionTakenBy: actionTakenBy ?? this.actionTakenBy,
+      actionTakenByName: actionTakenByName ?? this.actionTakenByName,
+      actionTaken: actionTaken ?? this.actionTaken,
+      actionTakenNote: actionTakenNote ?? this.actionTakenNote,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
       closedAt: closedAt ?? this.closedAt,
     );
   }

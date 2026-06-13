@@ -155,6 +155,34 @@ void main() {
     );
   });
 
+  test('real lecturer login sees assigned slots by email/profile identity', () {
+    final state = _stateFor(_user('lecturer046@tvetmara.edu.my'));
+
+    expect(state.currentUser!.lecturerProfileId, 'REAL_L_046');
+    expect(state.scopedTimetable, isNotEmpty);
+    expect(
+      state.scopedTimetable.every((slot) =>
+          slot.lecturerId == 'REAL_L_046' ||
+          slot.lecturerEmail == 'lecturer046@tvetmara.edu.my' ||
+          slot.lecturerProfileId == 'REAL_L_046'),
+      isTrue,
+    );
+  });
+
+  test('pensyarah scope does not fall back to whole programme', () {
+    final state = _stateFor(const AppUser(
+      uid: 'UNASSIGNED_DED',
+      name: 'Unassigned Lecturer',
+      email: 'unassigned@tvetmara.edu.my',
+      role: UserRole.pensyarah,
+      programId: 'DED',
+      departmentId: 'elektrik',
+      isActive: true,
+    ));
+
+    expect(state.scopedTimetable, isEmpty);
+  });
+
   test(
       'Pentadbir sees all student and lecturer records but no operational scope',
       () {

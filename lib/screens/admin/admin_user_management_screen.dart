@@ -16,6 +16,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   late final UserTimetableService _service;
 
   final Map<String, bool> _activeOverrides = {};
+  final Set<String> _cancelledAssignments = {};
 
   final TextEditingController _userSearchController = TextEditingController();
   final TextEditingController _studentSearchController = TextEditingController();
@@ -166,7 +167,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   // ===========================================================================
-  // Tab 1: System Users — full-width table
+  // Tab 1: System Users
   // ===========================================================================
   Widget _buildSystemUsersTab() {
     return StreamBuilder<List<AppUser>>(
@@ -349,14 +350,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                               _handleUserStatusToggle(
                                                   user.uid, next);
                                             },
-                                          ),
-                                          const SizedBox(width: 4),
-                                          _buildActionIcon(
-                                            icon: Icons.key_outlined,
-                                            tooltip:
-                                                'Tetapkan Semula Kata Laluan',
-                                            color: const Color(0xff94a3b8),
-                                            onTap: () {},
                                           ),
                                         ],
                                       )),
@@ -665,7 +658,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   // ===========================================================================
-  // Tab 2: Students — table layout matching reference image
+  // Tab 2: Students
   // ===========================================================================
   Widget _buildStudentsTab() {
     return StreamBuilder<List<Student>>(
@@ -721,9 +714,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
         return Column(
           children: [
-            // Filters row matching reference: Course, Class, Semester, Search
             Row(
               children: [
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildSearchBar(
+                    controller: _studentSearchController,
+                    hint: 'Nama, ID, kelas...',
+                  ),
+                ),
+                const SizedBox(width: 12),                                
                 _buildFilterDropdown<String?>(
                   value: _selectedProgramFilter,
                   hint: 'Semua Kursus',
@@ -769,13 +769,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ],
                   onChanged: (v) =>
                       setState(() => _selectedSemesterFilter = v),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSearchBar(
-                    controller: _studentSearchController,
-                    hint: 'Nama, ID, kelas...',
-                  ),
                 ),
               ],
             ),
@@ -838,7 +831,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                     final Color attColor =
                                         isSafe ? Colors.green : Colors.red;
                                     return DataRow(cells: [
-                                      // ID
                                       DataCell(Text(
                                         student.id,
                                         style: const TextStyle(
@@ -846,7 +838,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                             color: Color(0xff64748b),
                                             fontWeight: FontWeight.w500),
                                       )),
-                                      // Name
                                       DataCell(SizedBox(
                                         width: 160,
                                         child: Text(
@@ -858,7 +849,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       )),
-                                      // Email
                                       DataCell(SizedBox(
                                         width: 180,
                                         child: Text(
@@ -870,14 +860,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       )),
-                                      // Phone
                                       DataCell(Text(
                                         student.phone,
                                         style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xff64748b)),
                                       )),
-                                      // Program — full name as plain text (e.g. "Electrical Installation")
                                       DataCell(SizedBox(
                                         width: 160,
                                         child: Text(
@@ -889,23 +877,19 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       )),
-                                      // Section
                                       DataCell(Text(
                                         student.section,
                                         style: const TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w500),
                                       )),
-                                      // Semester
                                       DataCell(Center(
                                         child: Text(
                                           '${student.semester}',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                       )),
-                                      // Status
                                       DataCell(_buildStatusBadge(student.active)),
-                                      // Attendance % with bar
                                       DataCell(SizedBox(
                                         width: 80,
                                         child: Column(
@@ -937,7 +921,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                           ],
                                         ),
                                       )),
-                                      // Action — eye icon only
                                       DataCell(
                                         _buildActionIcon(
                                           icon: Icons.visibility_outlined,
@@ -963,10 +946,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  /// Student detail modal — mirrors the reference image (Image 2)
   void _showStudentDetailDialog(Student student) {
-    // Mock per-subject attendance data based on the student model.
-    // In production, load from AttendanceRecord stream filtered by studentId.
     final mockSubjects = _generateMockSubjectAttendance(student);
 
     showDialog(
@@ -982,237 +962,226 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             padding: const EdgeInsets.all(28),
             child: SingleChildScrollView(
               child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      student.name,
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          student.name,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Info grid — matches reference image layout
-              _buildDetailGrid([
-                _DetailField(label: 'Student ID', value: student.id),
-                // TODO: replace '—' with student.ic once added to Student model
-                _DetailField(label: 'IC', value: '—'),
-                _DetailField(label: 'Seksyen', value: student.section),
-                _DetailField(label: 'Emel', value: student.email),
-                _DetailField(label: 'Telefon', value: student.phone),
-                _DetailField(
-                    label: 'Semester', value: student.semester.toString()),
-                _DetailField(label: 'Program', value: student.program),
-                _DetailField(
-                    label: 'Kehadiran',
-                    value: '${student.attendance}%',
-                    highlight: true,
-                    highlightColor: student.attendance >= 80
-                        ? Colors.green
-                        : Colors.red),
-                _DetailField(
-                    label: 'Status',
-                    value: student.active ? 'Aktif' : 'Tidak Aktif'),
-              ]),
-              const SizedBox(height: 20),
-              // Overall attendance bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Kehadiran Keseluruhan',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xff374151))),
-                  Text(
-                    '${student.attendance}%',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: student.attendance >= 80
+                  const SizedBox(height: 20),
+                  _buildDetailGrid([
+                    _DetailField(label: 'Student ID', value: student.id),
+                    _DetailField(label: 'IC', value: '—'),
+                    _DetailField(label: 'Seksyen', value: student.section),
+                    _DetailField(label: 'Emel', value: student.email),
+                    _DetailField(label: 'Telefon', value: student.phone),
+                    _DetailField(
+                        label: 'Semester', value: student.semester.toString()),
+                    _DetailField(label: 'Program', value: student.program),
+                    _DetailField(
+                        label: 'Kehadiran',
+                        value: '${student.attendance}%',
+                        highlight: true,
+                        highlightColor: student.attendance >= 80
                             ? Colors.green
                             : Colors.red),
+                    _DetailField(
+                        label: 'Status',
+                        value: student.active ? 'Aktif' : 'Tidak Aktif'),
+                  ]),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Kehadiran Keseluruhan',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xff374151))),
+                      Text(
+                        '${student.attendance}%',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: student.attendance >= 80
+                                ? Colors.green
+                                : Colors.red),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: student.attendance / 100.0,
+                      backgroundColor: const Color(0xffe2e8f0),
+                      color:
+                          student.attendance >= 80 ? Colors.green : Colors.red,
+                      minHeight: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: Color(0xffe2e8f0)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Kehadiran Mengikut Subjek',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff0f172a)),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xfff8fafc),
+                      borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(8)),
+                      border: Border.all(color: const Color(0xffe2e8f0)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Expanded(
+                            flex: 3,
+                            child: Text('Subjek',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xff475569)))),
+                        Expanded(
+                            flex: 2,
+                            child: Text('Sesi',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xff475569)))),
+                        Expanded(
+                            flex: 2,
+                            child: Text('Att %',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xff475569)))),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: Colors.grey.shade200),
+                        right: BorderSide(color: Colors.grey.shade200),
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(8),
+                          bottomRight: Radius.circular(8)),
+                    ),
+                    child: Column(
+                      children: mockSubjects.asMap().entries.map((entry) {
+                        final isLast = entry.key == mockSubjects.length - 1;
+                        final subj = entry.value;
+                        final pct = subj['percentage'] as int;
+                        final attColor = pct >= 80 ? Colors.green : Colors.red;
+                        return Container(
+                          decoration: BoxDecoration(
+                            border: isLast
+                                ? null
+                                : Border(
+                                    bottom: BorderSide(
+                                        color: Colors.grey.shade100)),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  subj['subjectCode'] as String,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xff0f172a)),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  '${subj['sessions']}',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff475569)),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '$pct%',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: attColor),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: pct / 100.0,
+                                          backgroundColor:
+                                              const Color(0xffe2e8f0),
+                                          color: attColor,
+                                          minHeight: 6,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text('Tutup'),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: student.attendance / 100.0,
-                  backgroundColor: const Color(0xffe2e8f0),
-                  color:
-                      student.attendance >= 80 ? Colors.green : Colors.red,
-                  minHeight: 10,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Divider(height: 1, color: Color(0xffe2e8f0)),
-              const SizedBox(height: 16),
-              // Subjects attendance table
-              const Text(
-                'Kehadiran Mengikut Subjek',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xff0f172a)),
-              ),
-              const SizedBox(height: 10),
-              // Table header
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xfff8fafc),
-                  borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      topRight: Radius.circular(8)),
-                  border: Border.all(color: const Color(0xffe2e8f0)),
-                ),
-                child: const Row(
-                  children: [
-                    Expanded(
-                        flex: 3,
-                        child: Text('Subjek',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xff475569)))),
-                    Expanded(
-                        flex: 2,
-                        child: Text('Sesi',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xff475569)))),
-                    Expanded(
-                        flex: 2,
-                        child: Text('Att %',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xff475569)))),
-                  ],
-                ),
-              ),
-              // Table rows
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(color: Colors.grey.shade200),
-                    right: BorderSide(color: Colors.grey.shade200),
-                    bottom: BorderSide(color: Colors.grey.shade200),
-                  ),
-                  borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(8),
-                      bottomRight: Radius.circular(8)),
-                ),
-                child: Column(
-                  children: mockSubjects.asMap().entries.map((entry) {
-                    final isLast = entry.key == mockSubjects.length - 1;
-                    final subj = entry.value;
-                    final pct = subj['percentage'] as int;
-                    final attColor = pct >= 80 ? Colors.green : Colors.red;
-                    return Container(
-                      decoration: BoxDecoration(
-                        border: isLast
-                            ? null
-                            : Border(
-                                bottom: BorderSide(
-                                    color: Colors.grey.shade100)),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      child: Row(
-                        children: [
-                          // Subject code
-                          Expanded(
-                            flex: 3,
-                            child: Text(
-                              subj['subjectCode'] as String,
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xff0f172a)),
-                            ),
-                          ),
-                          // Sessions
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              '${subj['sessions']}',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xff475569)),
-                            ),
-                          ),
-                          // Percentage with mini bar
-                          Expanded(
-                            flex: 2,
-                            child: Row(
-                              children: [
-                                Text(
-                                  '$pct%',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: attColor),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: pct / 100.0,
-                                      backgroundColor:
-                                          const Color(0xffe2e8f0),
-                                      color: attColor,
-                                      minHeight: 6,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Close button
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Tutup'),
-                ),
-              ),
-            ],
-          ),
             ),
           ),
         ),
@@ -1220,7 +1189,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  /// Detail info grid for student modal (2-column layout)
   Widget _buildDetailGrid(List<_DetailField> fields) {
     return Wrap(
       spacing: 16,
@@ -1253,16 +1221,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 
-  /// Generates mock per-subject attendance for the modal.
-  /// Replace with a real Firestore query on AttendanceRecord in production.
   List<Map<String, dynamic>> _generateMockSubjectAttendance(Student student) {
-    // We derive subject codes from the program abbreviation.
     final prefix = student.program.length >= 2
         ? student.program.substring(0, 2).toUpperCase()
         : 'XX';
     return List.generate(4, (i) {
       final sessions = 18 - i;
-      // Spread individual subject % around the overall attendance.
       final base = student.attendance + (i % 2 == 0 ? -5 + i * 3 : 5 - i * 2);
       final clamped = base.clamp(0, 100);
       return {
@@ -1274,7 +1238,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   // ===========================================================================
-  // Tab 3: Lecturer Courses (UNCHANGED)
+  // Tab 3: Lecturer Courses
   // ===========================================================================
   Widget _buildLecturerCoursesTab() {
     return StreamBuilder<List<Map<String, dynamic>>>(
@@ -1287,7 +1251,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           return Center(child: Text('Ralat memuat data: ${snapshot.error}'));
         }
         final allAssignments = snapshot.data ?? [];
-
+ 
         if (allAssignments.isEmpty) {
           return const Center(
             child: AppPanel(
@@ -1298,13 +1262,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             ),
           );
         }
-
+ 
+        // ── Group raw assignment docs by lecturerId ──────────────────────────
         final Map<String, List<Map<String, dynamic>>> grouped = {};
         for (final map in allAssignments) {
           final lid = map['lecturerId']?.toString() ?? 'unknown';
           grouped.putIfAbsent(lid, () => []).add(map);
         }
-
+ 
         final List<Map<String, dynamic>> lecturerRows =
             grouped.entries.map((e) {
           final rows = e.value;
@@ -1321,6 +1286,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               .toSet()
               .toList()
             ..sort();
+ 
+          // Extract latest date from the assignment documents
+          final dates = rows
+              .map((m) =>
+                  m['date']?.toString() ??
+                  m['createdAt']?.toString() ??
+                  '')
+              .where((d) => d.isNotEmpty)
+              .toList()
+            ..sort();
+          final latestDate = dates.isNotEmpty ? dates.last : '';
+ 
           return {
             'lecturerId': first['lecturerId'] ?? '-',
             'lecturerName': first['lecturerName'] ?? '-',
@@ -1329,12 +1306,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             'subjects': subjects,
             'classes': classes,
             'classesPerWeek': classes.length,
+            'appUser': first['appUser'],
+            // ✅ NEW: raw assignment id for undo cancel
+            'assignmentId': first['id']?.toString() ?? first['lecturerId']?.toString() ?? '-',
+            // ✅ NEW: date field for display
+            'latestDate': latestDate,
           };
         }).toList()
           ..sort((a, b) => a['lecturerName']
               .toString()
               .compareTo(b['lecturerName'].toString()));
-
+ 
+        // ── Filter options ───────────────────────────────────────────────────
         final programs = allAssignments
             .map((m) => m['programId']?.toString() ?? '')
             .where((p) => p.isNotEmpty)
@@ -1353,7 +1336,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             .toSet()
             .toList()
           ..sort();
-
+ 
+        // ── Apply filters + search ───────────────────────────────────────────
         final assignments = lecturerRows.where((row) {
           final name = row['lecturerName'].toString().toLowerCase();
           final email = row['lecturerEmail'].toString().toLowerCase();
@@ -1373,9 +1357,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   .contains(_selectedLecturerClassFilter);
           return matchesSearch && matchesProg && matchesSubject && matchesClass;
         }).toList();
-
+ 
         return Column(
           children: [
+            // ── Filter bar ─────────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -1441,6 +1426,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                       fontSize: 12, color: Color(0xff94a3b8))),
             ),
             const SizedBox(height: 8),
+ 
+            // ── DataTable ──────────────────────────────────────────────────
             Expanded(
               child: assignments.isEmpty
                   ? const Center(child: Text('Tiada hasil carian.'))
@@ -1459,25 +1446,28 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                               constraints: BoxConstraints(
                                   minWidth: constraints.maxWidth),
                               child: DataTable(
-                                horizontalMargin: 24,
+                                horizontalMargin: 16,
                                 headingRowColor: WidgetStateProperty.all(
                                     const Color(0xfff8fafc)),
                                 headingTextStyle: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: Color(0xff475569)),
                                 dataTextStyle: const TextStyle(
                                     fontSize: 12, color: Color(0xff0f172a)),
-                                columnSpacing: 24,
+                                columnSpacing: 16,
+                                dataRowMinHeight: 60,
+                                dataRowMaxHeight: 72,
                                 columns: const [
                                   DataColumn(label: Text('Nama')),
                                   DataColumn(label: Text('Emel')),
-                                  DataColumn(label: Text('Program')),
+                                  DataColumn(label: Text('Jabatan')),
                                   DataColumn(label: Text('Subjek')),
                                   DataColumn(label: Text('Seksyen')),
                                   DataColumn(
                                       label: Text('Kelas /\nMinggu'),
                                       numeric: true),
+                                  DataColumn(label: Text('Tindakan')),
                                 ],
                                 rows: assignments.map((row) {
                                   final subjects =
@@ -1486,50 +1476,104 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                   final classes =
                                       (row['classes'] as List<String>)
                                           .join(', ');
-                                  return DataRow(cells: [
-                                    DataCell(SizedBox(
-                                        width: 180,
-                                        child: Text(
-                                            row['lecturerName'].toString(),
-                                            maxLines: 2,
-                                            overflow:
-                                                TextOverflow.ellipsis))),
-                                    DataCell(Text(
-                                        row['lecturerEmail'].toString(),
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xff64748b)))),
-                                    DataCell(_buildLecturerProgramBadge(
-                                        row['programId'].toString())),
-                                    DataCell(SizedBox(
-                                        width: 120,
-                                        child: Text(subjects,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Color(0xff475569))))),
-                                    DataCell(SizedBox(
-                                        width: 150,
-                                        child: Text(classes,
-                                            style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Color(0xff475569))))),
-                                    DataCell(Center(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xffe0f2fe),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                  final lecturerEmail =
+                                      row['lecturerEmail'].toString();
+                                  final lecturerName =
+                                      row['lecturerName'].toString();
+                                  final assignmentId =
+                                      row['assignmentId'].toString();
+ 
+                                  // ✅ NEW: Check local cancelled state
+                                  final isCancelled = _cancelledAssignments
+                                      .contains(assignmentId);
+ 
+                                  return DataRow(
+                                    // ✅ NEW: Dim cancelled rows
+                                    color: isCancelled
+                                        ? WidgetStateProperty.all(
+                                            Colors.red
+                                                .withValues(alpha: 0.04))
+                                        : null,
+                                    cells: [
+                                      // Nama
+                                      DataCell(SizedBox(
+                                          width: 180,
+                                          child: Text(
+                                              lecturerName,
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  // ✅ NEW: Strike-through when cancelled
+                                                  decoration: isCancelled
+                                                      ? TextDecoration
+                                                          .lineThrough
+                                                      : null,
+                                                  color: isCancelled
+                                                      ? const Color(0xff94a3b8)
+                                                      : const Color(
+                                                          0xff0f172a)),
+                                              maxLines: 2,
+                                              overflow:
+                                                  TextOverflow.ellipsis))),
+                                      // Emel
+                                      DataCell(Text(
+                                          lecturerEmail,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xff64748b)))),
+                                      // Jabatan badge
+                                      DataCell(_buildLecturerProgramBadge(
+                                          row['programId'].toString())),
+                                      // Subjek
+                                      DataCell(SizedBox(
+                                          width: 120,
+                                          child: Text(subjects,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xff475569))))),
+                                      // Seksyen
+                                      DataCell(SizedBox(
+                                          width: 150,
+                                          child: Text(classes,
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xff475569))))),
+                                      // Kelas/Minggu badge
+                                      DataCell(Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xffe0f2fe),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                              '${row['classesPerWeek']}',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  color: Color(0xff0369a1))),
                                         ),
-                                        child: Text('${row['classesPerWeek']}',
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                                color: Color(0xff0369a1))),
-                                      ),
-                                    )),
-                                  ]);
+                                      )),
+                                      // ✅ UPDATED: Tindakan — calendar + undo-cancel
+                                      DataCell(Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // Calendar icon → timetable dialog
+                                          _buildActionIcon(
+                                            icon: Icons.calendar_month,
+                                            tooltip: 'Papar Jadual Waktu',
+                                            color: const Color(0xff0b74de),
+                                            onTap: () =>
+                                                _showLecturerTimetableDialog(
+                                                    row),
+                                          ),
+                                          const SizedBox(width: 4),                                          
+                                        ],
+                                      )),
+                                    ],
+                                  );
                                 }).toList(),
                               ),
                             ),
@@ -1543,7 +1587,20 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       },
     );
   }
-
+ 
+  // ── Opens the lecturer timetable popup dialog ─────────────────────────────
+  void _showLecturerTimetableDialog(Map<String, dynamic> row) {
+    showDialog(
+      context: context,
+      builder: (ctx) => _LecturerTimetableDialog(
+        lecturerId: row['lecturerId'].toString(),
+        lecturerName: row['lecturerName'].toString(),
+        lecturerEmail: row['lecturerEmail'].toString(),
+        service: _service,
+      ),
+    );
+  }
+ 
   Widget _buildLecturerProgramBadge(String programId) {
     const colorMap = {
       'DCB': Colors.purple,
@@ -1553,6 +1610,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       'DAC': Colors.green,
       'DRB': Colors.indigo,
       'DTK': Colors.cyan,
+      'DEK': Colors.deepPurple,
+      'DKV': Colors.brown,
+      'ITW': Colors.teal,
     };
     final color = colorMap[programId] ?? Colors.blueGrey;
     return Container(
@@ -1568,8 +1628,657 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 }
+ 
+// =============================================================================
+// Lecturer Timetable Dialog
+// Shows timetable slots for a specific lecturer with:
+//   • Malay day names
+//   • Class date display
+//   • Undo-cancel via SnackBar action
+// =============================================================================
+class _LecturerTimetableDialog extends StatefulWidget {
+  const _LecturerTimetableDialog({
+    required this.lecturerId,
+    required this.lecturerName,
+    required this.lecturerEmail,
+    required this.service,
+  });
+ 
+  final String lecturerId;
+  final String lecturerName;
+  final String lecturerEmail;
+  final UserTimetableService service;
+ 
+  @override
+  State<_LecturerTimetableDialog> createState() =>
+      _LecturerTimetableDialogState();
+}
+ 
+class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
+  // ✅ UPDATED: Locally cancelled slot IDs (undo-capable)
+  final Set<String> _cancelledSlotIds = {};
+ 
+  static const Map<String, int> _dayOrder = {
+    'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
+    'Friday': 4, 'Saturday': 5, 'Sunday': 6,
+    'Isnin': 0, 'Selasa': 1, 'Rabu': 2, 'Khamis': 3,
+    'Jumaat': 4, 'Sabtu': 5, 'Ahad': 6,
+  };
+ 
+  // ✅ UPDATED: Returns full Malay day name (not English abbreviation)
+  String _dayToMalay(String? day) {
+    const map = {
+      'Monday': 'Isnin',
+      'Tuesday': 'Selasa',
+      'Wednesday': 'Rabu',
+      'Thursday': 'Khamis',
+      'Friday': 'Jumaat',
+      'Saturday': 'Sabtu',
+      'Sunday': 'Ahad',
+      // Already Malay — pass through
+      'Isnin': 'Isnin',
+      'Selasa': 'Selasa',
+      'Rabu': 'Rabu',
+      'Khamis': 'Khamis',
+      'Jumaat': 'Jumaat',
+      'Sabtu': 'Sabtu',
+      'Ahad': 'Ahad',
+    };
+    return map[day?.trim() ?? ''] ?? (day ?? '—');
+  }
+ 
+  // ✅ NEW: Format slot date for display
+  String _formatSlotDate(TimetableSlot slot) {
+    final raw = slot.date.isNotEmpty
+        ? slot.date
+        : slot.weekStart ?? slot.createdAt ?? '';
+    if (raw.isEmpty) return '';
+    // ISO format YYYY-MM-DD or YYYY-MM-DDTHH:mm
+    if (raw.length >= 10 && raw[4] == '-') {
+      final parts = raw.substring(0, 10).split('-');
+      if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
+    }
+    // Already DD/MM/YYYY
+    if (RegExp(r'^\d{2}/\d{2}/\d{4}').hasMatch(raw)) {
+      return raw.substring(0, 10);
+    }
+    return raw.length > 10 ? raw.substring(0, 10) : raw;
+  }
+ 
+  // ✅ UPDATED: Undo-cancel with SnackBar action instead of confirmation dialog
+  void _handleCancelSlot(TimetableSlot slot) {
+    // 1. Immediately mark cancelled in local state
+    setState(() => _cancelledSlotIds.add(slot.id));
+ 
+    // 2. Show SnackBar with URUS BALIK action
+    ScaffoldMessenger.of(context).clearSnackBars();
+    final snackBar = SnackBar(
+      content: Text(
+          'Penugasan untuk ${slot.subjectCode} (${slot.section}) dibatalkan secara lokal.'),
+      backgroundColor: Colors.orange.shade700,
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'URUS BALIK',
+        textColor: Colors.white,
+        onPressed: () {
+          // Undo — restore the slot
+          setState(() => _cancelledSlotIds.remove(slot.id));
+        },
+      ),
+    );
+ 
+    ScaffoldMessenger.of(context)
+        .showSnackBar(snackBar)
+        .closed
+        .then((reason) async {
+      // 3. Commit to Firestore only if NOT undone
+      if (reason != SnackBarClosedReason.action) {
+        try {
+          await widget.service.updateTimetableOverride(slot.id, false);
+        } catch (e) {
+          if (mounted) {
+            setState(() => _cancelledSlotIds.remove(slot.id));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Gagal membatalkan kelas: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      }
+    });
+  }
+ 
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 1100,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ───────────────────────────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffeff6ff),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calendar_month,
+                        color: Color(0xff1d4ed8), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.lecturerName,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          widget.lecturerEmail,
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xff64748b)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+ 
+              // ── Dark banner ───────────────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xff1e293b),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  children: [
+                    Text(
+                      'JADUAL WAKTU SEMESTER SESI 2025/2026',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'PAPARAN SLOT JADUAL',
+                      style: TextStyle(
+                        color: Color(0xff94a3b8),
+                        fontSize: 11,
+                        letterSpacing: 0.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+ 
+              // ── Table ─────────────────────────────────────────────────────────
+              Expanded(
+                child: StreamBuilder<List<TimetableSlot>>(
+                  stream: widget.service.getFilteredTimetableStream(
+                    AppUser(
+                      uid: widget.lecturerId,
+                      name: widget.lecturerName,
+                      email: widget.lecturerEmail,
+                      role: UserRole.pensyarah,
+                      isActive: true,
+                    ),
+                  ),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                          child: Text('Ralat: ${snapshot.error}',
+                              style: const TextStyle(color: Colors.red)));
+                    }
+ 
+                    final allSlots = snapshot.data ?? [];
+ 
+                    // Sort by day order → start time
+                    final slots = [...allSlots]..sort((a, b) {
+                        final dayA = _dayOrder[a.dayOfWeek ?? a.day] ?? 99;
+                        final dayB = _dayOrder[b.dayOfWeek ?? b.day] ?? 99;
+                        if (dayA != dayB) return dayA.compareTo(dayB);
+                        return a.startTime.compareTo(b.startTime);
+                      });
+ 
+                    if (slots.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Text(
+                            'Tiada slot jadual dijumpai untuk pensyarah ini.',
+                            style: TextStyle(color: Color(0xff64748b)),
+                          ),
+                        ),
+                      );
+                    }
+ 
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${slots.length} record(s)',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xff94a3b8),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: const Color(0xffe2e8f0)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            // ✅ UPDATED: LayoutBuilder + ConstrainedBox for full-width table
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  SingleChildScrollView(
+                                scrollDirection: Axis.vertical,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                        minWidth: constraints.maxWidth),
+                                    child: DataTable(
+                                      headingRowColor:
+                                          WidgetStateProperty.all(
+                                              const Color(0xfff1f5f9)),
+                                      headingTextStyle: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xff475569),
+                                      ),
+                                      dataTextStyle: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xff0f172a),
+                                      ),
+                                      columnSpacing: 12,
+                                      horizontalMargin: 12,
+                                      dataRowMinHeight: 64,
+                                      dataRowMaxHeight: 80,
+                                      columns: const [
+                                        DataColumn(
+                                            label: Text('NO.'),
+                                            numeric: true),
+                                        DataColumn(label: Text('KOD')),
+                                        DataColumn(
+                                            label: Text('NAMA KURSUS')),
+                                        DataColumn(label: Text('SEKSYEN')),
+                                        DataColumn(label: Text('PROGRAM')),
+                                        DataColumn(
+                                            label: Text('KAPASITI'),
+                                            numeric: true),
+                                        // ✅ UPDATED: HARI/MASA/TARIKH/LOKASI
+                                        DataColumn(
+                                            label: Text(
+                                                'HARI / MASA\nTARIKH · LOKASI')),
+                                        DataColumn(label: Text('JENIS')),
+                                        DataColumn(label: Text('TINDAKAN')),
+                                      ],
+                                      rows: slots.asMap().entries.map((entry) {
+                                        final index = entry.key;
+                                        final slot = entry.value;
+                                        final isCancelled =
+                                            _cancelledSlotIds
+                                                .contains(slot.id);
+                                        final capacityText =
+                                            '${slot.enrolled}/${slot.capacity}';
+ 
+                                        // ✅ UPDATED: Full Malay day name
+                                        final dayMalay = _dayToMalay(
+                                            slot.dayOfWeek ?? slot.day);
+                                        final timeRange =
+                                            '${slot.startTime}-${slot.endTime}';
+                                        final location = slot.roomName ??
+                                            slot.roomId ??
+                                            slot.room;
+ 
+                                        // ✅ NEW: Formatted date
+                                        final dateDisplay =
+                                            _formatSlotDate(slot);
+ 
+                                        final jenis =
+                                            slot.classType.isNotEmpty
+                                                ? slot.classType
+                                                : slot.classType.isNotEmpty
+                                                    ? slot.classType
+                                                    : 'Teori/Amali';
+ 
+                                        return DataRow(
+                                          color: isCancelled
+                                              ? WidgetStateProperty.all(
+                                                  Colors.red.withValues(
+                                                      alpha: 0.04))
+                                              : null,
+                                          cells: [
+                                            // NO.
+                                            DataCell(Text(
+                                              '${index + 1}',
+                                              style: const TextStyle(
+                                                  color: Color(0xff94a3b8),
+                                                  fontSize: 12),
+                                            )),
+                                            // KOD
+                                            DataCell(Text(
+                                              slot.subjectCode,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12),
+                                            )),
+                                            // NAMA KURSUS
+                                            DataCell(SizedBox(
+                                              width: 170,
+                                              child: Text(
+                                                slot.subjectName,
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: isCancelled
+                                                    ? const TextStyle(
+                                                        decoration:
+                                                            TextDecoration
+                                                                .lineThrough,
+                                                        color: Color(
+                                                            0xff94a3b8))
+                                                    : null,
+                                              ),
+                                            )),
+                                            // SEKSYEN
+                                            DataCell(Text(
+                                              slot.section.isNotEmpty
+                                                  ? slot.section
+                                                  : slot.classId ?? '—',
+                                              style: const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight.w600),
+                                            )),
+                                            // PROGRAM
+                                            DataCell(SizedBox(
+                                              width: 140,
+                                              child: Text(
+                                                slot.program.isNotEmpty
+                                                    ? slot.program
+                                                    : slot.programId ?? '—',
+                                                maxLines: 2,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                            )),
+                                            // KAPASITI
+                                            DataCell(Text(
+                                              capacityText,
+                                              style: const TextStyle(
+                                                  fontSize: 12),
+                                            )),
+                                            // ✅ UPDATED: HARI / MASA / TARIKH / LOKASI
+                                            DataCell(SizedBox(
+                                              width: 130,
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  // Day: short abbr + full Malay
+                                                  Row(
+                                                    children: [                                                      
+                                                      const SizedBox(width: 5),
+                                                      Text(
+                                                        dayMalay,
+                                                        style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize: 11,
+                                                            color: Color(
+                                                                0xff1e293b)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 3),
+                                                  // Time
+                                                  Text(
+                                                    timeRange,
+                                                    style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Color(
+                                                            0xff475569)),
+                                                  ),
+                                                  // ✅ NEW: Date below time
+                                                  if (dateDisplay.isNotEmpty)
+                                                    Text(
+                                                      dateDisplay,
+                                                      style: const TextStyle(
+                                                          fontSize: 10,
+                                                          color: Color(
+                                                              0xff94a3b8)),
+                                                    ),
+                                                  // Location
+                                                  Text(
+                                                    location,
+                                                    style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Color(
+                                                            0xff64748b)),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ],
+                                              ),
+                                            )),
+                                            // JENIS badge
+                                            DataCell(
+                                              isCancelled
+                                                  ? Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red
+                                                            .withValues(
+                                                                alpha: 0.1),
+                                                        border: Border.all(
+                                                            color: Colors.red
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.3)),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      child: const Text(
+                                                        'Dibatalkan',
+                                                        style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.red),
+                                                      ),
+                                                    )
+                                                  : Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                            0xffeff6ff),
+                                                        border: Border.all(
+                                                            color: const Color(
+                                                                0xffbfdbfe)),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        jenis,
+                                                        style: const TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Color(
+                                                                0xff1d4ed8)),
+                                                      ),
+                                                    ),
+                                            ),
+                                            // ✅ UPDATED: TINDAKAN — undo-cancel
+                                            DataCell(
+                                              isCancelled
+                                                  ? TextButton.icon(
+                                                      onPressed: () =>
+                                                          setState(() =>
+                                                              _cancelledSlotIds
+                                                                  .remove(
+                                                                      slot.id)),
+                                                      icon: const Icon(
+                                                          Icons.undo,
+                                                          size: 13,
+                                                          color: Colors.green),
+                                                      label: const Text(
+                                                        'Urus Balik',
+                                                        style: TextStyle(
+                                                            color: Colors.green,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w600),
+                                                      ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                        padding: const EdgeInsets
+                                                            .symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 4),
+                                                        backgroundColor:
+                                                            Colors.green
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.07),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(6),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : TextButton.icon(
+                                                      onPressed: () =>
+                                                          _handleCancelSlot(
+                                                              slot),
+                                                      icon: const Icon(
+                                                          Icons.close,
+                                                          size: 13,
+                                                          color: Colors.red),
+                                                      label: const Text(
+                                                        'Batal',
+                                                        style: TextStyle(
+                                                            color: Colors.red,
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w600),
+                                                      ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                        padding: const EdgeInsets
+                                                            .symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 4),
+                                                        backgroundColor:
+                                                            Colors.red
+                                                                .withValues(
+                                                                    alpha:
+                                                                        0.06),
+                                                        shape:
+                                                            RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(6),
+                                                        ),
+                                                      ),
+                                                    ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+ 
+              // ── Footer ─────────────────────────────────────────────────────────
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Tutup',
+                      style: TextStyle(color: Color(0xff6b7280))),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
+// ===========================================================================
 // Helper class for the student detail modal info grid
+// ===========================================================================
 class _DetailField {
   const _DetailField({
     required this.label,

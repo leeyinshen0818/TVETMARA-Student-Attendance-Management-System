@@ -9,9 +9,11 @@ import '../services/timetable_firestore_import_service.dart';
 import '../services/timetable_import_service.dart';
 import '../services/timetable_file_io.dart';
 import '../services/timetable_master_validation_service.dart';
+import '../services/timetable_view_export_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/class_timetable_generator_dialog.dart';
 import '../widgets/status_chip.dart';
 import 'add_timetable_screen.dart';
 
@@ -65,6 +67,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   String? _lecturerFilter;
   String? _roomFilter;
   String? _academicSessionFilter;
+  String? _generatorProgramFilter;
 
   @override
   void dispose() {
@@ -91,6 +94,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final selectedSession = _activeAcademicSession(state);
     final sessionTimetable = _sessionTimetable(timetable, selectedSession);
     final filteredTimetable = _filteredTimetable(sessionTimetable);
+    final generatorPrograms = _availableProgramOptions(sessionTimetable);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -136,6 +140,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ),
             );
           },
+        ),
+        const SizedBox(height: 12),
+        _ClassTimetableSecondaryAction(
+          enabled: generatorPrograms.isNotEmpty,
+          onOpen: () => _showClassTimetableGeneratorDialog(
+            state: state,
+            selectedSession: selectedSession,
+            programOptions: generatorPrograms,
+          ),
         ),
         const SizedBox(height: 16),
         _SectionTabs(
@@ -293,6 +306,104 @@ class _TimetableScreenState extends State<TimetableScreen> {
     });
   }
 
+  List<String> _availableProgramOptions(List<TimetableSlot> slots) {
+    return slots
+        .map((slot) => slot.programId ?? slot.section.split(' ').first)
+        .where((value) => value.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  List<String> _availableClassOptions(
+    List<TimetableSlot> slots,
+    String? programId,
+  ) {
+    return slots
+        .where((slot) => programId == null || slot.programId == programId)
+        .map((slot) => slot.classId ?? slot.section)
+        .where((value) => value.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  Future<void> _showClassTimetableGeneratorDialog({
+    required AppState state,
+    required String selectedSession,
+    required List<String> programOptions,
+  }) {
+    final initialProgramId = _generatorProgramFilter != null &&
+            programOptions.contains(_generatorProgramFilter)
+        ? _generatorProgramFilter
+        : programOptions.firstOrNull;
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => ClassTimetableGeneratorDialog(
+        sessionOptions: _academicSessionOptions(state),
+        initialSessionId: selectedSession,
+        programOptions: programOptions,
+        initialProgramId: initialProgramId,
+        programLabelFor: (programId) {
+          final program =
+              state.programs.where((item) => item.id == programId).firstOrNull;
+          return program == null
+              ? programId
+              : '${program.id} - ${program.name}';
+        },
+        classOptionsFor: (academicSessionId, programId) {
+          final sessionSlots =
+              _sessionTimetable(state.scopedTimetable, academicSessionId);
+          return _availableClassOptions(sessionSlots, programId);
+        },
+        slotsFor: (academicSessionId, programId, classId) {
+          final sessionSlots =
+              _sessionTimetable(state.scopedTimetable, academicSessionId);
+          return filterClassTimetableSlots(
+            sessionSlots,
+            programId: programId,
+            classId: classId,
+            academicSessionId: academicSessionId,
+          );
+        },
+        onExport: (academicSessionId, programId, classId, slots) {
+          _generatorProgramFilter = programId;
+          _exportClassTimetable(
+            state: state,
+            programId: programId,
+            classId: classId,
+            academicSessionId: academicSessionId,
+            slots: slots,
+          );
+        },
+      ),
+    );
+  }
+
+  void _exportClassTimetable({
+    required AppState state,
+    required String programId,
+    required String classId,
+    required String academicSessionId,
+    required List<TimetableSlot> slots,
+  }) {
+    final program =
+        state.programs.where((item) => item.id == programId).firstOrNull;
+    downloadTextFile(
+      filename:
+          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.csv',
+      content: buildClassTimetableCsv(
+        programId: programId,
+        programName: program?.name ?? programId,
+        classId: classId,
+        academicSessionId: academicSessionId,
+        generatedBy: state.currentUser?.name ?? '-',
+        generatedAt: DateTime.now(),
+        slots: slots,
+      ),
+    );
+  }
+
   String _activeAcademicSession(AppState state) {
     return _academicSessionFilter ?? state.session;
   }
@@ -366,7 +477,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const TimetableImportService().parseAndValidate(file.content);
       final preview = await TimetableMasterValidationService(
         FirestoreTimetableMasterDataSource(),
-      ).preparePreview(parsed);
+      ).preparePreview(
+        parsed,
+        uploadScope: TimetableUploadScope.forUser(
+          state.currentUser!,
+          state.programs,
+        ),
+      );
       final validatedPreview = _withSelectedSessionValidation(
         preview,
         _activeAcademicSession(state),
@@ -509,6 +626,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       [
         selectedSession,
         sampleProgramId,
+        _programNameForTemplate(state, sampleProgramId),
         _sampleSection(state),
         'DED10044',
         'Wiring and Installation Practice',
@@ -703,6 +821,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
   }
 
+  String _safeFileSegment(String value) {
+    return value.trim().replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+  }
+
   Future<void> _showEditDialog(
     AppState state,
     TimetableSlot slot, {
@@ -735,6 +857,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
     var selectedSubjectId = slot.subjectId;
     var selectedLecturerKey =
         _lecturerEditKey(slot.lecturerId, slot.lecturerName);
+    var selectedLecturerEmail = slot.lecturerEmail;
+    var selectedLecturerProfileId = slot.lecturerProfileId;
     var selectedRoom = _slotRoomValue(slot);
     var selectedDay = _normalizeDay(slot.dayOfWeek ?? slot.day);
     var selectedStatus = _normalizeSlotStatus(slot.status);
@@ -825,6 +949,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 if (!nextLecturers.any((option) =>
                                     option.key == selectedLecturerKey)) {
                                   selectedLecturerKey = '';
+                                  selectedLecturerEmail = null;
+                                  selectedLecturerProfileId = null;
                                   lecturerId.clear();
                                   lecturerName.clear();
                                 }
@@ -892,6 +1018,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 selectedLecturerKey = option.key;
                                 lecturerId.text = option.lecturerId;
                                 lecturerName.text = option.lecturerName;
+                                selectedLecturerEmail = option.email;
+                                selectedLecturerProfileId =
+                                    option.lecturerProfileId;
                                 formError = null;
                               });
                             },
@@ -1035,6 +1164,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     subjectName: subjectName.text.trim(),
                     lecturerId: lecturerId.text.trim(),
                     lecturerName: lecturerName.text.trim(),
+                    lecturerEmail: selectedLecturerEmail,
+                    lecturerProfileId: selectedLecturerProfileId,
                     roomId: cleanRoom.isEmpty
                         ? slot.roomId
                         : _roomIdForTemplate(cleanRoom),
@@ -1675,6 +1806,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return departmentProgram?.id ?? 'DED';
   }
 
+  String _programNameForTemplate(AppState state, String programId) {
+    return state.programs
+            .where((program) => program.id == programId)
+            .firstOrNull
+            ?.name ??
+        programId;
+  }
+
   String _sampleSection(AppState state) {
     if (state.scopedTimetable.isNotEmpty) {
       return state.scopedTimetable.first.section;
@@ -1715,6 +1854,27 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Lecturer _sampleLecturer(AppState state, String programId) {
+    final scopedUser = state.users.where((user) {
+      if (user.role != UserRole.pensyarah || !user.isActive) return false;
+      final currentUser = state.currentUser;
+      if (currentUser?.role == UserRole.ketua_jabatan) {
+        return user.departmentId == currentUser!.departmentId;
+      }
+      if (currentUser?.role == UserRole.ketua_program) {
+        return user.programId == currentUser!.programId;
+      }
+      return user.programId == programId;
+    }).firstOrNull;
+    if (scopedUser != null) {
+      return Lecturer(
+        id: scopedUser.uid,
+        name: scopedUser.name,
+        email: scopedUser.email,
+        department: scopedUser.departmentId ?? '',
+        subjects: const [],
+      );
+    }
+
     final scopedLecturer = state.lecturers.where((lecturer) {
       final user = state.currentUser;
       if (user?.role == UserRole.ketua_jabatan) {
@@ -1919,6 +2079,34 @@ class _ContextTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ClassTimetableSecondaryAction extends StatelessWidget {
+  const _ClassTimetableSecondaryAction({
+    required this.enabled,
+    required this.onOpen,
+  });
+
+  final bool enabled;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Jana / Eksport Jadual Kelas',
+      subtitle:
+          'Alat sokongan untuk menghasilkan jadual mingguan satu kelas. Pengurusan rasmi jadual kekal di bahagian bawah.',
+      trailing: OutlinedButton.icon(
+        onPressed: enabled ? onOpen : null,
+        icon: const Icon(Icons.view_week_outlined),
+        label: const Text('Jana / Eksport Jadual Kelas'),
+      ),
+      child: const Text(
+        'Pilih tindakan ini apabila jadual kelas perlu dikongsi kepada pelajar. Muat naik, konflik, edit dan tindakan batch kekal dalam paparan Jadual Rasmi.',
+        style: TextStyle(color: Color(0xff64748b)),
       ),
     );
   }
@@ -5218,11 +5406,13 @@ class _EditLecturerOption {
     required this.lecturerId,
     required this.lecturerName,
     this.email,
+    this.lecturerProfileId,
   });
 
   final String lecturerId;
   final String lecturerName;
   final String? email;
+  final String? lecturerProfileId;
 
   String get key => _lecturerEditKey(lecturerId, lecturerName);
   String get label {
@@ -5332,18 +5522,48 @@ List<_EditLecturerOption> _editLecturerOptions(
   TimetableSlot currentSlot,
 ) {
   final options = <String, _EditLecturerOption>{};
+  for (final user in state.users) {
+    if (user.role != UserRole.pensyarah || !user.isActive) continue;
+    final inProgram = user.programId == selectedProgram;
+    final inDepartment = user.departmentId != null &&
+        state.programs
+                .where((program) => program.id == selectedProgram)
+                .firstOrNull
+                ?.departmentId ==
+            user.departmentId;
+    if (!inProgram && !inDepartment) continue;
+    final option = _EditLecturerOption(
+      lecturerId: user.uid,
+      lecturerName: user.name,
+      email: user.email,
+      lecturerProfileId: user.lecturerProfileId,
+    );
+    options.putIfAbsent(option.key, () => option);
+  }
+
   for (final slot in state.scopedTimetable) {
     if (_slotProgramValue(slot) != selectedProgram) continue;
     final name = slot.lecturerName.trim();
     final id = slot.lecturerId.trim();
     if (name.isEmpty && id.isEmpty) continue;
+    final user = state.users
+        .where((item) =>
+            item.uid == id ||
+            item.email.toLowerCase() ==
+                (slot.lecturerEmail ?? '').toLowerCase() ||
+            (slot.lecturerProfileId != null &&
+                item.lecturerProfileId == slot.lecturerProfileId))
+        .firstOrNull;
     final lecturer = state.lecturers
         .where((item) => item.id == id || item.name == name)
         .firstOrNull;
     final option = _EditLecturerOption(
-      lecturerId: id.isNotEmpty ? id : lecturer?.id ?? '',
-      lecturerName: name.isNotEmpty ? name : lecturer?.name ?? '',
-      email: lecturer?.email,
+      lecturerId: user?.uid ?? (id.isNotEmpty ? id : lecturer?.id ?? ''),
+      lecturerName:
+          user?.name ?? (name.isNotEmpty ? name : lecturer?.name ?? ''),
+      email: user?.email ?? slot.lecturerEmail ?? lecturer?.email,
+      lecturerProfileId:
+          user?.lecturerProfileId ?? slot.lecturerProfileId ?? lecturer?.id,
     );
     options.putIfAbsent(option.key, () => option);
   }
@@ -5351,14 +5571,28 @@ List<_EditLecturerOption> _editLecturerOptions(
   if (selectedProgram == _slotProgramValue(currentSlot)) {
     final currentName = currentSlot.lecturerName.trim();
     final currentId = currentSlot.lecturerId.trim();
+    final currentUser = state.users
+        .where((item) =>
+            item.uid == currentId ||
+            item.email.toLowerCase() ==
+                (currentSlot.lecturerEmail ?? '').toLowerCase() ||
+            (currentSlot.lecturerProfileId != null &&
+                item.lecturerProfileId == currentSlot.lecturerProfileId))
+        .firstOrNull;
     final currentLecturer = state.lecturers
         .where((item) => item.id == currentId || item.name == currentName)
         .firstOrNull;
     final current = _EditLecturerOption(
-      lecturerId: currentId.isNotEmpty ? currentId : currentLecturer?.id ?? '',
-      lecturerName:
-          currentName.isNotEmpty ? currentName : currentLecturer?.name ?? '',
-      email: currentLecturer?.email,
+      lecturerId: currentUser?.uid ??
+          (currentId.isNotEmpty ? currentId : currentLecturer?.id ?? ''),
+      lecturerName: currentUser?.name ??
+          (currentName.isNotEmpty ? currentName : currentLecturer?.name ?? ''),
+      email: currentUser?.email ??
+          currentSlot.lecturerEmail ??
+          currentLecturer?.email,
+      lecturerProfileId: currentUser?.lecturerProfileId ??
+          currentSlot.lecturerProfileId ??
+          currentLecturer?.id,
     );
     if (current.lecturerName.isNotEmpty || current.lecturerId.isNotEmpty) {
       options.putIfAbsent(current.key, () => current);

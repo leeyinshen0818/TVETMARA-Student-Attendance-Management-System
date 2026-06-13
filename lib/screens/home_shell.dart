@@ -12,7 +12,10 @@ import 'records_screen.dart';
 import 'reports_screen.dart';
 import 'settings_screen.dart';
 import 'timetable_screen.dart';
+// import 'admin/admin_timetable_viewer_screen.dart';
 import 'admin/admin_user_management_screen.dart';
+import 'lecturer_timetable_grid_screen.dart';
+import 'kp_timetable_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -45,6 +48,47 @@ class _HomeShellState extends State<HomeShell> {
           'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen(),
           dataScope: _DataScope.dashboard),
 
+      // Pensyarah: view own timetable (Module 5 – read-only grid)
+      if (isPensyarah)
+        _NavItem(
+          'Jadual Saya',
+          Icons.calendar_view_week_outlined,
+          LecturerTimetableGridScreen(
+            lecturerId: user.uid,
+            lecturerName: user.name,
+            lecturerEmail: user.email,
+            programId: user.programId ?? '',
+            lecturerProfileId: user.lecturerProfileId,
+            // Placeholder for Yee Wen's attendance module — wire up later:
+            // onSlotSelected: (slotId, week) => Navigator.push(context, ...)
+
+            // PEMBETULAN: Menggunakan _DataScope.values untuk mengelakkan ralat "referenced before it is declared"
+            onNavigateToAttendance: () {
+              setState(() {
+                final targetIndex =
+                    _DataScope.values.indexOf(_DataScope.timetable);
+                if (targetIndex != -1) index = targetIndex;
+              });
+            },
+            onNavigateToTempahan: () {
+              setState(() {
+                final targetIndex =
+                    _DataScope.values.indexOf(_DataScope.attendance);
+                if (targetIndex != -1) index = targetIndex;
+              });
+            },
+          ),
+          dataScope: _DataScope.none, // uses its own Firestore stream
+        ),
+
+      if (isKetuaProgram && !isKetuaProgramWithoutKj)
+        _NavItem(
+          'Jadual Program',
+          Icons.calendar_month_outlined,
+          KpTimetableScreen(kpUser: user),
+          dataScope: _DataScope.timetable,
+        ),
+
       // Option A: only Pensyarah takes attendance.
       if (isPensyarah)
         const _NavItem(
@@ -53,8 +97,8 @@ class _HomeShellState extends State<HomeShell> {
 
       // Option A: KJ uploads timetable; KP inherits this if program has no KJ.
       if (isKetuaJabatan || isKetuaProgramWithoutKj)
-        const _NavItem(
-            'Jadual', Icons.calendar_month_outlined, TimetableScreen(),
+        const _NavItem('Pengurusan Jadual', Icons.calendar_month_outlined,
+            TimetableScreen(),
             dataScope: _DataScope.timetable),
 
       // Option A: KJ reviews department reports, KP reviews program reports.
@@ -70,8 +114,8 @@ class _HomeShellState extends State<HomeShell> {
 
       // Pensyarah submits reports; KJ/KP review according to scoped hierarchy.
       if (isPensyarah || isKetuaJabatan || isKetuaProgram)
-        const _NavItem(
-            'Laporan Disiplin', Icons.warning_amber_outlined, DisiplinScreen(),
+        _NavItem(isPensyarah ? 'Laporan Disiplin Saya' : 'Laporan Disiplin',
+            Icons.warning_amber_outlined, const DisiplinScreen(),
             dataScope: _DataScope.discipline),
 
       // Admin sees all records; KJ/KP see records within their own scope.
@@ -89,11 +133,19 @@ class _HomeShellState extends State<HomeShell> {
             'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
       if (isAdmin)
         const _NavItem(
-          'Pengurusan Pengguna', 
-          Icons.manage_accounts_outlined, 
+          'Pengurusan Pengguna',
+          Icons.manage_accounts_outlined,
           AdminUserManagementScreen(),
-          dataScope: _DataScope.none, // Since it uses internal Firestore streams
+          dataScope:
+              _DataScope.none, // Since it uses internal Firestore streams
         ),
+      // if (isAdmin)
+      //  const _NavItem(
+      //    'Jadual Waktu Master',
+      //    Icons.calendar_view_month,
+      //    AdminTimetableViewerScreen(),
+      //    dataScope: _DataScope.none,
+      //  ),
     ];
     if (index >= items.length) index = 0;
     final activeItem = items[index];
@@ -224,7 +276,7 @@ class _HomeShellState extends State<HomeShell> {
   bool _isWaitingForInitialScreenData(_NavItem item, AppState state) {
     return switch (item.dataScope) {
       _DataScope.dashboard =>
-        !state.isDashboardDataLoaded && state.isCollectionLoading('students'),
+        !state.isDashboardDataLoaded && state.isDashboardDataLoading,
       _DataScope.timetable =>
         !state.isTimetableDataLoaded && state.isCollectionLoading('timetable'),
       _DataScope.attendance =>

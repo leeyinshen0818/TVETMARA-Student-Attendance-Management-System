@@ -102,22 +102,6 @@ const realLecturerProfiles = <LecturerSeedProfile>[
     subjectCodes: ['DKV10213', 'DPG30302', 'DPG40323'],
   ),
   LecturerSeedProfile(
-    lecturerId: 'REAL_L_008',
-    name: 'SEM 1',
-    email: 'lecturer008@tvetmara.edu.my',
-    programIds: [],
-    departmentIds: [],
-    subjectCodes: [],
-  ),
-  LecturerSeedProfile(
-    lecturerId: 'REAL_L_009',
-    name: 'SEM 2',
-    email: 'lecturer009@tvetmara.edu.my',
-    programIds: [],
-    departmentIds: [],
-    subjectCodes: [],
-  ),
-  LecturerSeedProfile(
     lecturerId: 'REAL_L_010',
     name: 'Ahmad Nizam Bin Omar',
     email: 'lecturer010@tvetmara.edu.my',

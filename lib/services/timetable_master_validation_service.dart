@@ -15,6 +15,70 @@ class TimetableRoomMaster {
   final String name;
 }
 
+class TimetableUploadScope {
+  const TimetableUploadScope({
+    required this.allowedProgramIds,
+    required this.scopeLabel,
+  });
+
+  final Set<String> allowedProgramIds;
+  final String scopeLabel;
+
+  factory TimetableUploadScope.forUser(
+    AppUser user,
+    Iterable<ProgramCode> programs,
+  ) {
+    final programList = programs.toList();
+    if (user.role == UserRole.pentadbir) {
+      return TimetableUploadScope(
+        allowedProgramIds: programList.map((program) => program.id).toSet(),
+        scopeLabel: 'Pentadbir',
+      );
+    }
+    if (user.role == UserRole.ketua_jabatan) {
+      final allowed = programList
+          .where((program) => program.departmentId == user.departmentId)
+          .map((program) => program.id)
+          .toSet();
+      return TimetableUploadScope(
+        allowedProgramIds: allowed,
+        scopeLabel: _departmentScopeLabel(user.departmentId),
+      );
+    }
+    if (user.role == UserRole.ketua_program && user.programId != null) {
+      return TimetableUploadScope(
+        allowedProgramIds: {user.programId!},
+        scopeLabel: 'Program ${user.programId}',
+      );
+    }
+    return const TimetableUploadScope(
+      allowedProgramIds: {},
+      scopeLabel: 'pengguna ini',
+    );
+  }
+
+  bool allows(String programId) =>
+      allowedProgramIds.contains(programId.trim().toUpperCase());
+
+  String errorMessageFor(String programId) {
+    final normalizedProgramId = programId.trim().toUpperCase();
+    if (allowedProgramIds.isEmpty) {
+      return 'Program $normalizedProgramId bukan dalam skop $scopeLabel. Tiada program dibenarkan untuk muat naik jadual.';
+    }
+    return 'Program $normalizedProgramId bukan dalam skop $scopeLabel. Skop dibenarkan: ${allowedProgramIds.join(', ')}.';
+  }
+
+  static String _departmentScopeLabel(String? departmentId) {
+    return switch (departmentId) {
+      'elektrik' => 'Jabatan Elektrik',
+      'mekanikal' => 'Jabatan Mekanikal',
+      'automotif' => 'Jabatan Automotif',
+      null || '' => 'jabatan pengguna',
+      _ => 'Jabatan $departmentId',
+    };
+  }
+}
+
 abstract class TimetableMasterDataSource {
   Future<Map<String, ProgramCode>> getProgramsById(Set<String> programIds);
   Future<Map<String, AppUser>> getLecturersByEmail(Set<String> emails);
@@ -64,6 +128,7 @@ class FirestoreTimetableMasterDataSource implements TimetableMasterDataSource {
         programId: data[UserFields.programId] as String?,
         departmentId: data[UserFields.departmentId] as String?,
         phoneNumber: data[UserFields.phoneNumber] as String?,
+        lecturerProfileId: data[UserFields.lecturerProfileId] as String?,
         isActive: data[UserFields.isActive] as bool? ?? true,
       );
     }
@@ -186,8 +251,8 @@ class TimetableMasterValidationService {
   final TimetableMasterDataSource _dataSource;
 
   Future<TimetableMasterValidationResult> preparePreview(
-    TimetableImportResult importResult,
-  ) async {
+      TimetableImportResult importResult,
+      {TimetableUploadScope? uploadScope}) async {
     if (importResult.hasFileErrors) {
       return TimetableMasterValidationResult(
         totalRows: importResult.totalRows,
@@ -229,6 +294,7 @@ class TimetableMasterValidationService {
     final previewRows = <TimetablePreviewRow>[];
     final subjectDraftsById = <String, TimetableSubjectUpsertDraft>{};
     final classDraftsById = <String, TimetableClassCreateDraft>{};
+    final outOfScopeProgramIds = <String>{};
 
     for (final row in importResult.parsedRows) {
       final errors = [...row.errors];
@@ -244,6 +310,11 @@ class TimetableMasterValidationService {
 
         if (program == null) {
           errors.add('programId "${draft.programId}" does not exist.');
+        }
+
+        if (uploadScope != null && !uploadScope.allows(draft.programId)) {
+          outOfScopeProgramIds.add(draft.programId);
+          errors.add(uploadScope.errorMessageFor(draft.programId));
         }
 
         if (lecturer == null) {
@@ -311,6 +382,7 @@ class TimetableMasterValidationService {
             subjectName: draft.subjectName,
             lecturerId: lecturer.uid,
             lecturerEmail: draft.lecturerEmail,
+            lecturerProfileId: lecturer.lecturerProfileId,
             lecturerName: lecturer.name,
             roomId: draft.roomId,
             roomName: room.name,
@@ -387,7 +459,11 @@ class TimetableMasterValidationService {
       classCreateDrafts: List.unmodifiable(classDraftsById.values),
       previewRows: List.unmodifiable(previewRows),
       validationErrors: importResult.validationErrors,
-      validationWarnings: importResult.validationWarnings,
+      validationWarnings: [
+        ...importResult.validationWarnings,
+        if (outOfScopeProgramIds.isNotEmpty)
+          'Fail CSV mengandungi program luar skop pengguna: ${(outOfScopeProgramIds.toList()..sort()).join(', ')}. Sila muat naik jadual mengikut skop yang betul.',
+      ],
     );
   }
 

@@ -9,22 +9,33 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (label) {
+      'active' ||
       'Approved' ||
+      'approved' ||
+      'Action Taken' ||
+      'Closed' ||
       'Completed' ||
+      'completed' ||
       'Attendance Completed' ||
       'Present' ||
       'Active' ||
       'Safe' ||
       'Available' =>
         Colors.green,
+      'inactive' ||
+      'cancelled' ||
+      'canceled' ||
       'Rejected' ||
+      'rejected' ||
       'Cancelled' ||
       'Absent' ||
       'High' ||
       'Critical' ||
       'Unavailable' =>
         scheme.error,
+      'pending' ||
       'Pending' ||
+      'Reviewed' ||
       'Under Review' ||
       'Attendance Not Taken' ||
       'Ongoing' ||
@@ -36,20 +47,31 @@ class StatusChip extends StatelessWidget {
       _ => scheme.primary,
     };
     final displayLabel = switch (label) {
+      'active' => 'Aktif',
       'Approved' => 'Diluluskan',
+      'approved' => 'Diluluskan',
+      'Action Taken' => 'Tindakan Diambil',
+      'Closed' => 'Ditutup',
       'Completed' => 'Selesai',
+      'completed' => 'Selesai',
       'Attendance Completed' => 'Kehadiran Selesai',
       'Present' => 'Hadir',
       'Active' => 'Aktif',
       'Safe' => 'Selamat',
       'Available' => 'Tersedia',
+      'inactive' => 'Tidak Aktif',
+      'cancelled' => 'Dibatalkan',
+      'canceled' => 'Dibatalkan',
       'Rejected' => 'Ditolak',
+      'rejected' => 'Ditolak',
       'Cancelled' => 'Dibatalkan',
       'Absent' => 'Tidak Hadir',
       'High' => 'Tinggi',
       'Critical' => 'Kritikal',
       'Unavailable' => 'Tidak Tersedia',
+      'pending' => 'Menunggu',
       'Pending' => 'Menunggu',
+      'Reviewed' => 'Disemak',
       'Under Review' => 'Dalam Semakan',
       'Attendance Not Taken' => 'Belum Diambil',
       'Attendance Pending' => 'Menunggu Kehadiran',

@@ -520,16 +520,40 @@ class FirestoreService {
         .set(_disciplineReportToMap(routed, existing: false));
   }
 
-  Future<void> updateDisciplineStatus(String id, String status) async {
+  Future<void> updateDisciplineStatus(
+    String id,
+    String status, {
+    String? actionTakenBy,
+    String? actionTakenByName,
+    String? actionTakenNote,
+    String? reviewedBy,
+    String? reviewedByName,
+    String? reviewerRole,
+    String? reviewerNotes,
+    String? actionTaken,
+    String? rejectionReason,
+  }) async {
     final normalizedStatus = _normalizeDisciplineStatus(status);
     final updates = <String, dynamic>{
       'status': normalizedStatus,
       'updatedAt': FieldValue.serverTimestamp(),
     };
+    if (reviewedBy != null) updates['reviewedBy'] = reviewedBy;
+    if (reviewedByName != null) updates['reviewedByName'] = reviewedByName;
+    if (reviewerRole != null) updates['reviewerRole'] = reviewerRole;
+    if (reviewerNotes != null) updates['reviewerNotes'] = reviewerNotes;
     if (normalizedStatus == 'reviewed') {
       updates['reviewedAt'] = FieldValue.serverTimestamp();
     } else if (normalizedStatus == 'action_taken') {
+      updates['reviewedAt'] = FieldValue.serverTimestamp();
       updates['actionTakenAt'] = FieldValue.serverTimestamp();
+      updates['actionTakenBy'] = actionTakenBy;
+      updates['actionTakenByName'] = actionTakenByName;
+      updates['actionTaken'] = actionTaken;
+      updates['actionTakenNote'] = actionTakenNote;
+    } else if (normalizedStatus == 'rejected') {
+      updates['reviewedAt'] = FieldValue.serverTimestamp();
+      updates['rejectionReason'] = rejectionReason;
     } else if (normalizedStatus == 'closed') {
       updates['closedAt'] = FieldValue.serverTimestamp();
     }
@@ -665,32 +689,9 @@ class FirestoreService {
   Future<void> seedDisciplineReports(List<DisciplineReport> reports) async {
     final batch = _db.batch();
     for (final r in reports) {
-      batch.set(_disciplineCol.doc(r.id), {
-        'studentId': r.studentId,
-        'studentName': r.studentName,
-        'programId': r.programId,
-        'programName': r.programName,
-        'departmentId': r.departmentId,
-        'section': r.section,
-        'subject': r.subject,
-        'subjectCode': r.subjectCode,
-        'subjectName': r.subjectName,
-        'slotId': r.slotId,
-        'lecturer': r.lecturer,
-        'createdBy': r.createdBy,
-        'createdByName': r.createdByName,
-        'assignedReviewerIds': r.assignedReviewerIds,
-        'assignedReviewerRoles': r.assignedReviewerRoles,
-        'date': r.date,
-        'issueType': r.issueType,
-        'severity': r.severity,
-        'description': r.description,
-        'followUp': r.followUp,
-        'status': r.status,
-        'dataSource': 'generated_demo',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final data = _disciplineReportToMap(r, existing: false)
+        ..['dataSource'] = 'generated_demo';
+      batch.set(_disciplineCol.doc(r.id), data);
     }
     await batch.commit();
   }
@@ -867,6 +868,7 @@ class FirestoreService {
       departmentId:
           d[UserFields.departmentId] as String? ?? d['department'] as String?,
       phoneNumber: d[UserFields.phoneNumber] as String?,
+      lecturerProfileId: d[UserFields.lecturerProfileId] as String?,
       isActive: d[UserFields.isActive] as bool? ?? d['active'] as bool? ?? true,
       createdAt: _readTimestamp(d[UserFields.createdAt]),
       updatedAt: _readTimestamp(d[UserFields.updatedAt]) ??
@@ -955,6 +957,8 @@ class FirestoreService {
       subjectName: d['subjectName'] as String? ?? '',
       lecturerId: d['lecturerId'] as String? ?? '',
       lecturerName: d['lecturerName'] as String? ?? '',
+      lecturerEmail: d['lecturerEmail'] as String?,
+      lecturerProfileId: d['lecturerProfileId'] as String?,
       roomId: roomId,
       roomName: roomName,
       day: d['day'] as String? ?? dayOfWeek ?? '',
@@ -1107,7 +1111,15 @@ class FirestoreService {
       updatedAt: _readTimestamp(d['updatedAt']),
       reviewedAt: _readTimestamp(d['reviewedAt']),
       reviewedBy: d['reviewedBy'] as String?,
+      reviewedByName: d['reviewedByName'] as String?,
+      reviewerRole: d['reviewerRole'] as String?,
+      reviewerNotes: d['reviewerNotes'] as String?,
       actionTakenAt: _readTimestamp(d['actionTakenAt']),
+      actionTakenBy: d['actionTakenBy'] as String?,
+      actionTakenByName: d['actionTakenByName'] as String?,
+      actionTaken: d['actionTaken'] as String?,
+      actionTakenNote: d['actionTakenNote'] as String?,
+      rejectionReason: d['rejectionReason'] as String?,
       closedAt: _readTimestamp(d['closedAt']),
     );
   }
@@ -1156,6 +1168,8 @@ class FirestoreService {
       'subjectName': slot.subjectName,
       'lecturerId': slot.lecturerId,
       'lecturerName': slot.lecturerName,
+      'lecturerEmail': slot.lecturerEmail,
+      'lecturerProfileId': slot.lecturerProfileId,
       'roomId': slot.roomId ?? slot.room,
       'roomName': slot.roomName ?? slot.room,
       'dayOfWeek': slot.dayOfWeek ?? slot.day,
@@ -1288,7 +1302,19 @@ class FirestoreService {
         'updatedAt': FieldValue.serverTimestamp(),
         if (report.reviewedAt != null) 'reviewedAt': report.reviewedAt,
         if (report.reviewedBy != null) 'reviewedBy': report.reviewedBy,
+        if (report.reviewedByName != null)
+          'reviewedByName': report.reviewedByName,
+        if (report.reviewerRole != null) 'reviewerRole': report.reviewerRole,
+        if (report.reviewerNotes != null) 'reviewerNotes': report.reviewerNotes,
         if (report.actionTakenAt != null) 'actionTakenAt': report.actionTakenAt,
+        if (report.actionTakenBy != null) 'actionTakenBy': report.actionTakenBy,
+        if (report.actionTakenByName != null)
+          'actionTakenByName': report.actionTakenByName,
+        if (report.actionTaken != null) 'actionTaken': report.actionTaken,
+        if (report.actionTakenNote != null)
+          'actionTakenNote': report.actionTakenNote,
+        if (report.rejectionReason != null)
+          'rejectionReason': report.rejectionReason,
         if (report.closedAt != null) 'closedAt': report.closedAt,
       };
 
@@ -1300,6 +1326,7 @@ class FirestoreService {
         UserFields.programId: user.programId,
         UserFields.departmentId: user.departmentId,
         UserFields.phoneNumber: user.phoneNumber,
+        UserFields.lecturerProfileId: user.lecturerProfileId,
         UserFields.isActive: user.isActive,
         UserFields.createdAt: user.createdAt ?? FieldValue.serverTimestamp(),
         UserFields.updatedAt: FieldValue.serverTimestamp(),
@@ -1321,11 +1348,23 @@ class FirestoreService {
   }
 
   String _normalizeDisciplineStatus(String status) {
-    return switch (status) {
-      'New' => 'pending',
-      'Under Review' => 'reviewed',
-      'Approved' => 'action_taken',
-      _ => status,
+    final normalized = status.trim().toLowerCase().replaceAll(' ', '_');
+    return switch (normalized) {
+      'new' ||
+      'submitted' ||
+      'pending' ||
+      'menunggu' ||
+      'menunggu_semakan' =>
+        'pending',
+      'under_review' || 'reviewed' || 'disemak' => 'reviewed',
+      'approved' ||
+      'resolved' ||
+      'action_taken' ||
+      'tindakan_diambil' =>
+        'action_taken',
+      'closed' || 'ditutup' => 'closed',
+      'rejected' || 'ditolak' => 'rejected',
+      _ => normalized,
     };
   }
 

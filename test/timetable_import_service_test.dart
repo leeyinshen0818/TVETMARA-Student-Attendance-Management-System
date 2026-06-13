@@ -4,11 +4,12 @@ import 'package:tvetmara_student_attendance/models/timetable_import_result.dart'
 import 'package:tvetmara_student_attendance/services/timetable_import_service.dart';
 
 const _header =
-    'academicSessionId,programId,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
+    'academicSessionId,programId,programName,classId,subjectCode,subjectName,subjectId,lecturerEmail,lecturerName,roomId,roomName,dayOfWeek,startTime,endTime,weekStart,weekEnd,status,remarks';
 
 String _row({
   String academicSessionId = '2026_S1',
   String programId = 'DED',
+  String programName = 'DIPLOMA TEKNOLOGI KEJURUTERAAN ELEKTRIK (DED)',
   String classId = 'DED_1A',
   String subjectCode = 'DED10044',
   String subjectName = 'Wiring and Installation Practice',
@@ -28,6 +29,7 @@ String _row({
   return [
     academicSessionId,
     programId,
+    programName,
     classId,
     subjectCode,
     subjectName,
@@ -74,6 +76,15 @@ void main() {
     expect(draft.status, 'active');
   });
 
+  test('normalizes full programme label in programId column', () {
+    final result = service.parseAndValidate(
+      '$_header\n${_row(programId: 'DIPLOMA KOMPETENSI ELEKTRIK (KUASA) (DCP)')}',
+    );
+
+    expect(result.validationErrors, isEmpty);
+    expect(result.parsedRows.single.draft!.programId, 'DCP');
+  });
+
   test('reports missing required header as a file-level error', () {
     final result = service.parseAndValidate(
       'academicSessionId,programId,classId\n2026_S1,DED,DED_1A',
@@ -86,7 +97,7 @@ void main() {
 
   test('matches headers case-insensitively and trims column names', () {
     const header =
-        ' AcademicSessionId , PROGRAMID , classId , subjectCode , subjectName , subjectId , lecturerEmail , lecturerName , roomId , roomName , dayOfWeek , startTime , endTime , weekStart , weekEnd , status , remarks ';
+        ' AcademicSessionId , PROGRAMID , programName , classId , subjectCode , subjectName , subjectId , lecturerEmail , lecturerName , roomId , roomName , dayOfWeek , startTime , endTime , weekStart , weekEnd , status , remarks ';
     final result = service.parseAndValidate('$header\n${_row()}');
 
     expect(result.validationErrors, isEmpty);
