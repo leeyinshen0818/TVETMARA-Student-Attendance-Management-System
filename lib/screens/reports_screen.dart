@@ -18,9 +18,14 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   static const _allGroupsKey = 'all';
+  static const _allDisciplineKey = 'all';
+  static const _hasDisciplineKey = 'has';
+  static const _noDisciplineKey = 'none';
+  
   String _selectedGroup = _allGroupsKey;
   int _selectedWeek = 1;
   int? _selectedThresholdFilter;
+  String _selectedDisciplineFilter = _allDisciplineKey;
 
   String _groupKey(Student student) => '${student.program}||${student.section}';
 
@@ -194,11 +199,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return selectedGroup == _allGroupsKey || _groupKey(student) == selectedGroup;
     }).toList();
     final filteredStudents = groupFilteredStudents.where((student) {
-      if (_selectedThresholdFilter == null) return true;
-      final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
-      return _selectedThresholdFilter == 80
-          ? summary.percentage <= 80
-          : summary.percentage < _selectedThresholdFilter!;
+      // Apply threshold filter
+      if (_selectedThresholdFilter != null) {
+        final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+        final passThreshold = _selectedThresholdFilter == 80
+            ? summary.percentage <= 80
+            : summary.percentage < _selectedThresholdFilter!;
+        if (!passThreshold) return false;
+      }
+      
+      // Apply discipline status filter
+      final studentDisciplineReports = state.disciplineReports
+          .where((report) => report.studentId == student.id)
+          .toList();
+      if (_selectedDisciplineFilter == _hasDisciplineKey) {
+        return studentDisciplineReports.isNotEmpty;
+      } else if (_selectedDisciplineFilter == _noDisciplineKey) {
+        return studentDisciplineReports.isEmpty;
+      }
+      return true; // _allDisciplineKey
     }).toList();
     final summaries = filteredStudents
         .map((student) => state.attendanceSummaryForStudentWeek(student, _selectedWeek))
@@ -337,6 +356,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           if (value == null) return;
                           setState(() {
                             _selectedWeek = value;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _selectedDisciplineFilter,
+                        decoration: const InputDecoration(
+                          labelText: 'Status Disiplin',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: _allDisciplineKey,
+                            child: Text('Semua'),
+                          ),
+                          DropdownMenuItem(
+                            value: _hasDisciplineKey,
+                            child: Text('Ada Disiplin'),
+                          ),
+                          DropdownMenuItem(
+                            value: _noDisciplineKey,
+                            child: Text('Tiada Disiplin'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedDisciplineFilter = value;
                           });
                         },
                       ),
