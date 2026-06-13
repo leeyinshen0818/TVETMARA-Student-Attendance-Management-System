@@ -9,29 +9,76 @@ import '../widgets/app_layout.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
-class ReportsScreen extends StatelessWidget {
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
+
+  @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  static const _allGroupsKey = 'all';
+  String _selectedGroup = _allGroupsKey;
+  int _selectedWeek = 1;
+
+  String _groupKey(Student student) => '${student.program}||${student.section}';
+
+  String _groupLabel(String groupKey) {
+    if (groupKey == _allGroupsKey) {
+      return 'Semua Program / Kelas';
+    }
+    final parts = groupKey.split('||');
+    final program = parts.first;
+    final section = parts.length > 1 ? parts[1] : '';
+    if (program.isEmpty) return section.isEmpty ? '-' : section;
+    return '$program / $section';
+  }
+
+  
+
+  String _weeklyRisk(int percentage, int threshold) {
+    if (percentage >= threshold) return 'Safe';
+    if (percentage >= 75) return 'Warning';
+    return 'Critical';
+  }
+
+  
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     if (user.role != UserRole.ketua_jabatan &&
-        user.role != UserRole.ketua_program) {
+        user.role != UserRole.ketua_program &&
+        user.role != UserRole.pensyarah) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
-            'Hanya Ketua Jabatan dan Ketua Program boleh menyemak laporan.',
+            'Hanya Ketua Jabatan, Ketua Program dan Pensyarah boleh menyemak laporan.',
       );
     }
+
     final students = state.scopedStudents;
     final timetable = state.scopedTimetable;
-    final percentages =
-        students.map(state.attendancePercentageForStudent).toList();
+    final groupKeys = students.map(_groupKey).toSet().toList()
+      ..sort((a, b) => _groupLabel(a).compareTo(_groupLabel(b)));
+    final availableGroups = [_allGroupsKey, ...groupKeys];
+    final selectedGroup = availableGroups.contains(_selectedGroup)
+        ? _selectedGroup
+        : _allGroupsKey;
+    final filteredStudents = students.where((student) {
+      return selectedGroup == _allGroupsKey || _groupKey(student) == selectedGroup;
+    }).toList();
+    final summaries = filteredStudents
+        .map((student) => state.attendanceSummaryForStudentWeek(student, _selectedWeek))
+        .toList();
+    final percentages = summaries.map((summary) => summary.percentage).toList();
     final avg = percentages.isEmpty
         ? 0
         : percentages.reduce((a, b) => a + b) ~/ percentages.length;
-    final below = state.criticalStudents;
+    final below95 = summaries.where((summary) => summary.percentage < 95).length;
+    final below90 = summaries.where((summary) => summary.percentage < 90).length;
+    final below80 = summaries.where((summary) => summary.percentage <= 80).length;
     final completed =
         timetable.where((slot) => slot.status == 'Attendance Completed').length;
     final frequencyLabel = switch (state.reportFrequency) {
@@ -40,6 +87,7 @@ class ReportsScreen extends StatelessWidget {
       'Monthly' => 'Bulanan',
       _ => state.reportFrequency,
     };
+    
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,17 +97,82 @@ class ReportsScreen extends StatelessWidget {
           subtitle:
               'Semakan PDF mingguan untuk pelajar bawah ${state.attendanceThreshold}%. MC dan CK dikecualikan daripada peratus kehadiran.',
           trailing: FilledButton.icon(
-            onPressed: () => _exportPdf(
-              context: context,
-              state: state,
-              user: user,
-              students: students,
-              criticalStudents: below,
-              averageAttendance: avg,
-              completedSessions: completed,
-            ),
+            onPressed: () async {
+              final critical = filteredStudents.where((student) {
+                final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+                return summary.percentage < state.attendanceThreshold;
+              }).toList();
+
+              await _exportPdf(
+                context: context,
+                state: state,
+                user: user,
+                students: filteredStudents,
+                criticalStudents: critical,
+                averageAttendance: avg,
+                completedSessions: completed,
+              );
+            },
             icon: const Icon(Icons.download),
             label: const Text('Eksport PDF'),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: 300,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedGroup,
+                    decoration: const InputDecoration(
+                      labelText: 'Program / Kelas',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: availableGroups
+                        .map((groupKey) => DropdownMenuItem(
+                              value: groupKey,
+                              child: Text(_groupLabel(groupKey)),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _selectedGroup = value;
+                      });
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 180,
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _selectedWeek,
+                    decoration: const InputDecoration(
+                      labelText: 'Minggu',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: List.generate(
+                      18,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('Minggu ${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _selectedWeek = value;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         GridView.count(
@@ -71,21 +184,39 @@ class ReportsScreen extends StatelessWidget {
           childAspectRatio: 2.5,
           children: [
             StatTile(
-                label: 'Pelajar',
-                value: '${students.length}',
-                icon: Icons.people_outline),
+              label: 'Pelajar',
+              value: '${filteredStudents.length}',
+              icon: Icons.people_outline,
+            ),
             StatTile(
-                label: 'Purata Kehadiran', value: '$avg%', icon: Icons.percent),
+              label: 'Purata Kehadiran',
+              value: '$avg%',
+              icon: Icons.percent,
+            ),
             StatTile(
-                label: 'Bawah Had',
-                value: '${below.length}',
-                icon: Icons.warning_amber,
-                color: Colors.red),
+              label: 'Bawah 95%',
+              value: '$below95',
+              icon: Icons.warning_amber,
+              color: Colors.yellow.shade700,
+            ),
             StatTile(
-                label: 'Sesi Selesai',
-                value: '$completed',
-                icon: Icons.check_circle_outline,
-                color: Colors.green),
+              label: 'Bawah 90%',
+              value: '$below90',
+              icon: Icons.warning_amber_outlined,
+              color: Colors.orange,
+            ),
+            StatTile(
+              label: '≤ 80%',
+              value: '$below80',
+              icon: Icons.dangerous,
+              color: Colors.red,
+            ),
+            StatTile(
+              label: 'Sesi Selesai',
+              value: '$completed',
+              icon: Icons.check_circle_outline,
+              color: Colors.green,
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -108,23 +239,27 @@ class ReportsScreen extends StatelessWidget {
               DataColumn(label: Text('Kehadiran')),
               DataColumn(label: Text('Status')),
             ],
-            rows: below.map((student) {
-              final summary = state.attendanceSummaryForStudent(student);
-              final risk = state.attendanceRiskForStudent(student);
-              return DataRow(cells: [
-                DataCell(Text(student.id)),
-                DataCell(Text(student.name)),
-                DataCell(Text(student.program)),
-                DataCell(Text(student.section)),
-                DataCell(Text('${summary.present}')),
-                DataCell(Text('${summary.late}')),
-                DataCell(Text('${summary.absent}')),
-                DataCell(Text('${summary.mc}')),
-                DataCell(Text('${summary.ck}')),
-                DataCell(Text('${summary.percentage}%')),
-                DataCell(StatusChip(risk)),
-              ]);
-            }).toList(),
+            rows: List<DataRow>.generate(
+              filteredStudents.length,
+              (index) {
+                final student = filteredStudents[index];
+                final summary = summaries[index];
+                final risk = _weeklyRisk(summary.percentage, state.attendanceThreshold);
+                return DataRow(cells: [
+                  DataCell(Text(student.id)),
+                  DataCell(Text(student.name)),
+                  DataCell(Text(student.program)),
+                  DataCell(Text(student.section)),
+                  DataCell(Text('${summary.present}')),
+                  DataCell(Text('${summary.late}')),
+                  DataCell(Text('${summary.absent}')),
+                  DataCell(Text('${summary.mc}')),
+                  DataCell(Text('${summary.ck}')),
+                  DataCell(Text('${summary.percentage}%')),
+                  DataCell(StatusChip(risk)),
+                ]);
+              },
+            ),
           ),
         ),
       ],
@@ -155,7 +290,7 @@ class ReportsScreen extends StatelessWidget {
           .map(
             (student) => CriticalAttendanceReportRow(
               student: student,
-              summary: state.attendanceSummaryForStudent(student),
+              summary: state.attendanceSummaryForStudentWeek(student, _selectedWeek),
             ),
           )
           .toList(),
