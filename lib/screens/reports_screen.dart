@@ -43,6 +43,36 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return 'Critical';
   }
 
+  String _latestDisciplineSeverity(List<DisciplineReport> reports) {
+    if (reports.isEmpty) return '';
+    final latest = reports.reduce((a, b) {
+      return a.date.compareTo(b.date) >= 0 ? a : b;
+    });
+    return latest.severity;
+  }
+
+  Color _disciplineSeverityColor(String severity, BuildContext context) {
+    return switch (severity.toLowerCase()) {
+      'high' => Colors.red.shade300,
+      'medium' => Colors.orange.shade300,
+      'low' => Colors.yellow.shade300,
+      _ => Theme.of(context).colorScheme.primaryContainer,
+    };
+  }
+
+  Widget _disciplineChip(List<DisciplineReport> reports, BuildContext context) {
+    if (reports.isEmpty) {
+      return const Text('-');
+    }
+    final latestSeverity = _latestDisciplineSeverity(reports);
+    return Chip(
+      label: Text('${reports.length} • ${latestSeverity.isEmpty ? 'N/A' : latestSeverity}'),
+      backgroundColor: _disciplineSeverityColor(latestSeverity, context),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+    );
+  }
+
   void _showStudentDetails(BuildContext context, AppState state, Student student) {
     final weeklyData = state.weeklyAttendanceForStudent(student);
     final disciplineReports = state.scopedDisciplineReports
@@ -373,6 +403,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               DataColumn(label: Text('Nama')),
               DataColumn(label: Text('Program')),
               DataColumn(label: Text('Kelas')),
+              DataColumn(label: Text('Disiplin')),
               DataColumn(label: Text('P')),
               DataColumn(label: Text('L')),
               DataColumn(label: Text('A')),
@@ -387,6 +418,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final student = filteredStudents[index];
                 final summary = summaries[index];
                 final risk = _weeklyRisk(summary.percentage, state.attendanceThreshold);
+                final studentReports = state.disciplineReports
+                    .where((report) => report.studentId == student.id)
+                    .toList();
                 return DataRow(
                   onSelectChanged: (_) => _showStudentDetails(context, state, student),
                   cells: [
@@ -394,6 +428,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     DataCell(Text(student.name)),
                     DataCell(Text(student.program)),
                     DataCell(Text(student.section)),
+                    DataCell(_disciplineChip(studentReports, context)),
                     DataCell(Text('${summary.present}')),
                     DataCell(Text('${summary.late}')),
                     DataCell(Text('${summary.absent}')),
