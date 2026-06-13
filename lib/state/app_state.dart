@@ -6,6 +6,20 @@ import '../models/app_models.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 
+class AttendanceDemoSeedResult {
+  const AttendanceDemoSeedResult({
+    required this.sessionsCreated,
+    required this.recordsCreated,
+    required this.classesProcessed,
+    required this.classesSkipped,
+  });
+
+  final int sessionsCreated;
+  final int recordsCreated;
+  final int classesProcessed;
+  final int classesSkipped;
+}
+
 class AppState extends ChangeNotifier {
   AppUser? currentUser;
   List<AppUser> users = [];
@@ -670,6 +684,119 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> editAttendance(
+    String slotId,
+    List<AttendanceRecord> records, {
+    required String sessionDate,
+    required int weekNo,
+    required String editReason,
+  }) async {
+    final reason = editReason.trim();
+    if (reason.isEmpty) {
+      throw ArgumentError('Attendance edit reason is required.');
+    }
+
+    final index = timetable.indexWhere((slot) => slot.id == slotId);
+    if (index == -1) {
+      throw StateError('Timetable slot not found.');
+    }
+    final slot = timetable[index];
+    final sessionId = _fs.attendanceSessionIdFor(
+      slotId: slot.id,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    final existingSession = attendanceSessions
+        .where((session) => session.id == sessionId)
+        .firstOrNull;
+    if (existingSession == null) {
+      throw StateError('Attendance session must be submitted before editing.');
+    }
+
+    final previousRecords = sessionAttendance[sessionId] ??
+        attendance[slot.id] ??
+        const <AttendanceRecord>[];
+    final previousByStudent = {
+      for (final record in previousRecords) record.studentId: record,
+    };
+    final changes = <AttendanceEditChange>[];
+    for (final record in records) {
+      final previous = previousByStudent[record.studentId];
+      if (previous != null && previous.status != record.status) {
+        final student = students
+            .where((student) => student.id == record.studentId)
+            .firstOrNull;
+        changes.add(AttendanceEditChange(
+          studentId: record.studentId,
+          studentName: record.studentName ?? student?.name ?? record.studentId,
+          originalStatus: previous.status,
+          newStatus: record.status,
+        ));
+      }
+    }
+    if (changes.isEmpty) {
+      throw StateError('Tiada perubahan status untuk disimpan.');
+    }
+
+    final rebuilt = _buildAttendanceSession(
+      slot,
+      records,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    final user = currentUser;
+    final editedAt = DateTime.now().toIso8601String();
+    final editEntry = AttendanceEditEntry(
+      editedAt: editedAt,
+      editedBy: user?.uid ?? existingSession.lecturerId,
+      editedByName: user?.name ?? existingSession.lecturerName,
+      reason: reason,
+      changes: changes,
+    );
+    final session = rebuilt.copyWith(
+      createdBy: existingSession.createdBy,
+      createdAt: existingSession.createdAt,
+      submittedAt: existingSession.submittedAt,
+      updatedAt: editedAt,
+      updatedBy: user?.uid ?? existingSession.lecturerId,
+      updatedByName: user?.name ?? existingSession.lecturerName,
+      editReason: reason,
+      editHistory: [...existingSession.editHistory, editEntry],
+    );
+    final enrichedRecords = records
+        .map((record) {
+          final previous = previousByStudent[record.studentId];
+          final changed = previous != null && previous.status != record.status;
+          final auditedRecord = changed
+              ? record.copyWith(
+                  updatedAt: editedAt,
+                  updatedBy: user?.uid ?? existingSession.lecturerId,
+                  updatedByName: user?.name ?? existingSession.lecturerName,
+                  editReason: reason,
+                  originalStatus: previous.status,
+                  newStatus: record.status,
+                )
+              : record;
+          return _buildAttendanceRecord(
+              record: auditedRecord,
+              slot: slot,
+              session: session,
+            );
+        })
+        .toList();
+
+    await _fs.saveAttendanceSessionWithRecords(
+      session: session,
+      records: enrichedRecords,
+    );
+
+    // Keep the legacy write path aligned while older screens still read it.
+    await _fs.saveAttendance(slot.id, records);
+    attendance[slot.id] = records;
+    _upsertAttendanceSession(session, enrichedRecords);
+    notifyListeners();
+  }
+
   Future<void> upsertTimetableSlot(TimetableSlot slot) async {
     final index = timetable.indexWhere((item) => item.id == slot.id);
     if (index == -1) {
@@ -1022,6 +1149,260 @@ class AppState extends ChangeNotifier {
     return aStart < bEnd && bStart < aEnd;
   }
 
+  Future<AttendanceDemoSeedResult> resetAndSeedM1DemoAttendance() async {
+    final slots = _demoAttendanceSlots();
+    if (slots.isEmpty) {
+      throw StateError(
+          'Tiada slot jadual ditemui untuk menjana data demo kehadiran.');
+    }
+
+    await _fs.resetAttendanceCollections();
+    attendanceSessions.clear();
+    sessionAttendance.clear();
+
+    var generatedSessions = 0;
+    var generatedRecords = 0;
+    var processedClasses = 0;
+    var skippedClasses = 0;
+    var editedExampleAdded = false;
+    for (final slot in slots) {
+      final slotStudents = _studentsForSlot(slot);
+      if (slotStudents.isEmpty) {
+        skippedClasses++;
+        continue;
+      }
+      processedClasses++;
+
+      final weekOneDate = _demoWeekOneDate(slot);
+      for (var week = 1; week <= 6; week++) {
+        final sessionDate =
+            _isoDate(weekOneDate.add(Duration(days: 7 * (week - 1))));
+        final draftRecords = <AttendanceRecord>[];
+        final shouldAddEditExample =
+            !editedExampleAdded && week == 2 && slotStudents.isNotEmpty;
+
+        for (var index = 0; index < slotStudents.length; index++) {
+          final student = slotStudents[index];
+          final status = shouldAddEditExample && index == 0
+              ? AttendanceStatus.present
+              : _demoAttendanceStatus(index, week);
+          final isPresentOrLate =
+              status == AttendanceStatus.present || status == AttendanceStatus.late;
+          var record = AttendanceRecord(
+            slotId: slot.id,
+            studentId: student.id,
+            status: status,
+            checkIn: isPresentOrLate ? slot.startTime : '-',
+            remarks: status == AttendanceStatus.mc
+                ? 'Demo MC'
+                : status == AttendanceStatus.ck
+                    ? 'Demo CK'
+                    : '',
+          );
+          if (shouldAddEditExample && index == 0) {
+            final editorId = currentUser?.uid ?? slot.lecturerId;
+            final editorName = currentUser?.name ?? slot.lecturerName;
+            record = record.copyWith(
+              originalStatus: AttendanceStatus.absent,
+              newStatus: AttendanceStatus.present,
+              updatedBy: editorId,
+              updatedByName: editorName,
+              editReason:
+                  'Demo pembetulan: pelajar hadir tetapi tersalah tanda tidak hadir.',
+            );
+          }
+          draftRecords.add(record);
+        }
+
+        var session = _buildAttendanceSession(
+          slot,
+          draftRecords,
+          sessionDate: sessionDate,
+          weekNo: week,
+        );
+        if (shouldAddEditExample) {
+          final editedStudent = slotStudents.first;
+          final editorId = currentUser?.uid ?? slot.lecturerId;
+          final editorName = currentUser?.name ?? slot.lecturerName;
+          session = session.copyWith(
+            updatedBy: editorId,
+            updatedByName: editorName,
+            editReason:
+                'Demo pembetulan: pelajar hadir tetapi tersalah tanda tidak hadir.',
+            editHistory: [
+              AttendanceEditEntry(
+                editedAt: DateTime.now().toIso8601String(),
+                editedBy: editorId,
+                editedByName: editorName,
+                reason:
+                    'Demo pembetulan: pelajar hadir tetapi tersalah tanda tidak hadir.',
+                changes: [
+                  AttendanceEditChange(
+                    studentId: editedStudent.id,
+                    studentName: editedStudent.name,
+                    originalStatus: AttendanceStatus.absent,
+                    newStatus: AttendanceStatus.present,
+                  ),
+                ],
+              ),
+            ],
+          );
+          editedExampleAdded = true;
+        }
+        final enrichedRecords = draftRecords
+            .map((record) => _buildAttendanceRecord(
+                  record: record,
+                  slot: slot,
+                  session: session,
+                ))
+            .toList();
+
+        await _fs.saveAttendanceSessionWithRecords(
+          session: session,
+          records: enrichedRecords,
+        );
+        _upsertAttendanceSession(session, enrichedRecords);
+        generatedSessions++;
+        generatedRecords += enrichedRecords.length;
+      }
+    }
+
+    if (generatedSessions == 0) {
+      throw StateError(
+          'Tiada data demo dijana kerana pelajar tidak sepadan dengan section slot jadual.');
+    }
+
+    _loadedCollections
+        .removeAll(['attendanceSessions', 'sessionAttendance']);
+    await Future.wait([
+      loadAttendanceSessionsIfNeeded(),
+      loadSessionAttendanceIfNeeded(),
+    ]);
+    notifyListeners();
+    return AttendanceDemoSeedResult(
+      sessionsCreated: generatedSessions,
+      recordsCreated: generatedRecords,
+      classesProcessed: processedClasses,
+      classesSkipped: skippedClasses,
+    );
+  }
+
+  List<TimetableSlot> _demoAttendanceSlots() {
+    final selectedByGroup = <String, TimetableSlot>{};
+    for (final slot in timetable) {
+      selectedByGroup.putIfAbsent(_demoSlotGroupKey(slot), () => slot);
+    }
+    return selectedByGroup.values.toList();
+  }
+
+  List<Student> _studentsForSlot(TimetableSlot slot) {
+    final keys = _slotSectionKeys(slot);
+    final sectionMatches = students.where((student) {
+      return keys.contains(_normalizedSection(student.section));
+    }).toList();
+    if (sectionMatches.isNotEmpty) return sectionMatches;
+
+    final slotProgramId = _programIdForTimetableSlot(slot);
+    if (slotProgramId == null || slotProgramId.isEmpty) return const [];
+
+    return students.where((student) {
+      return _programIdForStudent(student) == slotProgramId;
+    }).toList();
+  }
+
+  Set<String> _slotSectionKeys(TimetableSlot slot) {
+    return {
+      _normalizedSection(slot.section),
+      if ((slot.classId ?? '').isNotEmpty) _normalizedSection(slot.classId!),
+    }..removeWhere((value) => value.isEmpty);
+  }
+
+  String _demoSlotGroupKey(TimetableSlot slot) {
+    final programId = _programIdForTimetableSlot(slot) ??
+        slot.programId ??
+        _normalizedSection(slot.program);
+    final section = _normalizedSection(slot.section.isNotEmpty
+        ? slot.section
+        : (slot.classId ?? 'kelas'));
+    final subjectCode = _normalizedSection(slot.subjectCode.isNotEmpty
+        ? slot.subjectCode
+        : slot.subjectName);
+    return '$programId|$section|$subjectCode';
+  }
+
+  DateTime _demoWeekOneDate(TimetableSlot slot) {
+    final slotDate = DateTime.tryParse(slot.date);
+    if (slotDate != null) {
+      return slotDate.subtract(Duration(days: 7 * (_weekNoForSlot(slot) - 1)));
+    }
+
+    final sessionId = slot.academicSessionId ?? slot.session;
+    final academicSession = academicSessions
+        .where((item) => item.academicSessionId == sessionId)
+        .firstOrNull;
+    return DateTime.tryParse(academicSession?.startDate ?? '') ??
+        DateTime(2026, 1, 1);
+  }
+
+  String _normalizedSection(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  AttendanceStatus _demoAttendanceStatus(int studentIndex, int weekNo) {
+    final studentNumber = studentIndex + 1;
+    if (studentNumber <= 3) {
+      return weekNo == studentNumber + 1
+          ? AttendanceStatus.late
+          : AttendanceStatus.present;
+    }
+    if (studentNumber <= 6) {
+      return weekNo == studentNumber - 3
+          ? AttendanceStatus.absent
+          : AttendanceStatus.present;
+    }
+    if (studentNumber <= 8) {
+      return weekNo == 2 || weekNo == 5
+          ? AttendanceStatus.absent
+          : AttendanceStatus.present;
+    }
+    if (studentNumber == 9) {
+      return weekNo == 1 || weekNo == 3 || weekNo == 6
+          ? AttendanceStatus.absent
+          : AttendanceStatus.present;
+    }
+    if (studentNumber == 10) {
+      return weekNo.isEven ? AttendanceStatus.ck : AttendanceStatus.mc;
+    }
+    if (studentNumber == 11) {
+      return switch (weekNo) {
+        1 => AttendanceStatus.present,
+        2 => AttendanceStatus.absent,
+        _ => AttendanceStatus.mc,
+      };
+    }
+    if (studentNumber == 12) {
+      return weekNo == 1 ? AttendanceStatus.late : AttendanceStatus.ck;
+    }
+
+    return switch (studentIndex % 5) {
+      0 => weekNo == 4 ? AttendanceStatus.absent : AttendanceStatus.present,
+      1 => weekNo == 2 || weekNo == 6
+          ? AttendanceStatus.absent
+          : AttendanceStatus.present,
+      2 => weekNo == 3 ? AttendanceStatus.late : AttendanceStatus.present,
+      3 => weekNo == 5 ? AttendanceStatus.mc : AttendanceStatus.present,
+      _ => weekNo == 1 || weekNo == 6
+          ? AttendanceStatus.absent
+          : AttendanceStatus.present,
+    };
+  }
+
+  String _isoDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   int _minutes(String text) {
     final parts = text.split(':');
     if (parts.length != 2) return 0;
@@ -1272,8 +1653,17 @@ class AppState extends ChangeNotifier {
   }
 
   int _weekNoForSlot(TimetableSlot slot) {
-    // TODO: Replace this fallback when the timetable/academic calendar provides
-    // a real week number for the 18-week attendance view.
-    return 1;
+    final slotDate = DateTime.tryParse(slot.date);
+    if (slotDate == null) return 1;
+
+    final sessionId = slot.academicSessionId ?? slot.session;
+    final academicSession = academicSessions
+        .where((item) => item.academicSessionId == sessionId)
+        .firstOrNull;
+    final startDate = DateTime.tryParse(academicSession?.startDate ?? '');
+    if (startDate == null) return 1;
+
+    final calculated = (slotDate.difference(startDate).inDays ~/ 7) + 1;
+    return calculated.clamp(1, 18).toInt();
   }
 }

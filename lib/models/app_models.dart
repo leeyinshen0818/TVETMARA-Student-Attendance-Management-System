@@ -104,6 +104,10 @@ class AttendanceSession {
     this.createdAt,
     this.updatedAt,
     this.submittedAt,
+    this.updatedBy,
+    this.updatedByName,
+    this.editReason,
+    this.editHistory = const [],
   });
 
   final String id;
@@ -133,9 +137,111 @@ class AttendanceSession {
   final String? createdAt;
   final String? updatedAt;
   final String? submittedAt;
+  final String? updatedBy;
+  final String? updatedByName;
+  final String? editReason;
+  final List<AttendanceEditEntry> editHistory;
 
   int get attendedCount => presentCount + lateCount;
   int get denominator => presentCount + lateCount + absentCount;
+
+  AttendanceSession copyWith({
+    String? id,
+    String? slotId,
+    String? sessionDate,
+    int? weekNo,
+    String? academicSession,
+    int? semester,
+    String? programId,
+    String? programName,
+    String? departmentId,
+    String? section,
+    String? subjectCode,
+    String? subjectName,
+    String? lecturerId,
+    String? lecturerName,
+    String? status,
+    int? totalStudents,
+    int? presentCount,
+    int? lateCount,
+    int? absentCount,
+    int? mcCount,
+    int? ckCount,
+    int? attendancePercentage,
+    String? duplicateKey,
+    String? createdBy,
+    String? createdAt,
+    String? updatedAt,
+    String? submittedAt,
+    String? updatedBy,
+    String? updatedByName,
+    String? editReason,
+    List<AttendanceEditEntry>? editHistory,
+  }) {
+    return AttendanceSession(
+      id: id ?? this.id,
+      slotId: slotId ?? this.slotId,
+      sessionDate: sessionDate ?? this.sessionDate,
+      weekNo: weekNo ?? this.weekNo,
+      academicSession: academicSession ?? this.academicSession,
+      semester: semester ?? this.semester,
+      programId: programId ?? this.programId,
+      programName: programName ?? this.programName,
+      departmentId: departmentId ?? this.departmentId,
+      section: section ?? this.section,
+      subjectCode: subjectCode ?? this.subjectCode,
+      subjectName: subjectName ?? this.subjectName,
+      lecturerId: lecturerId ?? this.lecturerId,
+      lecturerName: lecturerName ?? this.lecturerName,
+      status: status ?? this.status,
+      totalStudents: totalStudents ?? this.totalStudents,
+      presentCount: presentCount ?? this.presentCount,
+      lateCount: lateCount ?? this.lateCount,
+      absentCount: absentCount ?? this.absentCount,
+      mcCount: mcCount ?? this.mcCount,
+      ckCount: ckCount ?? this.ckCount,
+      attendancePercentage: attendancePercentage ?? this.attendancePercentage,
+      duplicateKey: duplicateKey ?? this.duplicateKey,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      submittedAt: submittedAt ?? this.submittedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+      updatedByName: updatedByName ?? this.updatedByName,
+      editReason: editReason ?? this.editReason,
+      editHistory: editHistory ?? this.editHistory,
+    );
+  }
+}
+
+class AttendanceEditChange {
+  const AttendanceEditChange({
+    required this.studentId,
+    required this.studentName,
+    required this.originalStatus,
+    required this.newStatus,
+  });
+
+  final String studentId;
+  final String studentName;
+  final AttendanceStatus originalStatus;
+  final AttendanceStatus newStatus;
+}
+
+class AttendanceEditEntry {
+  const AttendanceEditEntry({
+    required this.editedAt,
+    required this.editedBy,
+    required this.editedByName,
+    required this.reason,
+    required this.changes,
+  });
+
+  final String editedAt;
+  final String editedBy;
+  final String editedByName;
+  final String reason;
+  final List<AttendanceEditChange> changes;
 }
 
 class Department {
@@ -480,6 +586,11 @@ class AttendanceRecord {
     this.createdBy,
     this.createdAt,
     this.updatedAt,
+    this.updatedBy,
+    this.updatedByName,
+    this.editReason,
+    this.originalStatus,
+    this.newStatus,
   });
 
   final String? id;
@@ -499,6 +610,11 @@ class AttendanceRecord {
   final String? createdBy;
   final String? createdAt;
   final String? updatedAt;
+  final String? updatedBy;
+  final String? updatedByName;
+  final String? editReason;
+  final AttendanceStatus? originalStatus;
+  final AttendanceStatus? newStatus;
 
   bool get countsAsAttended => status.countsAsAttended;
   bool get countsInDenominator => status.countsInDenominator;
@@ -522,6 +638,11 @@ class AttendanceRecord {
     String? createdBy,
     String? createdAt,
     String? updatedAt,
+    String? updatedBy,
+    String? updatedByName,
+    String? editReason,
+    AttendanceStatus? originalStatus,
+    AttendanceStatus? newStatus,
   }) {
     return AttendanceRecord(
       id: id ?? this.id,
@@ -541,6 +662,11 @@ class AttendanceRecord {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+      updatedByName: updatedByName ?? this.updatedByName,
+      editReason: editReason ?? this.editReason,
+      originalStatus: originalStatus ?? this.originalStatus,
+      newStatus: newStatus ?? this.newStatus,
     );
   }
 }

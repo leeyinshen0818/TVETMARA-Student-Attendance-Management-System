@@ -373,6 +373,11 @@ class FirestoreService {
     return snap.docs.map(_docToAttendanceRecord).toList();
   }
 
+  Future<void> resetAttendanceCollections() async {
+    await _deleteCollection(_attendanceCol);
+    await _deleteCollection(_attendanceSessionsCol);
+  }
+
   Future<List<AttendanceSession>> getAttendanceSessionsForSlot(
       String slotId) async {
     final snap = await _attendanceSessionsCol
@@ -402,6 +407,19 @@ class FirestoreService {
       result.putIfAbsent(sessionId, () => []).add(record);
     }
     return result;
+  }
+
+  Future<void> _deleteCollection(
+      CollectionReference<Map<String, dynamic>> collection) async {
+    while (true) {
+      final snap = await collection.limit(400).get();
+      if (snap.docs.isEmpty) return;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
   Future<Map<String, List<AttendanceRecord>>> getAllAttendance() async {
@@ -1053,6 +1071,10 @@ class FirestoreService {
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
       submittedAt: _readTimestamp(d['submittedAt']),
+      updatedBy: d['updatedBy'] as String?,
+      updatedByName: d['updatedByName'] as String?,
+      editReason: d['editReason'] as String?,
+      editHistory: _readAttendanceEditHistory(d['editHistory']),
     );
   }
 
@@ -1077,6 +1099,15 @@ class FirestoreService {
       createdBy: d['createdBy'] as String?,
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
+      updatedBy: d['updatedBy'] as String?,
+      updatedByName: d['updatedByName'] as String?,
+      editReason: d['editReason'] as String?,
+      originalStatus: _nullableAttendanceStatusFromName(
+        d['originalStatus'] as String?,
+      ),
+      newStatus: _nullableAttendanceStatusFromName(
+        d['newStatus'] as String?,
+      ),
     );
   }
 
@@ -1239,10 +1270,73 @@ class FirestoreService {
           weekNo: session.weekNo,
         ),
         'createdBy': session.createdBy,
+        'updatedBy': session.updatedBy,
+        'updatedByName': session.updatedByName,
+        'editReason': session.editReason,
+        'editHistory':
+            session.editHistory.map(_attendanceEditEntryToMap).toList(),
         if (!existing) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         if (session.submittedAt != null) 'submittedAt': session.submittedAt,
       };
+
+  List<AttendanceEditEntry> _readAttendanceEditHistory(Object? value) {
+    final items = value is List ? value : const [];
+    return items.whereType<Map>().map((item) {
+      final changes = (item['changes'] is List ? item['changes'] as List : const [])
+          .whereType<Map>()
+          .map((change) => AttendanceEditChange(
+                studentId: change['studentId'] as String? ?? '',
+                studentName: change['studentName'] as String? ?? '',
+                originalStatus: _attendanceStatusFromName(
+                    change['originalStatus'] as String?),
+                newStatus:
+                    _attendanceStatusFromName(change['newStatus'] as String?),
+              ))
+          .toList();
+      return AttendanceEditEntry(
+        editedAt: _readTimestamp(item['editedAt']) ??
+            item['editedAt'] as String? ??
+            '',
+        editedBy: item['editedBy'] as String? ?? '',
+        editedByName: item['editedByName'] as String? ?? '',
+        reason: item['reason'] as String? ?? '',
+        changes: changes,
+      );
+    }).toList();
+  }
+
+  AttendanceStatus _attendanceStatusFromName(String? value) {
+    if (value == null) return AttendanceStatus.present;
+    return AttendanceStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => AttendanceStatus.present,
+    );
+  }
+
+  AttendanceStatus? _nullableAttendanceStatusFromName(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return AttendanceStatus.values
+        .where((status) => status.name == value)
+        .firstOrNull;
+  }
+
+  Map<String, dynamic> _attendanceEditEntryToMap(AttendanceEditEntry entry) {
+    return {
+      'editedAt': entry.editedAt,
+      'editedBy': entry.editedBy,
+      'editedByName': entry.editedByName,
+      'reason': entry.reason,
+      'changes': entry.changes
+          .map((change) => {
+                'studentId': change.studentId,
+                'studentName': change.studentName,
+                'originalStatus': change.originalStatus.name,
+                'newStatus': change.newStatus.name,
+              })
+          .toList(),
+    };
+  }
 
   Map<String, dynamic> _attendanceRecordToMap(
     AttendanceRecord record, {
@@ -1268,6 +1362,13 @@ class FirestoreService {
         'countsInDenominator': record.countsInDenominator,
         'isExempt': record.isExempt,
         'createdBy': record.createdBy,
+        if (record.updatedBy != null) 'updatedBy': record.updatedBy,
+        if (record.updatedByName != null)
+          'updatedByName': record.updatedByName,
+        if (record.editReason != null) 'editReason': record.editReason,
+        if (record.originalStatus != null)
+          'originalStatus': record.originalStatus!.name,
+        if (record.newStatus != null) 'newStatus': record.newStatus!.name,
         if (!existing) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
