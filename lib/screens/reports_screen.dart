@@ -18,8 +18,14 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   static const _allGroupsKey = 'all';
+  static const _allDisciplineKey = 'all';
+  static const _hasDisciplineKey = 'has';
+  static const _noDisciplineKey = 'none';
+  
   String _selectedGroup = _allGroupsKey;
   int _selectedWeek = 1;
+  int? _selectedThresholdFilter;
+  String _selectedDisciplineFilter = _allDisciplineKey;
 
   String _groupKey(Student student) => '${student.program}||${student.section}';
 
@@ -42,7 +48,130 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return 'Critical';
   }
 
-  
+  String _latestDisciplineSeverity(List<DisciplineReport> reports) {
+    if (reports.isEmpty) return '';
+    final latest = reports.reduce((a, b) {
+      return a.date.compareTo(b.date) >= 0 ? a : b;
+    });
+    return latest.severity;
+  }
+
+  Color _disciplineSeverityColor(String severity, BuildContext context) {
+    return switch (severity.toLowerCase()) {
+      'high' => Colors.red.shade300,
+      'medium' => Colors.orange.shade300,
+      'low' => Colors.yellow.shade300,
+      _ => Theme.of(context).colorScheme.primaryContainer,
+    };
+  }
+
+  Widget _disciplineChip(List<DisciplineReport> reports, BuildContext context) {
+    if (reports.isEmpty) {
+      return const Text('-');
+    }
+    final latestSeverity = _latestDisciplineSeverity(reports);
+    return Chip(
+      label: Text('${reports.length} • ${latestSeverity.isEmpty ? 'N/A' : latestSeverity}'),
+      backgroundColor: _disciplineSeverityColor(latestSeverity, context),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+    );
+  }
+
+  void _showStudentDetails(BuildContext context, AppState state, Student student) {
+    final weeklyData = state.weeklyAttendanceForStudent(student);
+    final disciplineReports = state.scopedDisciplineReports
+        .where((report) => report.studentId == student.id)
+        .toList();
+    final risk = state.attendanceRiskForStudent(student);
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Butiran Pelajar - ${student.name}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Risk: $risk'),
+                  const SizedBox(height: 12),
+                  Text('Kehadiran 18 Minggu',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  DataTable(
+                    columns: const [
+                      DataColumn(label: Text('M')),
+                      DataColumn(label: Text('P')),
+                      DataColumn(label: Text('L')),
+                      DataColumn(label: Text('A')),
+                      DataColumn(label: Text('MC')),
+                      DataColumn(label: Text('CK')),
+                      DataColumn(label: Text('%')),
+                      DataColumn(label: Text('Status')),
+                    ],
+                    rows: List<DataRow>.generate(
+                      weeklyData.length,
+                      (index) {
+                        final summary = weeklyData[index];
+                        final status = _weeklyRisk(
+                          summary.percentage,
+                          state.attendanceThreshold,
+                        );
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('${index + 1}')),
+                            DataCell(Text('${summary.present}')),
+                            DataCell(Text('${summary.late}')),
+                            DataCell(Text('${summary.absent}')),
+                            DataCell(Text('${summary.mc}')),
+                            DataCell(Text('${summary.ck}')),
+                            DataCell(Text('${summary.percentage}%')),
+                            DataCell(Text(status)),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Laporan Disiplin',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  if (disciplineReports.isEmpty)
+                    const Text('Tiada laporan disiplin.'),
+                  for (final report in disciplineReports)
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        title: Text('${report.issueType} — ${report.severity}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tarikh: ${report.date}'),
+                            Text('Subjek: ${report.subject}'),
+                            Text('Status: ${report.status}'),
+                            if (report.description.isNotEmpty)
+                              Text('Keterangan: ${report.description}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +195,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final selectedGroup = availableGroups.contains(_selectedGroup)
         ? _selectedGroup
         : _allGroupsKey;
-    final filteredStudents = students.where((student) {
+    final groupFilteredStudents = students.where((student) {
       return selectedGroup == _allGroupsKey || _groupKey(student) == selectedGroup;
+    }).toList();
+    final filteredStudents = groupFilteredStudents.where((student) {
+      // Apply threshold filter
+      if (_selectedThresholdFilter != null) {
+        final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+        final passThreshold = _selectedThresholdFilter == 80
+            ? summary.percentage <= 80
+            : summary.percentage < _selectedThresholdFilter!;
+        if (!passThreshold) return false;
+      }
+      
+      // Apply discipline status filter
+      final studentDisciplineReports = state.disciplineReports
+          .where((report) => report.studentId == student.id)
+          .toList();
+      if (_selectedDisciplineFilter == _hasDisciplineKey) {
+        return studentDisciplineReports.isNotEmpty;
+      } else if (_selectedDisciplineFilter == _noDisciplineKey) {
+        return studentDisciplineReports.isEmpty;
+      }
+      return true; // _allDisciplineKey
     }).toList();
     final summaries = filteredStudents
         .map((student) => state.attendanceSummaryForStudentWeek(student, _selectedWeek))
@@ -122,54 +272,125 @@ class _ReportsScreenState extends State<ReportsScreen> {
           margin: const EdgeInsets.symmetric(vertical: 8),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Wrap(
-              spacing: 24,
-              runSpacing: 12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 300,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: selectedGroup,
-                    decoration: const InputDecoration(
-                      labelText: 'Program / Kelas',
-                      border: OutlineInputBorder(),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final threshold in [95, 90, 85, 80])
+                      FilledButton(
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith(
+                            (states) => _selectedThresholdFilter == threshold
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
+                          foregroundColor: WidgetStateProperty.resolveWith(
+                            (states) => _selectedThresholdFilter == threshold
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : null,
+                          ),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _selectedThresholdFilter = threshold;
+                          });
+                        },
+                        child: Text('Bawah $threshold%'),
+                      ),
+                    OutlinedButton(
+                      onPressed: () {
+                        setState(() {
+                          _selectedThresholdFilter = null;
+                        });
+                      },
+                      child: const Text('Tunjuk Semua'),
                     ),
-                    items: availableGroups
-                        .map((groupKey) => DropdownMenuItem(
-                              value: groupKey,
-                              child: Text(_groupLabel(groupKey)),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedGroup = value;
-                      });
-                    },
-                  ),
+                  ],
                 ),
-                SizedBox(
-                  width: 180,
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _selectedWeek,
-                    decoration: const InputDecoration(
-                      labelText: 'Minggu',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: List.generate(
-                      18,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('Minggu ${index + 1}'),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 24,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: 300,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: selectedGroup,
+                        decoration: const InputDecoration(
+                          labelText: 'Program / Kelas',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: availableGroups
+                            .map((groupKey) => DropdownMenuItem(
+                                  value: groupKey,
+                                  child: Text(_groupLabel(groupKey)),
+                                ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedGroup = value;
+                          });
+                        },
                       ),
                     ),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _selectedWeek = value;
-                      });
-                    },
-                  ),
+                    SizedBox(
+                      width: 180,
+                      child: DropdownButtonFormField<int>(
+                        initialValue: _selectedWeek,
+                        decoration: const InputDecoration(
+                          labelText: 'Minggu',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: List.generate(
+                          18,
+                          (index) => DropdownMenuItem(
+                            value: index + 1,
+                            child: Text('Minggu ${index + 1}'),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedWeek = value;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 220,
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _selectedDisciplineFilter,
+                        decoration: const InputDecoration(
+                          labelText: 'Status Disiplin',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: _allDisciplineKey,
+                            child: Text('Semua'),
+                          ),
+                          DropdownMenuItem(
+                            value: _hasDisciplineKey,
+                            child: Text('Ada Disiplin'),
+                          ),
+                          DropdownMenuItem(
+                            value: _noDisciplineKey,
+                            child: Text('Tiada Disiplin'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedDisciplineFilter = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -231,6 +452,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               DataColumn(label: Text('Nama')),
               DataColumn(label: Text('Program')),
               DataColumn(label: Text('Kelas')),
+              DataColumn(label: Text('Disiplin')),
               DataColumn(label: Text('P')),
               DataColumn(label: Text('L')),
               DataColumn(label: Text('A')),
@@ -245,19 +467,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final student = filteredStudents[index];
                 final summary = summaries[index];
                 final risk = _weeklyRisk(summary.percentage, state.attendanceThreshold);
-                return DataRow(cells: [
-                  DataCell(Text(student.id)),
-                  DataCell(Text(student.name)),
-                  DataCell(Text(student.program)),
-                  DataCell(Text(student.section)),
-                  DataCell(Text('${summary.present}')),
-                  DataCell(Text('${summary.late}')),
-                  DataCell(Text('${summary.absent}')),
-                  DataCell(Text('${summary.mc}')),
-                  DataCell(Text('${summary.ck}')),
-                  DataCell(Text('${summary.percentage}%')),
-                  DataCell(StatusChip(risk)),
-                ]);
+                final studentReports = state.disciplineReports
+                    .where((report) => report.studentId == student.id)
+                    .toList();
+                return DataRow(
+                  onSelectChanged: (_) => _showStudentDetails(context, state, student),
+                  cells: [
+                    DataCell(Text(student.id)),
+                    DataCell(Text(student.name)),
+                    DataCell(Text(student.program)),
+                    DataCell(Text(student.section)),
+                    DataCell(_disciplineChip(studentReports, context)),
+                    DataCell(Text('${summary.present}')),
+                    DataCell(Text('${summary.late}')),
+                    DataCell(Text('${summary.absent}')),
+                    DataCell(Text('${summary.mc}')),
+                    DataCell(Text('${summary.ck}')),
+                    DataCell(Text('${summary.percentage}%')),
+                    DataCell(StatusChip(risk)),
+                  ],
+                );
               },
             ),
           ),
