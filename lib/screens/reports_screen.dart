@@ -43,7 +43,100 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return 'Critical';
   }
 
-  
+  void _showStudentDetails(BuildContext context, AppState state, Student student) {
+    final weeklyData = state.weeklyAttendanceForStudent(student);
+    final disciplineReports = state.scopedDisciplineReports
+        .where((report) => report.studentId == student.id)
+        .toList();
+    final risk = state.attendanceRiskForStudent(student);
+
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Butiran Pelajar - ${student.name}'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Risk: $risk'),
+                  const SizedBox(height: 12),
+                  Text('Kehadiran 18 Minggu',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  DataTable(
+                    columns: const [
+                      DataColumn(label: Text('M')),
+                      DataColumn(label: Text('P')),
+                      DataColumn(label: Text('L')),
+                      DataColumn(label: Text('A')),
+                      DataColumn(label: Text('MC')),
+                      DataColumn(label: Text('CK')),
+                      DataColumn(label: Text('%')),
+                      DataColumn(label: Text('Status')),
+                    ],
+                    rows: List<DataRow>.generate(
+                      weeklyData.length,
+                      (index) {
+                        final summary = weeklyData[index];
+                        final status = _weeklyRisk(
+                          summary.percentage,
+                          state.attendanceThreshold,
+                        );
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('${index + 1}')),
+                            DataCell(Text('${summary.present}')),
+                            DataCell(Text('${summary.late}')),
+                            DataCell(Text('${summary.absent}')),
+                            DataCell(Text('${summary.mc}')),
+                            DataCell(Text('${summary.ck}')),
+                            DataCell(Text('${summary.percentage}%')),
+                            DataCell(Text(status)),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Laporan Disiplin',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  if (disciplineReports.isEmpty)
+                    const Text('Tiada laporan disiplin.'),
+                  for (final report in disciplineReports)
+                    Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        title: Text('${report.issueType} — ${report.severity}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Tarikh: ${report.date}'),
+                            Text('Subjek: ${report.subject}'),
+                            Text('Status: ${report.status}'),
+                            if (report.description.isNotEmpty)
+                              Text('Keterangan: ${report.description}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -294,19 +387,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final student = filteredStudents[index];
                 final summary = summaries[index];
                 final risk = _weeklyRisk(summary.percentage, state.attendanceThreshold);
-                return DataRow(cells: [
-                  DataCell(Text(student.id)),
-                  DataCell(Text(student.name)),
-                  DataCell(Text(student.program)),
-                  DataCell(Text(student.section)),
-                  DataCell(Text('${summary.present}')),
-                  DataCell(Text('${summary.late}')),
-                  DataCell(Text('${summary.absent}')),
-                  DataCell(Text('${summary.mc}')),
-                  DataCell(Text('${summary.ck}')),
-                  DataCell(Text('${summary.percentage}%')),
-                  DataCell(StatusChip(risk)),
-                ]);
+                return DataRow(
+                  onSelectChanged: (_) => _showStudentDetails(context, state, student),
+                  cells: [
+                    DataCell(Text(student.id)),
+                    DataCell(Text(student.name)),
+                    DataCell(Text(student.program)),
+                    DataCell(Text(student.section)),
+                    DataCell(Text('${summary.present}')),
+                    DataCell(Text('${summary.late}')),
+                    DataCell(Text('${summary.absent}')),
+                    DataCell(Text('${summary.mc}')),
+                    DataCell(Text('${summary.ck}')),
+                    DataCell(Text('${summary.percentage}%')),
+                    DataCell(StatusChip(risk)),
+                  ],
+                );
               },
             ),
           ),
