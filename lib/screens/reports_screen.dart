@@ -458,57 +458,65 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: MediaQuery.sizeOf(context).width > 1400
-              ? 4
-              : MediaQuery.sizeOf(context).width > 720
-                  ? 2
-                  : 1,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: MediaQuery.sizeOf(context).width > 1400
-              ? 2.05
-              : MediaQuery.sizeOf(context).width > 720
-                  ? 2.25
-                  : 3.4,
-          children: [
-            StatTile(
-              label: 'Pelajar',
-              value: '${filteredStudents.length}',
-              icon: Icons.people_outline,
-            ),
-            StatTile(
-              label: 'Purata Kehadiran',
-              value: '$avg%',
-              icon: Icons.percent,
-            ),
-            StatTile(
-              label: 'Bawah 95%',
-              value: '$below95',
-              icon: Icons.warning_amber,
-              color: AppColors.warning,
-            ),
-            StatTile(
-              label: 'Bawah 90%',
-              value: '$below90',
-              icon: Icons.warning_amber_outlined,
-              color: const Color(0xffea580c),
-            ),
-            StatTile(
-              label: '≤ 80%',
-              value: '$below80',
-              icon: Icons.dangerous,
-              color: AppColors.danger,
-            ),
-            StatTile(
-              label: 'Sesi Selesai',
-              value: '$completed',
-              icon: Icons.check_circle_outline,
-              color: AppColors.success,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const spacing = 12.0;
+            final width = constraints.maxWidth;
+            final columns = width >= 1200
+                ? 4
+                : width >= 720
+                    ? 2
+                    : 1;
+            final tileWidth = (width - (spacing * (columns - 1))) / columns;
+            final tiles = [
+              StatTile(
+                label: 'Pelajar',
+                value: '${filteredStudents.length}',
+                icon: Icons.people_outline,
+              ),
+              StatTile(
+                label: 'Purata Kehadiran',
+                value: '$avg%',
+                icon: Icons.percent,
+              ),
+              StatTile(
+                label: 'Bawah 95%',
+                value: '$below95',
+                icon: Icons.warning_amber,
+                color: AppColors.warning,
+              ),
+              StatTile(
+                label: 'Bawah 90%',
+                value: '$below90',
+                icon: Icons.warning_amber_outlined,
+                color: const Color(0xffea580c),
+              ),
+              StatTile(
+                label: '≤ 80%',
+                value: '$below80',
+                icon: Icons.dangerous,
+                color: AppColors.danger,
+              ),
+              StatTile(
+                label: 'Sesi Selesai',
+                value: '$completed',
+                icon: Icons.check_circle_outline,
+                color: AppColors.success,
+              ),
+            ];
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                for (final tile in tiles)
+                  SizedBox(
+                    width: tileWidth,
+                    child: tile,
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
         AppPanel(

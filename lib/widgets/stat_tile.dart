@@ -36,20 +36,21 @@ class StatTile extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: tileColor.withValues(alpha: .11),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(icon, color: tileColor, size: 22),
+                  child: Icon(icon, color: tileColor, size: 21),
                 ),
                 const Spacer(),
                 Container(
@@ -62,7 +63,7 @@ class StatTile extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Text(
               value,
               maxLines: 1,
@@ -72,7 +73,7 @@ class StatTile extends StatelessWidget {
                 color: AppColors.primaryDark,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
