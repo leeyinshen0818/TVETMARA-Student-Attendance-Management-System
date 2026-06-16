@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
 
 class DisiplinScreen extends StatefulWidget {
@@ -317,17 +318,33 @@ class _DisciplineTabSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var index = 0; index < labels.length; index++)
-          ChoiceChip(
-            label: Text(labels[index]),
-            selected: selectedIndex == index,
-            onSelected: (_) => onChanged(index),
-          ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var index = 0; index < labels.length; index++)
+            ChoiceChip(
+              label: Text(labels[index]),
+              selected: selectedIndex == index,
+              selectedColor: AppColors.primary.withValues(alpha: .12),
+              checkmarkColor: AppColors.primary,
+              labelStyle: TextStyle(
+                color: selectedIndex == index
+                    ? AppColors.primary
+                    : AppColors.muted,
+                fontWeight: FontWeight.w800,
+              ),
+              onSelected: (_) => onChanged(index),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -383,8 +400,9 @@ class _NewDisciplineReportPanel extends StatelessWidget {
           : LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 760;
-                final fieldWidth =
-                    isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+                final fieldWidth = isWide
+                    ? (constraints.maxWidth - 12) / 2
+                    : constraints.maxWidth;
                 final submitButton = FilledButton.icon(
                   onPressed: submitting ? null : onSubmit,
                   icon: submitting
@@ -464,8 +482,8 @@ class _NewDisciplineReportPanel extends StatelessWidget {
                               'Masalah Tingkah Laku',
                               'Lain-lain'
                             ]
-                                .map((i) => DropdownMenuItem(
-                                    value: i, child: Text(i)))
+                                .map((i) =>
+                                    DropdownMenuItem(value: i, child: Text(i)))
                                 .toList(),
                             onChanged: onIssueTypeChanged,
                           ),
@@ -799,9 +817,16 @@ class _DisciplineReportItem extends StatelessWidget {
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         border: Border.all(color: severityTone.border),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .035),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -812,8 +837,8 @@ class _DisciplineReportItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: severityTone.color.withValues(alpha: .72),
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  bottomLeft: Radius.circular(8),
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
               ),
             ),
@@ -834,14 +859,13 @@ class _DisciplineReportItem extends StatelessWidget {
                                 report.studentName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xff0f172a),
+                                  color: AppColors.primaryDark,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '${report.programName ?? report.programId ?? '-'} | ${report.section} | $subject',
-                                style:
-                                    const TextStyle(color: Color(0xff64748b)),
+                                style: const TextStyle(color: AppColors.muted),
                               ),
                             ],
                           ),
@@ -879,7 +903,7 @@ class _DisciplineReportItem extends StatelessWidget {
                             report.issueType,
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
-                              color: Color(0xff334155),
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ),
@@ -913,8 +937,9 @@ class _DisciplineReportItem extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xfff1f5f9),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.surfaceTint,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
                         ),
                         child: Text(
                           _reviewSummary(report),

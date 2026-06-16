@@ -6,6 +6,7 @@ import '../services/reports_pdf_export_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
@@ -21,7 +22,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   static const _allDisciplineKey = 'all';
   static const _hasDisciplineKey = 'has';
   static const _noDisciplineKey = 'none';
-  
+
   String _selectedGroup = _allGroupsKey;
   int _selectedWeek = 1;
   int? _selectedThresholdFilter;
@@ -40,8 +41,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return '$program / $section';
   }
 
-  
-
   String _weeklyRisk(int percentage, int threshold) {
     if (percentage >= threshold) return 'Safe';
     if (percentage >= 75) return 'Warning';
@@ -58,10 +57,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Color _disciplineSeverityColor(String severity, BuildContext context) {
     return switch (severity.toLowerCase()) {
-      'high' => Colors.red.shade300,
-      'medium' => Colors.orange.shade300,
-      'low' => Colors.yellow.shade300,
-      _ => Theme.of(context).colorScheme.primaryContainer,
+      'high' => AppColors.danger.withValues(alpha: .12),
+      'medium' => AppColors.warning.withValues(alpha: .14),
+      'low' => AppColors.success.withValues(alpha: .12),
+      _ => AppColors.surfaceTint,
     };
   }
 
@@ -71,14 +70,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     final latestSeverity = _latestDisciplineSeverity(reports);
     return Chip(
-      label: Text('${reports.length} • ${latestSeverity.isEmpty ? 'N/A' : latestSeverity}'),
+      label: Text(
+          '${reports.length} • ${latestSeverity.isEmpty ? 'N/A' : latestSeverity}'),
       backgroundColor: _disciplineSeverityColor(latestSeverity, context),
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
     );
   }
 
-  void _showStudentDetails(BuildContext context, AppState state, Student student) {
+  void _showStudentDetails(
+      BuildContext context, AppState state, Student student) {
     final weeklyData = state.weeklyAttendanceForStudent(student);
     final disciplineReports = state.scopedDisciplineReports
         .where((report) => report.studentId == student.id)
@@ -196,18 +197,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ? _selectedGroup
         : _allGroupsKey;
     final groupFilteredStudents = students.where((student) {
-      return selectedGroup == _allGroupsKey || _groupKey(student) == selectedGroup;
+      return selectedGroup == _allGroupsKey ||
+          _groupKey(student) == selectedGroup;
     }).toList();
     final filteredStudents = groupFilteredStudents.where((student) {
       // Apply threshold filter
       if (_selectedThresholdFilter != null) {
-        final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+        final summary =
+            state.attendanceSummaryForStudentWeek(student, _selectedWeek);
         final passThreshold = _selectedThresholdFilter == 80
             ? summary.percentage <= 80
             : summary.percentage < _selectedThresholdFilter!;
         if (!passThreshold) return false;
       }
-      
+
       // Apply discipline status filter
       final studentDisciplineReports = state.disciplineReports
           .where((report) => report.studentId == student.id)
@@ -220,15 +223,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return true; // _allDisciplineKey
     }).toList();
     final summaries = filteredStudents
-        .map((student) => state.attendanceSummaryForStudentWeek(student, _selectedWeek))
+        .map((student) =>
+            state.attendanceSummaryForStudentWeek(student, _selectedWeek))
         .toList();
     final percentages = summaries.map((summary) => summary.percentage).toList();
     final avg = percentages.isEmpty
         ? 0
         : percentages.reduce((a, b) => a + b) ~/ percentages.length;
-    final below95 = summaries.where((summary) => summary.percentage < 95).length;
-    final below90 = summaries.where((summary) => summary.percentage < 90).length;
-    final below80 = summaries.where((summary) => summary.percentage <= 80).length;
+    final below95 =
+        summaries.where((summary) => summary.percentage < 95).length;
+    final below90 =
+        summaries.where((summary) => summary.percentage < 90).length;
+    final below80 =
+        summaries.where((summary) => summary.percentage <= 80).length;
     final completed =
         timetable.where((slot) => slot.status == 'Attendance Completed').length;
     final frequencyLabel = switch (state.reportFrequency) {
@@ -237,7 +244,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
       'Monthly' => 'Bulanan',
       _ => state.reportFrequency,
     };
-    
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -249,7 +255,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           trailing: FilledButton.icon(
             onPressed: () async {
               final critical = filteredStudents.where((student) {
-                final summary = state.attendanceSummaryForStudentWeek(student, _selectedWeek);
+                final summary = state.attendanceSummaryForStudentWeek(
+                    student, _selectedWeek);
                 return summary.percentage < state.attendanceThreshold;
               }).toList();
 
@@ -268,138 +275,138 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final threshold in [95, 90, 85, 80])
-                      FilledButton(
-                        style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.resolveWith(
-                            (states) => _selectedThresholdFilter == threshold
-                                ? Theme.of(context).colorScheme.primary
-                                : null,
-                          ),
-                          foregroundColor: WidgetStateProperty.resolveWith(
-                            (states) => _selectedThresholdFilter == threshold
-                                ? Theme.of(context).colorScheme.onPrimary
-                                : null,
-                          ),
+        AppPanel(
+          title: 'Penapis Laporan',
+          subtitle:
+              'Tapis mengikut minggu, program/kelas, disiplin dan tahap risiko kehadiran.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final threshold in [95, 90, 85, 80])
+                    FilledButton(
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.resolveWith(
+                          (states) => _selectedThresholdFilter == threshold
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _selectedThresholdFilter = threshold;
-                          });
-                        },
-                        child: Text('Bawah $threshold%'),
+                        foregroundColor: WidgetStateProperty.resolveWith(
+                          (states) => _selectedThresholdFilter == threshold
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : null,
+                        ),
                       ),
-                    OutlinedButton(
                       onPressed: () {
                         setState(() {
-                          _selectedThresholdFilter = null;
+                          _selectedThresholdFilter = threshold;
                         });
                       },
-                      child: const Text('Tunjuk Semua'),
+                      child: Text('Bawah $threshold%'),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedGroup,
-                        decoration: const InputDecoration(
-                          labelText: 'Program / Kelas',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: availableGroups
-                            .map((groupKey) => DropdownMenuItem(
-                                  value: groupKey,
-                                  child: Text(_groupLabel(groupKey)),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _selectedGroup = value;
-                          });
-                        },
+                  OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _selectedThresholdFilter = null;
+                      });
+                    },
+                    child: const Text('Tunjuk Semua'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 320,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: selectedGroup,
+                      decoration: const InputDecoration(
+                        labelText: 'Program / Kelas',
+                        border: OutlineInputBorder(),
                       ),
+                      items: availableGroups
+                          .map((groupKey) => DropdownMenuItem(
+                                value: groupKey,
+                                child: Text(_groupLabel(groupKey)),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedGroup = value;
+                        });
+                      },
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 1,
-                      child: DropdownButtonFormField<int>(
-                        isExpanded: true,
-                        initialValue: _selectedWeek,
-                        decoration: const InputDecoration(
-                          labelText: 'Minggu',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: List.generate(
-                          18,
-                          (index) => DropdownMenuItem(
-                            value: index + 1,
-                            child: Text('Minggu ${index + 1}'),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _selectedWeek = value;
-                          });
-                        },
+                  ),
+                  SizedBox(
+                    width: 180,
+                    child: DropdownButtonFormField<int>(
+                      isExpanded: true,
+                      initialValue: _selectedWeek,
+                      decoration: const InputDecoration(
+                        labelText: 'Minggu',
+                        border: OutlineInputBorder(),
                       ),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: _selectedDisciplineFilter,
-                        decoration: const InputDecoration(
-                          labelText: 'Status Disiplin',
-                          border: OutlineInputBorder(),
+                      items: List.generate(
+                        18,
+                        (index) => DropdownMenuItem(
+                          value: index + 1,
+                          child: Text('Minggu ${index + 1}'),
                         ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: _allDisciplineKey,
-                            child: Text('Semua'),
-                          ),
-                          DropdownMenuItem(
-                            value: _hasDisciplineKey,
-                            child: Text('Ada Disiplin'),
-                          ),
-                          DropdownMenuItem(
-                            value: _noDisciplineKey,
-                            child: Text('Tiada Disiplin'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _selectedDisciplineFilter = value;
-                          });
-                        },
                       ),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedWeek = value;
+                        });
+                      },
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  SizedBox(
+                    width: 240,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      initialValue: _selectedDisciplineFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'Status Disiplin',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: _allDisciplineKey,
+                          child: Text('Semua'),
+                        ),
+                        DropdownMenuItem(
+                          value: _hasDisciplineKey,
+                          child: Text('Ada Disiplin'),
+                        ),
+                        DropdownMenuItem(
+                          value: _noDisciplineKey,
+                          child: Text('Tiada Disiplin'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedDisciplineFilter = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 16),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -422,25 +429,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
               label: 'Bawah 95%',
               value: '$below95',
               icon: Icons.warning_amber,
-              color: Colors.yellow.shade700,
+              color: AppColors.warning,
             ),
             StatTile(
               label: 'Bawah 90%',
               value: '$below90',
               icon: Icons.warning_amber_outlined,
-              color: Colors.orange,
+              color: const Color(0xffea580c),
             ),
             StatTile(
               label: '≤ 80%',
               value: '$below80',
               icon: Icons.dangerous,
-              color: Colors.red,
+              color: AppColors.danger,
             ),
             StatTile(
               label: 'Sesi Selesai',
               value: '$completed',
               icon: Icons.check_circle_outline,
-              color: Colors.green,
+              color: AppColors.success,
             ),
           ],
         ),
@@ -449,7 +456,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           title: 'Laporan Kehadiran Kritikal $frequencyLabel',
           subtitle: 'Sesi ${state.session}',
           trailing: const Icon(Icons.picture_as_pdf_outlined,
-              color: Color(0xffdc2626)),
+              color: AppColors.danger),
           child: AppDataTable(
             columns: const [
               DataColumn(label: Text('ID Pelajar')),
@@ -470,12 +477,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
               (index) {
                 final student = filteredStudents[index];
                 final summary = summaries[index];
-                final risk = _weeklyRisk(summary.percentage, state.attendanceThreshold);
+                final risk =
+                    _weeklyRisk(summary.percentage, state.attendanceThreshold);
                 final studentReports = state.disciplineReports
                     .where((report) => report.studentId == student.id)
                     .toList();
                 return DataRow(
-                  onSelectChanged: (_) => _showStudentDetails(context, state, student),
+                  onSelectChanged: (_) =>
+                      _showStudentDetails(context, state, student),
                   cells: [
                     DataCell(Text(student.id)),
                     DataCell(Text(student.name)),
@@ -523,7 +532,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           .map(
             (student) => CriticalAttendanceReportRow(
               student: student,
-              summary: state.attendanceSummaryForStudentWeek(student, _selectedWeek),
+              summary:
+                  state.attendanceSummaryForStudentWeek(student, _selectedWeek),
             ),
           )
           .toList(),

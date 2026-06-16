@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,14 +74,30 @@ class _TempahanScreenState extends State<TempahanScreen>
         // ── Tab bar ──
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xffe2e8f0)),
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.surface,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(alpha: .035),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: TabBar(
             controller: _tabCtrl,
             indicatorSize: TabBarIndicatorSize.tab,
+            indicator: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.muted,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w900),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
             dividerColor: Colors.transparent,
+            padding: const EdgeInsets.all(4),
             tabs: [
               Tab(
                   text: isPensyarah
@@ -165,7 +182,9 @@ class _NewRequestTabState extends State<_NewRequestTab> {
     final personal = state.scopedTimetable as List<TimetableSlot>;
     if (personal.isNotEmpty) return personal;
     final code = user.programId as String?;
-    if (code == null || code.isEmpty) return state.timetable as List<TimetableSlot>;
+    if (code == null || code.isEmpty) {
+      return state.timetable as List<TimetableSlot>;
+    }
     return (state.timetable as List<TimetableSlot>).where((s) {
       if (s.programId == code) return true;
       final prefix = s.section.trim().split(RegExp(r'\s+')).firstOrNull ?? '';
@@ -259,7 +278,8 @@ class _NewRequestTabState extends State<_NewRequestTab> {
           ?.departmentId;
     }
 
-    debugPrint('=== SUBMIT === programId=$programId deptId=$deptId section=$section');
+    debugPrint(
+        '=== SUBMIT === programId=$programId deptId=$deptId section=$section');
 
     final booking = BookingRequest(
       id: 'BK${DateTime.now().millisecondsSinceEpoch}',
@@ -318,8 +338,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
     }
 
     _selectedSlotId ??= slots.firstOrNull?.id;
-    final selected =
-        slots.where((s) => s.id == _selectedSlotId).firstOrNull;
+    final selected = slots.where((s) => s.id == _selectedSlotId).firstOrNull;
 
     final canCheck = _room.isNotEmpty &&
         _replacementDate.isNotEmpty &&
@@ -339,11 +358,8 @@ class _NewRequestTabState extends State<_NewRequestTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (selected != null)
-              _InfoBanner(slot: selected),
-
+            if (selected != null) _InfoBanner(slot: selected),
             const SizedBox(height: 16),
-
             AppPanel(
               title: 'Butiran Permohonan',
               subtitle: 'Isi semua maklumat kelas ganti yang diperlukan.',
@@ -378,14 +394,11 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                               ))
                           .toList(),
                       onChanged: (v) => setState(() => _selectedSlotId = v),
-                      validator: (v) =>
-                          v == null ? 'Sila pilih kelas.' : null,
+                      validator: (v) => v == null ? 'Sila pilih kelas.' : null,
                     ),
-
                   const SizedBox(height: 20),
                   _SectionLabel('Tarikh & Masa Ganti'),
                   const SizedBox(height: 8),
-
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -400,9 +413,8 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                             suffixIcon: Icon(Icons.calendar_today, size: 18),
                           ),
                           onTap: _pickDate,
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? 'Pilih tarikh.'
-                              : null,
+                          validator: (v) =>
+                              (v == null || v.isEmpty) ? 'Pilih tarikh.' : null,
                         ),
                       ),
                       SizedBox(
@@ -445,11 +457,9 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 20),
                   _SectionLabel('Pilihan Bilik'),
                   const SizedBox(height: 8),
-
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -459,13 +469,11 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                         child: DropdownButtonFormField<String>(
                           value: _block,
                           isExpanded: true,
-                          decoration:
-                              const InputDecoration(labelText: 'Blok'),
+                          decoration: const InputDecoration(labelText: 'Blok'),
                           items: blocks
                               .map((b) => DropdownMenuItem<String>(
                                     value: b,
-                                    child: Text(
-                                        b == 'All' ? 'Semua Blok' : b),
+                                    child: Text(b == 'All' ? 'Semua Blok' : b),
                                   ))
                               .toList(),
                           onChanged: (v) =>
@@ -508,15 +516,13 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                                 .toList(),
                             onChanged: (v) =>
                                 setState(() => _room = v ?? _room),
-                            validator: (v) =>
-                                (v == null || v.isEmpty)
-                                    ? 'Sila pilih bilik.'
-                                    : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Sila pilih bilik.'
+                                : null,
                           ),
                         ),
                     ],
                   ),
-
                   if (canCheck && !available)
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
@@ -527,17 +533,15 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                           SizedBox(width: 6),
                           Text(
                             'Bilik ini tidak tersedia pada masa yang dipilih.',
-                            style: TextStyle(
-                                color: Colors.orange, fontSize: 12),
+                            style:
+                                TextStyle(color: Colors.orange, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-
                   const SizedBox(height: 20),
                   _SectionLabel('Sebab & Catatan'),
                   const SizedBox(height: 8),
-
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -547,8 +551,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                         child: DropdownButtonFormField<String>(
                           value: _reason,
                           isExpanded: true,
-                          decoration:
-                              const InputDecoration(labelText: 'Sebab'),
+                          decoration: const InputDecoration(labelText: 'Sebab'),
                           items: _reasons
                               .map((r) => DropdownMenuItem<String>(
                                   value: r, child: Text(r)))
@@ -569,14 +572,11 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
                   Row(
                     children: [
                       FilledButton.icon(
-                        onPressed:
-                            _submitting ? null : () => _submit(context),
+                        onPressed: _submitting ? null : () => _submit(context),
                         icon: _submitting
                             ? const SizedBox(
                                 width: 16,
@@ -599,9 +599,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
             _RoomAvailabilityHelper(
               date: _replacementDate,
               rooms: state.roomResources,
@@ -630,9 +628,8 @@ class _ApproverActionTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final pending = state.scopedBookings
-        .where((b) => b.status == 'Pending')
-        .toList();
+    final pending =
+        state.scopedBookings.where((b) => b.status == 'Pending').toList();
 
     return SingleChildScrollView(
       child: Column(
@@ -707,7 +704,6 @@ class _AllBookingsTab extends StatelessWidget {
             }),
           ),
           const SizedBox(height: 12),
-
           if (filtered.isEmpty)
             AppPanel(
               child: _EmptyState(
@@ -766,9 +762,16 @@ class _BookingApprovalCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(10),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .035),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -776,15 +779,15 @@ class _BookingApprovalCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.meeting_room_outlined,
-                  size: 18, color: Color(0xff1d4ed8)),
+                  size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '${booking.subject}  ·  ${booking.section}',
                   style: const TextStyle(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
                     fontSize: 14,
-                    color: Color(0xff0f172a),
+                    color: AppColors.primaryDark,
                   ),
                 ),
               ),
@@ -792,7 +795,6 @@ class _BookingApprovalCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-
           Wrap(
             spacing: 24,
             runSpacing: 6,
@@ -829,23 +831,21 @@ class _BookingApprovalCard extends StatelessWidget {
                     value: booking.remarks),
             ],
           ),
-
           if (!avail)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
+            const Padding(
+              padding: EdgeInsets.only(top: 10),
               child: Row(
-                children: const [
+                children: [
                   Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange, size: 16),
+                      color: AppColors.warning, size: 16),
                   SizedBox(width: 6),
                   Text(
                     'Bilik telah ditempah pada masa ini.',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                    style: TextStyle(color: AppColors.warning, fontSize: 12),
                   ),
                 ],
               ),
             ),
-
           if (showActions) ...[
             const SizedBox(height: 12),
             _ApproveRejectButtons(bookingId: booking.id),
@@ -872,9 +872,8 @@ class _ApproveRejectButtons extends StatelessWidget {
       children: [
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xff16a34a),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            backgroundColor: AppColors.success,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           ),
           onPressed: () async {
             await state.updateBooking(bookingId, 'Approved');
@@ -891,10 +890,9 @@ class _ApproveRejectButtons extends StatelessWidget {
         ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xffdc2626),
-            side: const BorderSide(color: Color(0xffdc2626)),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            foregroundColor: AppColors.danger,
+            side: const BorderSide(color: AppColors.danger),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           ),
           onPressed: () async {
             final confirmed = await _confirmReject(context);
@@ -921,8 +919,7 @@ class _ApproveRejectButtons extends StatelessWidget {
       context: ctx,
       builder: (_) => AlertDialog(
         title: const Text('Tolak Permohonan'),
-        content: const Text(
-            'Adakah anda pasti ingin menolak permohonan ini?'),
+        content: const Text('Adakah anda pasti ingin menolak permohonan ini?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -967,8 +964,7 @@ class _RoomAvailabilityHelper extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: blocks.map((block) {
-          final blockRooms =
-              rooms.where((r) => r.block == block).toList();
+          final blockRooms = rooms.where((r) => r.block == block).toList();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1033,16 +1029,14 @@ class _InfoBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline,
-              color: Color(0xff1d4ed8), size: 18),
+          const Icon(Icons.info_outline, color: Color(0xff1d4ed8), size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Kelas asal: ${slot.subjectCode} – ${slot.subjectName}  '
               '·  ${slot.section}  ·  ${slot.day} ${slot.startTime}–${slot.endTime}  '
               '·  ${slot.room}',
-              style: const TextStyle(
-                  color: Color(0xff1e3a8a), fontSize: 13),
+              style: const TextStyle(color: Color(0xff1e3a8a), fontSize: 13),
             ),
           ),
         ],
@@ -1084,8 +1078,7 @@ class _DetailItem extends StatelessWidget {
         Icon(icon, size: 14, color: const Color(0xff64748b)),
         const SizedBox(width: 4),
         Text('$label: ',
-            style: const TextStyle(
-                fontSize: 12, color: Color(0xff64748b))),
+            style: const TextStyle(fontSize: 12, color: Color(0xff64748b))),
         Text(value,
             style: const TextStyle(
                 fontSize: 12,
@@ -1118,8 +1111,7 @@ class _RoomBadge extends StatelessWidget {
           ? '$slotCount sesi dijadualkan / ditempah'
           : 'Tiada sesi pada tarikh ini',
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: .1),
           border: Border.all(color: color.withValues(alpha: .3)),
@@ -1145,8 +1137,7 @@ class _RoomBadge extends StatelessWidget {
                 Text(
                   capacity != null ? '$type · $capacity org' : type,
                   style: TextStyle(
-                      fontSize: 10,
-                      color: color.withValues(alpha: .8)),
+                      fontSize: 10, color: color.withValues(alpha: .8)),
                 ),
               ],
             ),
@@ -1191,8 +1182,7 @@ class _EmptyState extends StatelessWidget {
           Icon(icon, size: 42, color: color.withValues(alpha: .5)),
           const SizedBox(height: 10),
           Text(message,
-              style:
-                  const TextStyle(color: Color(0xff64748b), fontSize: 13)),
+              style: const TextStyle(color: Color(0xff64748b), fontSize: 13)),
         ],
       ),
     );
@@ -1206,8 +1196,7 @@ class _AccessDenied extends StatelessWidget {
   Widget build(BuildContext context) {
     return const PageHeader(
       title: 'Akses Tidak Dibenarkan',
-      subtitle:
-          'Hanya Pensyarah boleh memohon tempahan. '
+      subtitle: 'Hanya Pensyarah boleh memohon tempahan. '
           'Ketua Program dan Ketua Jabatan boleh meluluskan '
           'permohonan mengikut skop.',
     );

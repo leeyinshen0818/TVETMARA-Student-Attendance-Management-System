@@ -43,11 +43,21 @@ class _HomeShellState extends State<HomeShell> {
     final isPensyarah = user.role == UserRole.pensyarah;
 
     // Build navigation items based strictly on role
-    final items = <_NavItem>[
+    late final List<_NavItem> items;
+    void navigateToLabel(String label) {
+      final targetIndex = items.indexWhere((item) => item.label == label);
+      if (targetIndex == -1) return;
+      setState(() => index = targetIndex);
+    }
+
+    items = <_NavItem>[
       // Dashboard is global to all users, but its interior will shape-shift later
-      const _NavItem(
-          'Papan Pemuka', Icons.dashboard_outlined, DashboardScreen(),
-          dataScope: _DataScope.dashboard),
+      _NavItem(
+        'Papan Pemuka',
+        Icons.dashboard_outlined,
+        DashboardScreen(onNavigateToLabel: navigateToLabel),
+        dataScope: _DataScope.dashboard,
+      ),
 
       // Pensyarah: view own timetable (Module 5 – read-only grid)
       if (isPensyarah)

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
+
 class StatTile extends StatelessWidget {
   const StatTile({
     super.key,
@@ -19,53 +21,87 @@ class StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tileColor = color ?? Theme.of(context).colorScheme.primary;
-    final card = Card(
+    final tileColor = color ?? AppColors.primary;
+    final card = Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 4,
-              height: 50,
-              decoration: BoxDecoration(
-                color: tileColor,
-                borderRadius: BorderRadius.circular(99),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: tileColor.withValues(alpha: .11),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: tileColor, size: 22),
+                ),
+                const Spacer(),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: tileColor,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryDark,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: const Color(0xff64748b),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    value,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xff0f172a),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            CircleAvatar(
-              backgroundColor: tileColor.withValues(alpha: .12),
-              child: Icon(icon, color: tileColor),
-            ),
+            if (helper != null && helper!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                helper!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted,
+                  height: 1.25,
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
 
-    if (helper == null || helper!.isEmpty) return card;
+    if (helper == null || helper!.isEmpty) {
+      return card;
+    }
 
     return Tooltip(
       message: helper!,

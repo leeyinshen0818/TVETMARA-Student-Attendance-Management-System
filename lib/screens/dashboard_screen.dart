@@ -4,12 +4,15 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/academic_session_manager_dialog.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.onNavigateToLabel});
+
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -17,24 +20,35 @@ class DashboardScreen extends StatelessWidget {
     final user = state.currentUser!;
 
     if (user.role == UserRole.pentadbir) {
-      return _PentadbirDashboard(state: state);
+      return _PentadbirDashboard(
+        state: state,
+        onNavigateToLabel: onNavigateToLabel,
+      );
     }
 
     if (user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program) {
-      return _KetuaDashboard(state: state);
+      return _KetuaDashboard(
+        state: state,
+        onNavigateToLabel: onNavigateToLabel,
+      );
     }
 
-    return _PensyarahDashboard(state: state);
+    return _PensyarahDashboard(
+      state: state,
+      onNavigateToLabel: onNavigateToLabel,
+    );
   }
 }
 
 class _PentadbirDashboard extends StatelessWidget {
   const _PentadbirDashboard({
     required this.state,
+    required this.onNavigateToLabel,
   });
 
   final AppState state;
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +116,8 @@ class _PentadbirDashboard extends StatelessWidget {
               label: 'Akaun Tidak Aktif',
               value: '$inactiveAccounts',
               icon: Icons.person_off_outlined,
-              color: inactiveAccounts > 0 ? Colors.orange : Colors.green,
+              color:
+                  inactiveAccounts > 0 ? AppColors.warning : AppColors.success,
               helper: 'Akaun yang perlu disemak atau diaktifkan semula',
             ),
             StatTile(
@@ -115,7 +130,10 @@ class _PentadbirDashboard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _AdminQuickActionsPanel(state: state),
+        _AdminQuickActionsPanel(
+          state: state,
+          onNavigateToLabel: onNavigateToLabel,
+        ),
         const SizedBox(height: 20),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -187,37 +205,60 @@ class _PentadbirDashboard extends StatelessWidget {
 }
 
 class _AdminQuickActionsPanel extends StatelessWidget {
-  const _AdminQuickActionsPanel({required this.state});
+  const _AdminQuickActionsPanel({
+    required this.state,
+    required this.onNavigateToLabel,
+  });
 
   final AppState state;
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
+    return _DashboardQuickActionsPanel(
       title: 'Tindakan Pentadbiran',
       subtitle: 'Urus akaun pengguna dan data asas sistem.',
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          FilledButton.icon(
-            onPressed: () => showAcademicSessionManagerDialog(
-              context: context,
-              state: state,
-            ),
-            icon: const Icon(Icons.event_note_outlined),
-            label: const Text('Urus Sesi Akademik'),
+      actions: [
+        _DashboardQuickAction(
+          icon: Icons.person_add_alt_1_outlined,
+          label: 'Daftar Akaun',
+          description: 'Cipta akaun pengguna baharu',
+          onPressed: () => onNavigateToLabel?.call('Daftar Akaun'),
+        ),
+        _DashboardQuickAction(
+          icon: Icons.manage_accounts_outlined,
+          label: 'Pengurusan Pengguna',
+          description: 'Semak, aktifkan dan kemas kini akaun',
+          onPressed: () => onNavigateToLabel?.call('Pengurusan Pengguna'),
+        ),
+        _DashboardQuickAction(
+          icon: Icons.event_note_outlined,
+          label: 'Urus Sesi Akademik',
+          description: 'Tambah atau arkib sesi akademik',
+          onPressed: () => showAcademicSessionManagerDialog(
+            context: context,
+            state: state,
           ),
-        ],
-      ),
+        ),
+        _DashboardQuickAction(
+          icon: Icons.settings_outlined,
+          label: 'Tetapan Sistem',
+          description: 'Semak tetapan asas sistem',
+          onPressed: () => onNavigateToLabel?.call('Tetapan Sistem'),
+        ),
+      ],
     );
   }
 }
 
 class _KetuaDashboard extends StatelessWidget {
-  const _KetuaDashboard({required this.state});
+  const _KetuaDashboard({
+    required this.state,
+    required this.onNavigateToLabel,
+  });
 
   final AppState state;
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +333,8 @@ class _KetuaDashboard extends StatelessWidget {
               label: 'Pelajar Bawah Had',
               value: '$riskStudentCount',
               icon: Icons.warning_amber_outlined,
-              color: riskStudentCount == 0 ? Colors.green : Colors.red,
+              color:
+                  riskStudentCount == 0 ? AppColors.success : AppColors.danger,
               helper: hasStudentData
                   ? 'Pelajar di bawah had ${state.attendanceThreshold}%'
                   : 'Ringkasan berdasarkan medan kehadiran pelajar',
@@ -301,13 +343,59 @@ class _KetuaDashboard extends StatelessWidget {
               label: isKj ? 'Tindakan Menunggu' : 'Laporan / Tindakan Program',
               value: '$pendingActions',
               icon: Icons.pending_actions_outlined,
-              color: pendingActions == 0 ? Colors.green : Colors.orange,
+              color:
+                  pendingActions == 0 ? AppColors.success : AppColors.warning,
               helper:
                   'Tempahan, disiplin dan konflik jadual yang perlu disemak',
             ),
           ],
         ),
         const SizedBox(height: 20),
+        _DashboardQuickActionsPanel(
+          title: 'Tindakan Pantas $scopeWord',
+          subtitle: 'Buka modul utama untuk semakan dan tindakan lanjut.',
+          actions: [
+            if (isKj || inheritsKj)
+              _DashboardQuickAction(
+                icon: Icons.calendar_month_outlined,
+                label: 'Pengurusan Jadual',
+                description: 'Urus jadual, konflik dan import CSV',
+                onPressed: () => onNavigateToLabel?.call('Pengurusan Jadual'),
+              )
+            else
+              _DashboardQuickAction(
+                icon: Icons.calendar_month_outlined,
+                label: 'Jadual Program',
+                description: 'Lihat slot jadual program sendiri',
+                onPressed: () => onNavigateToLabel?.call('Jadual Program'),
+              ),
+            _DashboardQuickAction(
+              icon: Icons.bar_chart_outlined,
+              label: 'Laporan Kehadiran',
+              description: 'Semak ringkasan dan analisis scoped',
+              onPressed: () => onNavigateToLabel?.call('Laporan'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.meeting_room_outlined,
+              label: 'Semak Tempahan',
+              description: 'Luluskan atau semak permohonan bilik',
+              onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.warning_amber_outlined,
+              label: 'Semak Disiplin',
+              description: 'Lihat laporan disiplin dalam skop',
+              onPressed: () => onNavigateToLabel?.call('Laporan Disiplin'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.people_alt_outlined,
+              label: 'Rekod Pelajar',
+              description: 'Semak pelajar dan tugasan pensyarah',
+              onPressed: () => onNavigateToLabel?.call('Rekod Pelajar'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _ActionRequiredPanel(
           pendingBookings: pendingBookings,
           pendingDiscipline: pendingDiscipline,
@@ -368,9 +456,13 @@ class _KetuaDashboard extends StatelessWidget {
 }
 
 class _PensyarahDashboard extends StatelessWidget {
-  const _PensyarahDashboard({required this.state});
+  const _PensyarahDashboard({
+    required this.state,
+    required this.onNavigateToLabel,
+  });
 
   final AppState state;
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -424,21 +516,54 @@ class _PensyarahDashboard extends StatelessWidget {
               label: 'Kehadiran Belum Diambil',
               value: '${pendingAttendanceSlots.length}',
               icon: Icons.fact_check_outlined,
-              color:
-                  pendingAttendanceSlots.isEmpty ? Colors.green : Colors.orange,
+              color: pendingAttendanceSlots.isEmpty
+                  ? AppColors.success
+                  : AppColors.warning,
               helper: 'Slot aktif tanpa rekod kehadiran selesai',
             ),
             StatTile(
               label: 'Pelajar Bawah Had',
               value: '${riskStudents.length}',
               icon: Icons.report_problem_outlined,
-              color: riskStudents.isEmpty ? Colors.green : Colors.red,
+              color:
+                  riskStudents.isEmpty ? AppColors.success : AppColors.danger,
               helper:
                   'Pelajar kelas anda di bawah ${state.attendanceThreshold}%',
             ),
           ],
         ),
         const SizedBox(height: 20),
+        _DashboardQuickActionsPanel(
+          title: 'Tindakan Pantas Mengajar',
+          subtitle: 'Akses tugasan harian pensyarah dengan cepat.',
+          actions: [
+            _DashboardQuickAction(
+              icon: Icons.calendar_view_week_outlined,
+              label: 'Jadual Saya',
+              description: 'Lihat slot mengajar yang ditugaskan',
+              onPressed: () => onNavigateToLabel?.call('Jadual Saya'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.fact_check_outlined,
+              label: 'Ambil Kehadiran',
+              description: 'Lengkapkan rekod kehadiran kelas',
+              onPressed: () => onNavigateToLabel?.call('Kehadiran'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.meeting_room_outlined,
+              label: 'Tempah Bilik',
+              description: 'Mohon bilik atau kelas ganti',
+              onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
+            ),
+            _DashboardQuickAction(
+              icon: Icons.warning_amber_outlined,
+              label: 'Lapor Disiplin',
+              description: 'Hantar laporan disiplin pelajar',
+              onPressed: () => onNavigateToLabel?.call('Laporan Disiplin Saya'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         _NextClassPanel(slot: nextSlot),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -499,9 +624,11 @@ class _NextClassPanel extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: const Color(0xffeff6ff),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xffbfdbfe)),
+                color: AppColors.primary.withValues(alpha: .07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: .18),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,7 +650,7 @@ class _NextClassPanel extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xff0f172a),
+                        color: AppColors.primaryDark,
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
                       ),
@@ -574,7 +701,7 @@ class _InlineInfo extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: const Color(0xff2563eb)),
+        Icon(icon, size: 16, color: AppColors.primary),
         const SizedBox(width: 6),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 220),
@@ -585,7 +712,7 @@ class _InlineInfo extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xff334155),
+                color: AppColors.primaryDark,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -928,6 +1055,107 @@ class _CompactSlotRow extends StatelessWidget {
   }
 }
 
+class _DashboardQuickActionsPanel extends StatelessWidget {
+  const _DashboardQuickActionsPanel({
+    required this.title,
+    required this.subtitle,
+    required this.actions,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<_DashboardQuickAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: title,
+      subtitle: subtitle,
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: actions,
+      ),
+    );
+  }
+}
+
+class _DashboardQuickAction extends StatelessWidget {
+  const _DashboardQuickAction({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 235,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.all(14),
+          side: const BorderSide(color: AppColors.border),
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionRequiredPanel extends StatelessWidget {
   const _ActionRequiredPanel({
     required this.pendingBookings,
@@ -1020,16 +1248,16 @@ class _ActionItemCard extends StatelessWidget {
       width: 260,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xfffffbeb),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xfffde68a)),
+        color: AppColors.warning.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warning.withValues(alpha: .24)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: const Color(0xffffedd5),
+            backgroundColor: AppColors.warning.withValues(alpha: .14),
             child: Icon(item.icon, color: const Color(0xffc2410c), size: 20),
           ),
           const SizedBox(width: 12),
@@ -1045,7 +1273,7 @@ class _ActionItemCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xff0f172a),
+                          color: AppColors.primaryDark,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1067,7 +1295,7 @@ class _ActionItemCard extends StatelessWidget {
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xff64748b),
+                    color: AppColors.muted,
                     fontSize: 12,
                     height: 1.25,
                   ),
@@ -1134,13 +1362,13 @@ class _AttendanceSummaryPanel extends StatelessWidget {
             label: 'Melepasi Had',
             value: safe,
             total: total,
-            color: const Color(0xff16a34a),
+            color: AppColors.success,
           ),
           _ProgressSummaryRow(
             label: 'Bawah ${state.attendanceThreshold}%',
             value: belowThreshold,
             total: total,
-            color: const Color(0xffdc2626),
+            color: AppColors.danger,
           ),
           const Divider(height: 24),
           _SummaryRow(
@@ -1192,7 +1420,7 @@ class _ProgressSummaryRow extends StatelessWidget {
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: Color(0xff475569),
+                    color: AppColors.muted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1200,7 +1428,7 @@ class _ProgressSummaryRow extends StatelessWidget {
               Text(
                 '$value / $total',
                 style: const TextStyle(
-                  color: Color(0xff0f172a),
+                  color: AppColors.primaryDark,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1343,19 +1571,19 @@ class _CleanEmptyState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xffe2e8f0)),
+        color: AppColors.surfaceTint,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xff16a34a)),
+          Icon(icon, color: AppColors.success),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
-                color: Color(0xff475569),
+                color: AppColors.muted,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1387,7 +1615,11 @@ class _AdminStatGrid extends StatelessWidget {
           crossAxisCount: crossAxisCount,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: width >= 760 ? 2.55 : 3.1,
+          childAspectRatio: width >= 1180
+              ? 2.25
+              : width >= 760
+                  ? 2.1
+                  : 2.7,
           children: tiles,
         );
       },
