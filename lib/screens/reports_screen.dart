@@ -41,6 +41,57 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return '$program / $section';
   }
 
+  String _programCodeForStudent(Student student) {
+    return _extractProgramCode(student.section) ??
+        _extractProgramCode(student.program) ??
+        student.program;
+  }
+
+  String? _extractProgramCode(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    const knownCodes = {
+      'DED',
+      'DCP',
+      'DCB',
+      'DGS',
+      'DPP',
+      'DEK',
+      'DGM',
+      'SMK',
+      'ITW',
+      'SLR',
+      'SMI',
+      'IMF',
+      'SMM',
+      'DMM',
+    };
+
+    final firstToken = text.split(RegExp(r'\s+')).first.toUpperCase();
+    if (knownCodes.contains(firstToken)) return firstToken;
+
+    final bracketMatches = RegExp(r'\(([A-Z]{2,4})\)').allMatches(text);
+    for (final match in bracketMatches.toList().reversed) {
+      final code = match.group(1);
+      if (code != null && knownCodes.contains(code)) return code;
+    }
+
+    final normalized = text.toUpperCase();
+    if (knownCodes.contains(normalized)) return normalized;
+    return null;
+  }
+
+  Widget _compactNumberCell(int value) {
+    return SizedBox(
+      width: 34,
+      child: Text(
+        '$value',
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
   String _weeklyRisk(int percentage, int threshold) {
     if (percentage >= threshold) return 'Safe';
     if (percentage >= 75) return 'Warning';
@@ -410,10 +461,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: MediaQuery.sizeOf(context).width > 1100 ? 4 : 2,
+          crossAxisCount: MediaQuery.sizeOf(context).width > 1400
+              ? 4
+              : MediaQuery.sizeOf(context).width > 720
+                  ? 2
+                  : 1,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 2.5,
+          childAspectRatio: MediaQuery.sizeOf(context).width > 1400
+              ? 2.05
+              : MediaQuery.sizeOf(context).width > 720
+                  ? 2.25
+                  : 3.4,
           children: [
             StatTile(
               label: 'Pelajar',
@@ -482,20 +541,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 final studentReports = state.disciplineReports
                     .where((report) => report.studentId == student.id)
                     .toList();
+                final programCode = _programCodeForStudent(student);
                 return DataRow(
                   onSelectChanged: (_) =>
                       _showStudentDetails(context, state, student),
                   cells: [
                     DataCell(Text(student.id)),
                     DataCell(Text(student.name)),
-                    DataCell(Text(student.program)),
+                    DataCell(
+                      Tooltip(
+                        message: student.program,
+                        child: SizedBox(
+                          width: 56,
+                          child: Text(
+                            programCode,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                      ),
+                    ),
                     DataCell(Text(student.section)),
                     DataCell(_disciplineChip(studentReports, context)),
-                    DataCell(Text('${summary.present}')),
-                    DataCell(Text('${summary.late}')),
-                    DataCell(Text('${summary.absent}')),
-                    DataCell(Text('${summary.mc}')),
-                    DataCell(Text('${summary.ck}')),
+                    DataCell(_compactNumberCell(summary.present)),
+                    DataCell(_compactNumberCell(summary.late)),
+                    DataCell(_compactNumberCell(summary.absent)),
+                    DataCell(_compactNumberCell(summary.mc)),
+                    DataCell(_compactNumberCell(summary.ck)),
                     DataCell(Text('${summary.percentage}%')),
                     DataCell(StatusChip(risk)),
                   ],

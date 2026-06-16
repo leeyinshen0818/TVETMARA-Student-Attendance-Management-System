@@ -16,6 +16,7 @@ import '../services/timetable_xlsx_export_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/class_timetable_generator_dialog.dart';
 import '../widgets/status_chip.dart';
 import 'add_timetable_screen.dart';
@@ -1895,13 +1896,13 @@ class _ContextTile extends StatelessWidget {
       width: 220,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surfaceTint,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xff1d4ed8)),
+          Icon(icon, color: AppColors.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1910,7 +1911,7 @@ class _ContextTile extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    color: Color(0xff64748b),
+                    color: AppColors.muted,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1921,7 +1922,7 @@ class _ContextTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xff0f172a),
+                    color: AppColors.primaryDark,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1953,9 +1954,9 @@ class _ClassTimetableSecondaryAction extends StatelessWidget {
             available < 720 ? available : (available - 220).clamp(360.0, 680.0);
         return DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xfff8fafc),
-            border: Border.all(color: const Color(0xffe2e8f0)),
-            borderRadius: BorderRadius.circular(8),
+            color: AppColors.surfaceTint,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -2005,9 +2006,9 @@ class _HeaderActionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xffffffff),
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2036,8 +2037,8 @@ class _HeaderActionBar extends StatelessWidget {
                       'Mengeksport jadual yang sedang dipaparkan berdasarkan penapis semasa.',
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xff1d4ed8),
-                      side: const BorderSide(color: Color(0xff1d4ed8)),
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
                     ),
                     onPressed: hasTimetable ? onExport : null,
                     icon: const Icon(Icons.ios_share),
@@ -2487,9 +2488,9 @@ class _OfficialTimetableStatus extends StatelessWidget {
             available < 680 ? available : (available - 330).clamp(360.0, 720.0);
         return DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xfff8fafc),
-            border: Border.all(color: const Color(0xffe2e8f0)),
-            borderRadius: BorderRadius.circular(8),
+            color: AppColors.surfaceTint,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -2884,9 +2885,9 @@ class _TimetableFilters extends StatelessWidget {
 
         return DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xfff8fafc),
-            border: Border.all(color: const Color(0xffe2e8f0)),
-            borderRadius: BorderRadius.circular(8),
+            color: AppColors.surfaceTint,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),

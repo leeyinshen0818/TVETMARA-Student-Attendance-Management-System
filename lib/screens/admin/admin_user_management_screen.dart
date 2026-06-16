@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/app_models.dart';
 import '../../services/user_timetable_service.dart';
 import '../../widgets/app_layout.dart';
+import '../../widgets/app_theme.dart';
+import '../../widgets/status_chip.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
@@ -104,7 +106,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       child: Container(
         color: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: AppPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,20 +117,35 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   subtitle:
                       'Pantau dan uruskan pengguna sistem, senarai pelajar, dan penugasan subjek pensyarah.',
                 ),
-                TabBar(
-                  labelColor: Theme.of(context).colorScheme.primary,
-                  unselectedLabelColor: const Color(0xff64748b),
-                  indicatorColor: Theme.of(context).colorScheme.primary,
-                  indicatorWeight: 3,
-                  tabs: const [
-                    Tab(text: 'Pengguna Sistem'),
-                    Tab(text: 'Senarai Pelajar'),
-                    Tab(text: 'Kursus Pensyarah'),
-                  ],
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceTint,
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: TabBar(
+                    labelColor: AppColors.primaryDark,
+                    unselectedLabelColor: AppColors.muted,
+                    indicator: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    dividerColor: Colors.transparent,
+                    labelStyle: const TextStyle(fontWeight: FontWeight.w900),
+                    tabs: const [
+                      Tab(text: 'Pengguna Sistem'),
+                      Tab(text: 'Senarai Pelajar'),
+                      Tab(text: 'Kursus Pensyarah'),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
-                  height: 600,
+                  height: (MediaQuery.sizeOf(context).height - 300)
+                      .clamp(620.0, 860.0),
                   child: TabBarView(
                     children: [
                       _buildSystemUsersTab(),
@@ -153,31 +170,29 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       controller: controller,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(fontSize: 13, color: Color(0xff94a3b8)),
-        prefixIcon:
-            const Icon(Icons.search, size: 18, color: Color(0xff94a3b8)),
+        hintStyle: const TextStyle(fontSize: 13, color: AppColors.muted),
+        prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.muted),
         suffixIcon: controller.text.isNotEmpty
             ? IconButton(
-                icon:
-                    const Icon(Icons.close, size: 16, color: Color(0xff94a3b8)),
+                icon: const Icon(Icons.close, size: 16, color: AppColors.muted),
                 onPressed: () => controller.clear(),
               )
             : null,
         filled: true,
-        fillColor: const Color(0xfff8fafc),
+        fillColor: AppColors.surfaceTint,
         contentPadding:
             const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xffe2e8f0)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xffe2e8f0)),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary),
         ),
       ),
     );
@@ -193,9 +208,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xfff8fafc),
-          border: Border.all(color: const Color(0xffe2e8f0)),
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.surfaceTint,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: DropdownButton<T>(
           value: value,
@@ -248,15 +263,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
         return Column(
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                SizedBox(
+                  width: 360,
                   child: _buildSearchBar(
                     controller: _userSearchController,
                     hint: 'Cari nama, emel, atau jabatan...',
                   ),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<UserRole?>(
                   value: _selectedRoleFilter,
                   hint: 'Semua Peranan',
@@ -415,23 +433,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   Widget _buildStatusBadge(bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isActive
-            ? Colors.green.withValues(alpha: 0.1)
-            : Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        isActive ? 'Aktif' : 'Tidak Aktif',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: isActive ? Colors.green.shade700 : Colors.red.shade700,
-        ),
-      ),
-    );
+    return StatusChip(isActive ? 'Aktif' : 'Tidak Aktif');
   }
 
   Widget _buildActionIcon({
@@ -484,176 +486,180 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Container(
-            width: 480,
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Edit Pengguna',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildDialogField(label: 'Nama', controller: nameController),
-                const SizedBox(height: 16),
-                _buildDialogField(
-                    label: 'Emel',
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress),
-                const SizedBox(height: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Peranan',
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 720),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Edit Pengguna',
                         style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff374151))),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<UserRole>(
-                      initialValue: selectedRole,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xfff9fafb),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 12),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xffe5e7eb))),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xffe5e7eb))),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      items: UserRole.values
-                          .map((r) => DropdownMenuItem(
-                                value: r,
-                                child: Text(_roleLabel(r),
-                                    style: const TextStyle(fontSize: 13)),
-                              ))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) {
-                          setDialogState(() {
-                            selectedRole = v;
-                            normalizeScopeForRole();
-                          });
-                        }
-                      },
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _buildDialogField(label: 'Nama', controller: nameController),
+                  const SizedBox(height: 16),
+                  _buildDialogField(
+                      label: 'Emel',
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress),
+                  const SizedBox(height: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Peranan',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryDark)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<UserRole>(
+                        initialValue: selectedRole,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: AppColors.surfaceTint,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide:
+                                  const BorderSide(color: AppColors.border)),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide:
+                                  const BorderSide(color: AppColors.border)),
+                        ),
+                        items: UserRole.values
+                            .map((r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text(_roleLabel(r),
+                                      style: const TextStyle(fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setDialogState(() {
+                              selectedRole = v;
+                              normalizeScopeForRole();
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (selectedRole == UserRole.ketua_jabatan)
+                    _buildScopeDropdown(
+                      label: 'Jabatan',
+                      value: selectedDepartmentId,
+                      items: _departmentOptions,
+                      onChanged: (value) =>
+                          setDialogState(() => selectedDepartmentId = value),
+                    )
+                  else if (selectedRole == UserRole.ketua_program) ...[
+                    _buildScopeDropdown(
+                      label: 'Program',
+                      value: selectedProgramId,
+                      items: _programOptions,
+                      onChanged: (value) => setDialogState(() {
+                        selectedProgramId = value;
+                        selectedDepartmentId = _departmentForProgram(value);
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      selectedDepartmentId == null
+                          ? 'Jabatan: Tiada Ketua Jabatan'
+                          : 'Jabatan: ${_departmentLabel(selectedDepartmentId)}',
+                      style: const TextStyle(
+                        color: Color(0xff64748b),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 16),
-                if (selectedRole == UserRole.ketua_jabatan)
-                  _buildScopeDropdown(
-                    label: 'Jabatan',
-                    value: selectedDepartmentId,
-                    items: _departmentOptions,
-                    onChanged: (value) =>
-                        setDialogState(() => selectedDepartmentId = value),
-                  )
-                else if (selectedRole == UserRole.ketua_program) ...[
-                  _buildScopeDropdown(
-                    label: 'Program',
-                    value: selectedProgramId,
-                    items: _programOptions,
-                    onChanged: (value) => setDialogState(() {
-                      selectedProgramId = value;
-                      selectedDepartmentId = _departmentForProgram(value);
-                    }),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    selectedDepartmentId == null
-                        ? 'Jabatan: Tiada Ketua Jabatan'
-                        : 'Jabatan: ${_departmentLabel(selectedDepartmentId)}',
-                    style: const TextStyle(
-                      color: Color(0xff64748b),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  const SizedBox(height: 28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                        ),
+                        child: const Text('Batal',
+                            style: TextStyle(color: Color(0xff6b7280))),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          final navigator = Navigator.of(ctx);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final updated = AppUser(
+                            uid: user.uid,
+                            name: nameController.text.trim(),
+                            email: emailController.text.trim(),
+                            role: selectedRole,
+                            programId: selectedRole == UserRole.ketua_program
+                                ? selectedProgramId
+                                : selectedRole == UserRole.pensyarah
+                                    ? user.programId
+                                    : null,
+                            departmentId:
+                                selectedRole == UserRole.ketua_jabatan ||
+                                        selectedRole == UserRole.ketua_program
+                                    ? selectedDepartmentId
+                                    : selectedRole == UserRole.pensyarah
+                                        ? user.departmentId
+                                        : null,
+                            lecturerProfileId: user.lecturerProfileId,
+                            phoneNumber: user.phoneNumber,
+                            isActive:
+                                _activeOverrides[user.uid] ?? user.isActive,
+                            createdAt: user.createdAt,
+                            updatedAt: user.updatedAt,
+                          );
+                          await _service.updateUserProfile(updated);
+                          navigator.pop();
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Maklumat pengguna dikemaskini.'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Simpan'),
+                      ),
+                    ],
                   ),
                 ],
-                const SizedBox(height: 28),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                      ),
-                      child: const Text('Batal',
-                          style: TextStyle(color: Color(0xff6b7280))),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final navigator = Navigator.of(ctx);
-                        final messenger = ScaffoldMessenger.of(context);
-                        final updated = AppUser(
-                          uid: user.uid,
-                          name: nameController.text.trim(),
-                          email: emailController.text.trim(),
-                          role: selectedRole,
-                          programId: selectedRole == UserRole.ketua_program
-                              ? selectedProgramId
-                              : selectedRole == UserRole.pensyarah
-                                  ? user.programId
-                                  : null,
-                          departmentId:
-                              selectedRole == UserRole.ketua_jabatan ||
-                                      selectedRole == UserRole.ketua_program
-                                  ? selectedDepartmentId
-                                  : selectedRole == UserRole.pensyarah
-                                      ? user.departmentId
-                                      : null,
-                          lecturerProfileId: user.lecturerProfileId,
-                          phoneNumber: user.phoneNumber,
-                          isActive: _activeOverrides[user.uid] ?? user.isActive,
-                          createdAt: user.createdAt,
-                          updatedAt: user.updatedAt,
-                        );
-                        await _service.updateUserProfile(updated);
-                        navigator.pop();
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Maklumat pengguna dikemaskini.'),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: const Text('Simpan'),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -672,8 +678,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         Text(label,
             style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xff374151))),
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryDark)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -681,19 +687,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xfff9fafb),
+            fillColor: AppColors.surfaceTint,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.border)),
             enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.border)),
             focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide:
-                    BorderSide(color: Theme.of(context).colorScheme.primary)),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.primary)),
           ),
         ),
       ],
@@ -712,23 +717,23 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         Text(label,
             style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Color(0xff374151))),
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryDark)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: value,
           isExpanded: true,
           decoration: InputDecoration(
             filled: true,
-            fillColor: const Color(0xfff9fafb),
+            fillColor: AppColors.surfaceTint,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.border)),
             enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: AppColors.border)),
           ),
           items: items
               .map((item) => DropdownMenuItem<String>(
@@ -788,19 +793,19 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     String label;
     switch (role) {
       case UserRole.pentadbir:
-        color = Colors.red;
+        color = AppColors.danger;
         label = 'Pentadbir';
         break;
       case UserRole.ketua_jabatan:
-        color = Colors.blue;
+        color = AppColors.primary;
         label = 'Ketua Jabatan';
         break;
       case UserRole.ketua_program:
-        color = Colors.teal;
+        color = AppColors.info;
         label = 'Ketua Program';
         break;
       case UserRole.pensyarah:
-        color = Colors.orange;
+        color = AppColors.warning;
         label = 'Pensyarah';
         break;
     }
@@ -809,11 +814,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         border: Border.all(color: color.withValues(alpha: 0.24)),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+              color: color, fontSize: 11, fontWeight: FontWeight.w800)),
     );
   }
 
@@ -902,16 +907,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
         return Column(
           children: [
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const SizedBox(width: 12),
-                Expanded(
+                SizedBox(
+                  width: 320,
                   child: _buildSearchBar(
                     controller: _studentSearchController,
                     hint: 'Nama, ID, kelas...',
                   ),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedProgramFilter,
                   hint: 'Semua Kursus',
@@ -926,7 +933,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ],
                   onChanged: (v) => setState(() => _selectedProgramFilter = v),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedClassFilter,
                   hint: 'Semua Kelas',
@@ -941,7 +947,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ],
                   onChanged: (v) => setState(() => _selectedClassFilter = v),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedSemesterFilter,
                   hint: 'Semua Semester',
@@ -1552,15 +1557,18 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         return Column(
           children: [
             // ── Filter bar ─────────────────────────────────────────────────
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                SizedBox(
+                  width: 340,
                   child: _buildSearchBar(
                     controller: _lecturerSearchController,
                     hint: 'Cari nama pensyarah atau emel...',
                   ),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedDepartmentFilter,
                   hint: 'Semua Program',
@@ -1576,7 +1584,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   onChanged: (v) =>
                       setState(() => _selectedDepartmentFilter = v),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedSubjectFilter,
                   hint: 'Semua Subjek',
@@ -1591,7 +1598,6 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ],
                   onChanged: (v) => setState(() => _selectedSubjectFilter = v),
                 ),
-                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedLecturerClassFilter,
                   hint: 'Semua Kelas',
