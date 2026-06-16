@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
+import '../widgets/app_theme.dart';
 import 'admin/register_user_screen.dart';
 import 'attendance_screen.dart';
 import 'tempahan_screen.dart';
@@ -148,30 +149,43 @@ class _HomeShellState extends State<HomeShell> {
           if (!compact) ...[
             Container(
               width: MediaQuery.sizeOf(context).width > 1120 ? 246 : 88,
-              color: const Color(0xff0f172a),
+              decoration: const BoxDecoration(
+                color: AppColors.sidebar,
+                border: Border(
+                  right: BorderSide(color: Color(0xff1e293b)),
+                ),
+              ),
               child: Column(
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
                       child: IntrinsicHeight(
                         child: NavigationRail(
-                          backgroundColor: const Color(0xff0f172a),
-                          indicatorColor: const Color(0xffdbeafe),
+                          backgroundColor: AppColors.sidebar,
+                          indicatorColor:
+                              AppColors.primary.withValues(alpha: .18),
+                          indicatorShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           extended: MediaQuery.sizeOf(context).width > 1120,
                           selectedIndex: index,
                           selectedIconTheme:
-                              const IconThemeData(color: Color(0xff1d4ed8)),
-                          unselectedIconTheme:
-                              const IconThemeData(color: Color(0xffcbd5e1)),
+                              const IconThemeData(color: Colors.white),
+                          unselectedIconTheme: const IconThemeData(
+                              color: AppColors.sidebarMuted),
                           selectedLabelTextStyle: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w800),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
                           unselectedLabelTextStyle:
-                              const TextStyle(color: Color(0xffcbd5e1)),
-                          onDestinationSelected: (value) => setState(() => index = value),
+                              const TextStyle(color: AppColors.sidebarMuted),
+                          onDestinationSelected: (value) =>
+                              setState(() => index = value),
                           leading: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 20),
                             child: _BrandMark(
-                                extended: MediaQuery.sizeOf(context).width > 1120),
+                              extended: MediaQuery.sizeOf(context).width > 1120,
+                            ),
                           ),
                           destinations: [
                             for (final item in items)
@@ -192,7 +206,10 @@ class _HomeShellState extends State<HomeShell> {
                       child: IconButton(
                         tooltip: 'Log Keluar',
                         onPressed: state.logout,
-                        icon: const Icon(Icons.logout, color: Color(0xffcbd5e1)),
+                        icon: const Icon(
+                          Icons.logout,
+                          color: AppColors.sidebarMuted,
+                        ),
                       ),
                     ),
                   ),
@@ -206,7 +223,7 @@ class _HomeShellState extends State<HomeShell> {
                 _TopBar(user: user, onLogout: compact ? state.logout : null),
                 Expanded(
                   child: ColoredBox(
-                    color: const Color(0xfff6f8fb),
+                    color: AppColors.background,
                     child: SingleChildScrollView(
                       padding: EdgeInsets.fromLTRB(
                         compact ? 14 : 24,
@@ -220,7 +237,8 @@ class _HomeShellState extends State<HomeShell> {
                                 padding: const EdgeInsets.all(24.0),
                                 child: Text(
                                     'Ralat memuat turun data: ${state.error}',
-                                    style: const TextStyle(color: Colors.red)),
+                                    style: const TextStyle(
+                                        color: AppColors.danger)),
                               ),
                             )
                           : _isWaitingForInitialScreenData(activeItem, state)
@@ -300,13 +318,32 @@ class _TopBar extends StatelessWidget {
     return Container(
       height: 68,
       padding: const EdgeInsets.symmetric(horizontal: 22),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xffe2e8f0))),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: .96),
+        border: const Border(bottom: BorderSide(color: AppColors.border)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .035),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.school_outlined, color: Color(0xff1d4ed8)),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.school_outlined,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
           const SizedBox(width: 10),
           const Flexible(
             child: Text(
@@ -314,28 +351,32 @@ class _TopBar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontWeight: FontWeight.w900,
-                color: Color(0xff0f172a),
+                color: AppColors.primaryDark,
               ),
             ),
           ),
           const Spacer(),
           const Text('Selasa, 19 Mei 2026',
-              style: TextStyle(color: Color(0xff64748b))),
+              style: TextStyle(color: AppColors.muted)),
           const SizedBox(width: 16),
           Chip(
-              label: Text(user.role == UserRole.pentadbir
-                  ? 'Pentadbir'
-                  : user.role == UserRole.ketua_jabatan
-                      ? 'Ketua Jabatan'
-                      : user.role == UserRole.ketua_program
-                          ? 'Ketua Program'
-                          : 'Pensyarah')),
+            label: Text(user.role == UserRole.pentadbir
+                ? 'Pentadbir'
+                : user.role == UserRole.ketua_jabatan
+                    ? 'Ketua Jabatan'
+                    : user.role == UserRole.ketua_program
+                        ? 'Ketua Program'
+                        : 'Pensyarah'),
+          ),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
               user.name,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           if (onLogout != null) ...[
@@ -362,7 +403,7 @@ class _BrandMark extends StatelessWidget {
     if (!extended) {
       return const CircleAvatar(
         backgroundColor: Color(0xffdbeafe),
-        foregroundColor: Color(0xff1d4ed8),
+        foregroundColor: AppColors.primary,
         child: Icon(Icons.school),
       );
     }
@@ -371,8 +412,8 @@ class _BrandMark extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Color(0xffdbeafe),
-            foregroundColor: Color(0xff1d4ed8),
+            backgroundColor: Colors.white,
+            foregroundColor: AppColors.primary,
             child: Icon(Icons.school),
           ),
           SizedBox(width: 12),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
+
 class StatusChip extends StatelessWidget {
   const StatusChip(this.label, {super.key});
 
@@ -7,49 +9,57 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = switch (label) {
+    final normalized = label.trim().toLowerCase();
+    final color = switch (normalized) {
       'active' ||
-      'Approved' ||
       'approved' ||
-      'Action Taken' ||
-      'Closed' ||
-      'Completed' ||
+      'action taken' ||
+      'closed' ||
       'completed' ||
-      'Attendance Completed' ||
-      'Present' ||
-      'Active' ||
-      'Safe' ||
-      'Selamat' ||
-      'Aktif' ||
-      'Available' =>
-        Colors.green,
+      'attendance completed' ||
+      'present' ||
+      'safe' ||
+      'selamat' ||
+      'aktif' ||
+      'available' ||
+      'tersedia' ||
+      'rasmi' ||
+      'diluluskan' ||
+      'selesai' =>
+        AppColors.success,
       'inactive' ||
       'cancelled' ||
       'canceled' ||
-      'Rejected' ||
       'rejected' ||
-      'Cancelled' ||
-      'Absent' ||
-      'High' ||
-      'Critical' ||
-      'Kritikal' ||
-      'Tidak Aktif' ||
-      'Unavailable' =>
-        scheme.error,
+      'absent' ||
+      'high' ||
+      'critical' ||
+      'kritikal' ||
+      'tidak aktif' ||
+      'unavailable' ||
+      'tidak tersedia' ||
+      'konflik' ||
+      'ditolak' ||
+      'bawah 80%' =>
+        AppColors.danger,
       'pending' ||
-      'Pending' ||
-      'Reviewed' ||
-      'Under Review' ||
-      'Attendance Not Taken' ||
-      'Ongoing' ||
-      'Late' ||
-      'Warning' ||
-      'Amaran' =>
-        Colors.orange,
-      'MC' || 'CK' => Colors.blueGrey,
-      'Replacement Class' || 'Kelas Ganti' => Colors.purple,
-      _ => scheme.primary,
+      'reviewed' ||
+      'under review' ||
+      'attendance not taken' ||
+      'ongoing' ||
+      'late' ||
+      'warning' ||
+      'amaran' ||
+      'menunggu' ||
+      'menunggu semakan' ||
+      'draf' ||
+      'bawah 95%' =>
+        AppColors.warning,
+      'bawah 90%' || 'bawah 85%' => const Color(0xffea580c),
+      'mc' || 'ck' || 'tindakan diambil' || 'disemak' => AppColors.info,
+      'replacement class' || 'kelas ganti' => AppColors.accent,
+      'diarkibkan' || 'archived' => AppColors.muted,
+      _ => AppColors.primary,
     };
     final displayLabel = switch (label) {
       'active' => 'Aktif',
@@ -93,16 +103,16 @@ class StatusChip extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .12),
-        border: Border.all(color: color.withValues(alpha: .22)),
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: .11),
+        border: Border.all(color: color.withValues(alpha: .24)),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         displayLabel,
         style:
-            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }

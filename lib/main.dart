@@ -8,6 +8,7 @@ import 'screens/timetable_slots_screen.dart';
 import 'models/app_models.dart';
 import 'state/app_scope.dart';
 import 'state/app_state.dart';
+import 'widgets/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,58 +95,148 @@ class TvetmaraApp extends StatelessWidget {
       title: 'Kehadiran TVETMARA',
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xfff6f8fb),
+        scaffoldBackgroundColor: AppColors.background,
+        fontFamily: 'Arial',
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff1d4ed8),
+          seedColor: AppColors.primary,
           brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.primary,
+          secondary: AppColors.accent,
+          surface: AppColors.surface,
+          error: AppColors.danger,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Color(0xff0f172a),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.primaryDark,
           elevation: 0,
+          centerTitle: false,
         ),
-        cardTheme: const CardThemeData(
+        cardTheme: CardThemeData(
           elevation: 0,
           margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            side: BorderSide(color: Color(0xffe2e8f0)),
+          color: AppColors.surface,
+          shadowColor: AppColors.primaryDark.withValues(alpha: .08),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+            side: BorderSide(color: AppColors.border),
           ),
         ),
-        chipTheme: const ChipThemeData(
-          side: BorderSide(color: Color(0xffe2e8f0)),
-          shape: StadiumBorder(),
+        chipTheme: ChipThemeData(
+          backgroundColor: AppColors.surfaceTint,
+          selectedColor: AppColors.primary.withValues(alpha: .12),
+          labelStyle: const TextStyle(
+            color: AppColors.primaryDark,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          side: const BorderSide(color: AppColors.border),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xfff8fafc),
+          fillColor: AppColors.surface,
+          labelStyle: const TextStyle(color: AppColors.muted),
+          hintStyle: TextStyle(color: AppColors.muted.withValues(alpha: .72)),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xffcbd5e1)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xffcbd5e1)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xff2563eb), width: 1.4),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
-        dataTableTheme: const DataTableThemeData(
-          headingTextStyle: TextStyle(
-            color: Color(0xff334155),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: const BorderSide(color: AppColors.border),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: AppColors.surface,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titleTextStyle: const TextStyle(
+            color: AppColors.primaryDark,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+          contentTextStyle: const TextStyle(
+            color: AppColors.primaryDark,
+            fontSize: 14,
+            height: 1.35,
+          ),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: AppColors.border,
+          thickness: 1,
+          space: 1,
+        ),
+        dataTableTheme: DataTableThemeData(
+          headingRowColor: WidgetStateProperty.all(AppColors.surfaceTint),
+          headingTextStyle: const TextStyle(
+            color: AppColors.primaryDark,
             fontWeight: FontWeight.w800,
           ),
-          dataTextStyle: TextStyle(color: Color(0xff1e293b)),
+          dataTextStyle: const TextStyle(color: AppColors.primaryDark),
           dividerThickness: .7,
+          horizontalMargin: 18,
+          columnSpacing: 28,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: AppColors.surface,
+          indicatorColor: AppColors.primary.withValues(alpha: .12),
+          labelTextStyle: WidgetStateProperty.all(
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: AppColors.primaryDark,
+          contentTextStyle: const TextStyle(color: Colors.white),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
       onGenerateRoute: (settings) {
