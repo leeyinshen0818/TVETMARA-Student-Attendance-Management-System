@@ -9,10 +9,14 @@ class CriticalAttendanceReportRow {
   const CriticalAttendanceReportRow({
     required this.student,
     required this.summary,
+    required this.programCode,
+    required this.disciplineCount,
   });
 
   final Student student;
   final AttendanceSummary summary;
+  final String programCode;
+  final int disciplineCount;
 }
 
 class CriticalAttendancePdfReport {
@@ -26,6 +30,10 @@ class CriticalAttendancePdfReport {
     required this.averageAttendance,
     required this.completedSessions,
     required this.rows,
+    required this.selectedWeek,
+    required this.thresholdFilterLabel,
+    required this.groupFilterLabel,
+    required this.disciplineFilterLabel,
   });
 
   final String academicSessionId;
@@ -37,6 +45,10 @@ class CriticalAttendancePdfReport {
   final int averageAttendance;
   final int completedSessions;
   final List<CriticalAttendanceReportRow> rows;
+  final int selectedWeek;
+  final String thresholdFilterLabel;
+  final String groupFilterLabel;
+  final String disciplineFilterLabel;
 }
 
 class ReportsPdfExportService {
@@ -65,7 +77,7 @@ class ReportsPdfExportService {
           (row) => [
             row.student.id,
             row.student.name,
-            row.student.program,
+            row.programCode,
             row.student.section,
             '${row.summary.present}',
             '${row.summary.late}',
@@ -73,6 +85,7 @@ class ReportsPdfExportService {
             '${row.summary.mc}',
             '${row.summary.ck}',
             '${row.summary.percentage}%',
+            '${row.disciplineCount}',
           ],
         )
         .toList();
@@ -123,6 +136,10 @@ class ReportsPdfExportService {
               _metadataText('Dijana oleh', report.generatedBy),
               _metadataText('Skop', report.scopeLabel),
               _metadataText('Had', 'Bawah ${report.threshold}%'),
+              _metadataText('Minggu', 'Minggu ${report.selectedWeek}'),
+              _metadataText('Status', report.thresholdFilterLabel),
+              _metadataText('Program/Kelas', report.groupFilterLabel),
+              _metadataText('Disiplin', report.disciplineFilterLabel),
             ],
           ),
         ],
@@ -189,6 +206,7 @@ class ReportsPdfExportService {
         'MC',
         'CK',
         'Kehadiran %',
+        'Disiplin',
       ],
       data: rows,
       headerStyle: pw.TextStyle(
@@ -204,14 +222,15 @@ class ReportsPdfExportService {
       columnWidths: {
         0: const pw.FlexColumnWidth(1.1),
         1: const pw.FlexColumnWidth(2.4),
-        2: const pw.FlexColumnWidth(0.9),
-        3: const pw.FlexColumnWidth(1),
+        2: const pw.FlexColumnWidth(0.6),
+        3: const pw.FlexColumnWidth(0.8),
         4: const pw.FlexColumnWidth(0.45),
         5: const pw.FlexColumnWidth(0.45),
         6: const pw.FlexColumnWidth(0.45),
         7: const pw.FlexColumnWidth(0.55),
         8: const pw.FlexColumnWidth(0.55),
         9: const pw.FlexColumnWidth(0.9),
+        10: const pw.FlexColumnWidth(0.6),
       },
     );
   }
