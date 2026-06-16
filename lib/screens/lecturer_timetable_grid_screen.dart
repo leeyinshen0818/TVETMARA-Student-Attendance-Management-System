@@ -1,15 +1,3 @@
-// lib/screens/lecturer_timetable_grid_screen.dart
-//
-// Module 5 – Timetable Slot Display  |  Lecturer (Pensyarah) View
-// Author : Farra
-//
-// FIX: Removed nested Scaffold that caused unbounded-height layout crash.
-// The screen is now a plain widget that can be embedded inside the app's
-// home shell (which already owns the Scaffold/AppBar).
-//
-// READ-ONLY — no writes, no attendance forms, no upload code.
-// Placeholder hook: onSlotSelected(slotId, week) → Yee Wen's module.
-
 import 'package:flutter/material.dart';
 
 import '../state/lecturer_timetable_controller.dart';
@@ -367,7 +355,7 @@ class _StatCardRow extends StatelessWidget {
         children: [
           Expanded(child: _StatCard(label: 'KELAS', value: '$totalSlots')),
           const SizedBox(width: 12),
-          Expanded(child: const _StatCard(label: 'KELAS GANTI', value: '6')),
+          const Expanded(child: _StatCard(label: 'KELAS GANTI', value: '6')),
           const SizedBox(width: 12),
           Expanded(child: _StatCard(label: 'SECTION', value: '$sections')),
         ],
@@ -391,7 +379,7 @@ class _StatCard extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -455,7 +443,7 @@ class _FilterBar extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -636,7 +624,7 @@ class _OfficialTable extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -788,7 +776,7 @@ class _DataTable extends StatelessWidget {
         _td(Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
           decoration: BoxDecoration(
-            color: _kTeal.withOpacity(0.10),
+            color: _kTeal.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(slot.subjectCode,
@@ -980,9 +968,9 @@ class _OutlineBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1042,7 +1030,7 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: _kTeal.withOpacity(0.08),
+                color: _kTeal.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.calendar_today_outlined,
@@ -1085,7 +1073,7 @@ class _ErrorState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.07),
+                color: Colors.red.withValues(alpha: 0.07),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.wifi_off_rounded,
