@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import '../state/lecturer_timetable_controller.dart';
 import '../services/lecturer_timetable_service.dart';
+import '../services/lecturer_export_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
@@ -217,6 +218,7 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
                             slots: filtered,
                             week: week,
                             lecturerName: widget.lecturerName,
+                            lecturerEmail: widget.lecturerEmail,
                             programId: widget.programId,
                             onSlotSelected: widget.onSlotSelected,
                             onNavigateToAttendance:
@@ -282,7 +284,7 @@ class _StatCardRow extends StatelessWidget {
         children: [
           Expanded(child: _StatCard(label: 'KELAS', value: '$totalSlots')),
           const SizedBox(width: 12),
-          Expanded(child: const _StatCard(label: 'KELAS GANTI', value: '6')),
+          const Expanded(child: _StatCard(label: 'KELAS GANTI', value: '6')),
           const SizedBox(width: 12),
           Expanded(child: _StatCard(label: 'SECTION', value: '$sections')),
         ],
@@ -306,7 +308,7 @@ class _StatCard extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -370,7 +372,7 @@ class _FilterBar extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -523,11 +525,12 @@ class _SearchField extends StatelessWidget {
 // Official Timetable Table  (outer card)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _OfficialTable extends StatelessWidget {
+class _OfficialTable extends StatefulWidget {
   const _OfficialTable({
     required this.slots,
     required this.week,
     required this.lecturerName,
+    required this.lecturerEmail,
     required this.programId,
     required this.onSlotSelected,
     this.onNavigateToAttendance,
@@ -537,10 +540,62 @@ class _OfficialTable extends StatelessWidget {
   final List<LecturerSlot> slots;
   final String week;
   final String lecturerName;
+  final String lecturerEmail;
   final String programId;
   final void Function(String slotId, String week)? onSlotSelected;
   final VoidCallback? onNavigateToAttendance;
   final VoidCallback? onNavigateToTempahan;
+
+  @override
+  State<_OfficialTable> createState() => _OfficialTableState();
+}
+
+class _OfficialTableState extends State<_OfficialTable> {
+  bool _exportingHtml = false;
+  bool _exportingCsv = false;
+
+  LecturerExportMeta get _meta => LecturerExportMeta(
+        lecturerName: widget.lecturerName,
+        lecturerEmail: widget.lecturerEmail,
+        academicSession: 'JAN – JUN 2026',
+        generatedAt: DateTime.now(),
+      );
+
+  Future<void> _onExportHtml() async {
+    if (_exportingHtml) return;
+    setState(() => _exportingHtml = true);
+    try {
+      await exportLecturerTimetableAsHtml(
+          slots: widget.slots, meta: _meta);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Eksport gagal: $e'),
+          backgroundColor: Colors.red.shade700,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _exportingHtml = false);
+    }
+  }
+
+  Future<void> _onExportCsv() async {
+    if (_exportingCsv) return;
+    setState(() => _exportingCsv = true);
+    try {
+      await exportLecturerTimetableAsCsv(
+          slots: widget.slots, meta: _meta);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Muat turun gagal: $e'),
+          backgroundColor: Colors.red.shade700,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _exportingCsv = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -551,7 +606,7 @@ class _OfficialTable extends StatelessWidget {
         border: Border.all(color: _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -560,6 +615,7 @@ class _OfficialTable extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ── Card header row ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
@@ -572,8 +628,30 @@ class _OfficialTable extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: _kText)),
                 const Spacer(),
-                Text('${slots.length} record(s)',
+                Text('${widget.slots.length} rekod',
                     style: const TextStyle(fontSize: 12, color: _kMuted)),
+                const SizedBox(width: 12),
+                // ── Export buttons (only when there are slots) ──
+                if (widget.slots.isNotEmpty) ...[
+                  _ExportButton(
+                    icon: Icons.picture_as_pdf_outlined,
+                    label: 'Eksport PDF',
+                    loading: _exportingHtml,
+                    color: const Color(0xFFDC2626),
+                    onTap: _onExportHtml,
+                    tooltip:
+                        'Jana jadual rasmi sebagai PDF (buka tab baharu → Cetak → Simpan sebagai PDF)',
+                  ),
+                  const SizedBox(width: 8),
+                  _ExportButton(
+                    icon: Icons.download_outlined,
+                    label: 'Muat turun CSV',
+                    loading: _exportingCsv,
+                    color: const Color(0xFF16A34A),
+                    onTap: _onExportCsv,
+                    tooltip: 'Muat turun jadual dalam format CSV',
+                  ),
+                ],
               ],
             ),
           ),
@@ -606,20 +684,84 @@ class _OfficialTable extends StatelessWidget {
                   letterSpacing: 0.5),
             ),
           ),
-          if (slots.isEmpty)
-            _EmptyState(lecturerName: lecturerName, programId: programId)
+          if (widget.slots.isEmpty)
+            _EmptyState(
+                lecturerName: widget.lecturerName,
+                programId: widget.programId)
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: _DataTable(
-                slots: slots,
-                week: week,
-                onSlotSelected: onSlotSelected,
-                onNavigateToAttendance: onNavigateToAttendance,
-                onNavigateToTempahan: onNavigateToTempahan,
+                slots: widget.slots,
+                week: widget.week,
+                onSlotSelected: widget.onSlotSelected,
+                onNavigateToAttendance: widget.onNavigateToAttendance,
+                onNavigateToTempahan: widget.onNavigateToTempahan,
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export button widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({
+    required this.icon,
+    required this.label,
+    required this.loading,
+    required this.color,
+    required this.onTap,
+    this.tooltip = '',
+  });
+
+  final IconData icon;
+  final String label;
+  final bool loading;
+  final Color color;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: loading ? null : onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              loading
+                  ? SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(icon, size: 13, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: color),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -703,7 +845,7 @@ class _DataTable extends StatelessWidget {
         _td(Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
           decoration: BoxDecoration(
-            color: _kTeal.withOpacity(0.10),
+            color: _kTeal.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(slot.subjectCode,
@@ -895,9 +1037,9 @@ class _OutlineBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -957,7 +1099,7 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: _kTeal.withOpacity(0.08),
+                color: _kTeal.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.calendar_today_outlined,
@@ -1000,7 +1142,7 @@ class _ErrorState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.07),
+                color: Colors.red.withValues(alpha: 0.07),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.wifi_off_rounded,

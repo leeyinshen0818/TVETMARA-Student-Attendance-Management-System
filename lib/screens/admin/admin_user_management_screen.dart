@@ -1722,7 +1722,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
         textColor: Colors.white,
         onPressed: () {
           // Undo — restore the slot
-          setState(() => _cancelledSlotIds.remove(slot.id));
+          if (mounted) setState(() => _cancelledSlotIds.remove(slot.id));
         },
       ),
     );
@@ -2164,11 +2164,11 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                             DataCell(
                                               isCancelled
                                                   ? TextButton.icon(
-                                                      onPressed: () =>
-                                                          setState(() =>
-                                                              _cancelledSlotIds
-                                                                  .remove(
-                                                                      slot.id)),
+                                                      onPressed: () {
+                                                        if (mounted) {
+                                                          setState(() => _cancelledSlotIds.remove(slot.id));
+                                                        }
+                                                      },
                                                       icon: const Icon(
                                                           Icons.undo,
                                                           size: 13,
