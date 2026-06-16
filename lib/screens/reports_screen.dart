@@ -311,13 +311,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 12,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 300,
+                    Expanded(
+                      flex: 3,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedGroup,
                         decoration: const InputDecoration(
                           labelText: 'Program / Kelas',
@@ -337,9 +337,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                       ),
                     ),
-                    SizedBox(
-                      width: 180,
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 1,
                       child: DropdownButtonFormField<int>(
+                        isExpanded: true,
                         initialValue: _selectedWeek,
                         decoration: const InputDecoration(
                           labelText: 'Minggu',
@@ -360,9 +362,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                       ),
                     ),
-                    SizedBox(
-                      width: 220,
+                    const SizedBox(width: 24),
+                    Expanded(
+                      flex: 2,
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: _selectedDisciplineFilter,
                         decoration: const InputDecoration(
                           labelText: 'Status Disiplin',
