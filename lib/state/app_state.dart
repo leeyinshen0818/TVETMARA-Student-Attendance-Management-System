@@ -514,6 +514,7 @@ class AppState extends ChangeNotifier {
     final userEmail = user.email.trim().toLowerCase();
     final userProfileId = user.lecturerProfileId;
     return timetable.where((slot) {
+      if (!slot.isOfficial) return false;
       final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
       if (slot.lecturerId == user.uid) return true;
       if (slotEmail != null && slotEmail == userEmail) return true;
@@ -763,27 +764,25 @@ class AppState extends ChangeNotifier {
       editReason: reason,
       editHistory: [...existingSession.editHistory, editEntry],
     );
-    final enrichedRecords = records
-        .map((record) {
-          final previous = previousByStudent[record.studentId];
-          final changed = previous != null && previous.status != record.status;
-          final auditedRecord = changed
-              ? record.copyWith(
-                  updatedAt: editedAt,
-                  updatedBy: user?.uid ?? existingSession.lecturerId,
-                  updatedByName: user?.name ?? existingSession.lecturerName,
-                  editReason: reason,
-                  originalStatus: previous.status,
-                  newStatus: record.status,
-                )
-              : record;
-          return _buildAttendanceRecord(
-              record: auditedRecord,
-              slot: slot,
-              session: session,
-            );
-        })
-        .toList();
+    final enrichedRecords = records.map((record) {
+      final previous = previousByStudent[record.studentId];
+      final changed = previous != null && previous.status != record.status;
+      final auditedRecord = changed
+          ? record.copyWith(
+              updatedAt: editedAt,
+              updatedBy: user?.uid ?? existingSession.lecturerId,
+              updatedByName: user?.name ?? existingSession.lecturerName,
+              editReason: reason,
+              originalStatus: previous.status,
+              newStatus: record.status,
+            )
+          : record;
+      return _buildAttendanceRecord(
+        record: auditedRecord,
+        slot: slot,
+        session: session,
+      );
+    }).toList();
 
     await _fs.saveAttendanceSessionWithRecords(
       session: session,
@@ -836,6 +835,26 @@ class AppState extends ChangeNotifier {
     }
     notifyListeners();
     await _fs.updateTimetableSlotsStatus(slotIds, status);
+  }
+
+  Future<void> publishTimetableSlots(List<TimetableSlot> slots) async {
+    final user = currentUser;
+    if (user == null || slots.isEmpty) return;
+    final slotIds = slots.map((slot) => slot.id).toSet();
+    for (var i = 0; i < timetable.length; i++) {
+      final slot = timetable[i];
+      if (slotIds.contains(slot.id)) {
+        timetable[i] = slot.copyWith(
+          status: 'active',
+          importStatus: 'official',
+          isOfficial: true,
+          hasConflict: false,
+          conflictTypes: const [],
+        );
+      }
+    }
+    notifyListeners();
+    await _fs.publishTimetableSlots(slotIds.toList(), publishedBy: user);
   }
 
   Future<void> deleteTimetableSlot(String slotId) async {
@@ -1186,8 +1205,8 @@ class AppState extends ChangeNotifier {
           final status = shouldAddEditExample && index == 0
               ? AttendanceStatus.present
               : _demoAttendanceStatus(index, week);
-          final isPresentOrLate =
-              status == AttendanceStatus.present || status == AttendanceStatus.late;
+          final isPresentOrLate = status == AttendanceStatus.present ||
+              status == AttendanceStatus.late;
           var record = AttendanceRecord(
             slotId: slot.id,
             studentId: student.id,
@@ -1272,8 +1291,7 @@ class AppState extends ChangeNotifier {
           'Tiada data demo dijana kerana pelajar tidak sepadan dengan section slot jadual.');
     }
 
-    _loadedCollections
-        .removeAll(['attendanceSessions', 'sessionAttendance']);
+    _loadedCollections.removeAll(['attendanceSessions', 'sessionAttendance']);
     await Future.wait([
       loadAttendanceSessionsIfNeeded(),
       loadSessionAttendanceIfNeeded(),
@@ -1321,12 +1339,10 @@ class AppState extends ChangeNotifier {
     final programId = _programIdForTimetableSlot(slot) ??
         slot.programId ??
         _normalizedSection(slot.program);
-    final section = _normalizedSection(slot.section.isNotEmpty
-        ? slot.section
-        : (slot.classId ?? 'kelas'));
-    final subjectCode = _normalizedSection(slot.subjectCode.isNotEmpty
-        ? slot.subjectCode
-        : slot.subjectName);
+    final section = _normalizedSection(
+        slot.section.isNotEmpty ? slot.section : (slot.classId ?? 'kelas'));
+    final subjectCode = _normalizedSection(
+        slot.subjectCode.isNotEmpty ? slot.subjectCode : slot.subjectName);
     return '$programId|$section|$subjectCode';
   }
 

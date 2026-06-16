@@ -566,6 +566,22 @@ void main() {
     expect(dgs.importableRows, 10);
   });
 
+  test('Elektrik conflict demo CSV is valid for KJ Elektrik upload', () async {
+    final content = File(
+      'demo_data/demo_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv',
+    ).readAsStringSync();
+    final result = await const TimetableMasterValidationService(
+      _MockMasterDataSource(),
+    ).preparePreview(
+      const TimetableImportService().parseAndValidate(content),
+      uploadScope: TimetableUploadScope.forUser(_kjElektrik, mock.programs),
+    );
+
+    expect(result.errorRows, 0);
+    expect(result.duplicateRows, 0);
+    expect(result.importableRows, 30);
+  });
+
   test('mixed legacy CSV fails scope validation for KJ Elektrik', () async {
     final result = await TimetableMasterValidationService(
       const _MockMasterDataSource(),

@@ -35,21 +35,31 @@ class TimetableImportWriteResult {
     required this.uploadId,
     required this.fileName,
     required this.status,
+    required this.savedAs,
     required this.slotsCreated,
     required this.subjectsUpserted,
     required this.classesCreated,
     required this.duplicatesSkipped,
     required this.errorsSkipped,
     required this.skippedRows,
+    required this.conflictRows,
+    required this.roomConflicts,
+    required this.lecturerConflicts,
+    required this.classConflicts,
   });
 
   final String uploadId;
   final String fileName;
   final String status;
+  final String savedAs;
   final int slotsCreated;
   final int subjectsUpserted;
   final int classesCreated;
   final int duplicatesSkipped;
   final int errorsSkipped;
   final int skippedRows;
+  final int conflictRows;
+  final int roomConflicts;
+  final int lecturerConflicts;
+  final int classConflicts;
 }

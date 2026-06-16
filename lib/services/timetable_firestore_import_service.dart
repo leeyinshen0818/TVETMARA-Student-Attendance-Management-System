@@ -5,7 +5,10 @@ import '../models/app_models.dart';
 import '../models/timetable_import_result.dart';
 import '../models/timetable_import_write_result.dart';
 import '../models/timetable_master_validation_result.dart';
+import '../models/timetable_preview_conflict.dart';
 import 'timetable_master_validation_service.dart';
+
+enum TimetableImportSaveMode { draft, official }
 
 class TimetableFirestoreImportService {
   TimetableFirestoreImportService({FirebaseFirestore? firestore})
@@ -19,6 +22,9 @@ class TimetableFirestoreImportService {
     required TimetableMasterValidationResult preview,
     required String fileName,
     required AppUser uploadedBy,
+    TimetableImportSaveMode saveMode = TimetableImportSaveMode.official,
+    TimetablePreviewConflictSummary conflictSummary =
+        const TimetablePreviewConflictSummary.empty(),
   }) async {
     final uploadRef =
         _db.collection(FirestoreCollections.timetableUploads).doc();
@@ -55,13 +61,17 @@ class TimetableFirestoreImportService {
     }
 
     final adjustedSkippedRows = preview.totalRows - rowsToImport.length;
-    final adjustedStatus = statusForSummary(
-      successRows: rowsToImport.length,
-      warningRows: plan.warningRows,
-      duplicateRows: duplicateRows,
-      errorRows: plan.errorRows,
-      validationWarnings: plan.validationWarnings,
-    );
+    final adjustedStatus = saveMode == TimetableImportSaveMode.draft
+        ? 'conflict_pending'
+        : statusForSummary(
+            successRows: rowsToImport.length,
+            warningRows: plan.warningRows,
+            duplicateRows: duplicateRows,
+            errorRows: plan.errorRows,
+            validationWarnings: plan.validationWarnings,
+          );
+    final savedAs =
+        saveMode == TimetableImportSaveMode.draft ? 'draft' : 'official';
 
     final uploadData = {
       'uploadId': uploadId,
@@ -71,12 +81,20 @@ class TimetableFirestoreImportService {
       'uploadedByName': uploadedBy.name,
       'uploadedAt': FieldValue.serverTimestamp(),
       'status': adjustedStatus,
+      'savedAs': savedAs,
       'totalRows': preview.totalRows,
       'successRows': rowsToImport.length,
       'skippedRows': adjustedSkippedRows,
       'duplicateRows': duplicateRows,
       'errorRows': plan.errorRows,
       'warningRows': plan.warningRows,
+      'conflictRows': conflictSummary.conflicts
+          .expand((conflict) => conflict.previewRowNumbers)
+          .toSet()
+          .length,
+      'roomConflicts': conflictSummary.roomConflicts,
+      'lecturerConflicts': conflictSummary.lecturerConflicts,
+      'classConflicts': conflictSummary.classConflicts,
       'validationErrors': plan.validationErrors,
       'validationWarnings': plan.validationWarnings,
     };
@@ -131,6 +149,8 @@ class TimetableFirestoreImportService {
             uploadId: uploadId,
             createdBy: uploadedBy.uid,
             draft: row.slotDraft!,
+            saveMode: saveMode,
+            conflictTypes: conflictSummary.conflictTypes,
           ),
           SetOptions(merge: true),
         ),
@@ -143,12 +163,20 @@ class TimetableFirestoreImportService {
       uploadId: uploadId,
       fileName: fileName,
       status: adjustedStatus,
+      savedAs: savedAs,
       slotsCreated: rowsToImport.length,
       subjectsUpserted: subjectDrafts.length,
       classesCreated: classDrafts.length,
       duplicatesSkipped: duplicateRows,
       errorsSkipped: plan.errorRows,
       skippedRows: adjustedSkippedRows,
+      conflictRows: conflictSummary.conflicts
+          .expand((conflict) => conflict.previewRowNumbers)
+          .toSet()
+          .length,
+      roomConflicts: conflictSummary.roomConflicts,
+      lecturerConflicts: conflictSummary.lecturerConflicts,
+      classConflicts: conflictSummary.classConflicts,
     );
   }
 
@@ -240,7 +268,10 @@ class TimetableFirestoreImportService {
     required String uploadId,
     required String createdBy,
     required TimetablePreviewSlotDraft draft,
+    required TimetableImportSaveMode saveMode,
+    required List<String> conflictTypes,
   }) {
+    final isDraft = saveMode == TimetableImportSaveMode.draft;
     return {
       'timetableSlotId': timetableSlotId,
       'academicSessionId': draft.academicSessionId,
@@ -261,7 +292,11 @@ class TimetableFirestoreImportService {
       'endTime': draft.endTime,
       'weekStart': draft.weekStart.toString(),
       'weekEnd': draft.weekEnd.toString(),
-      'status': draft.status,
+      'status': isDraft ? 'draft' : 'active',
+      'importStatus': isDraft ? 'conflict_pending' : 'official',
+      'isOfficial': !isDraft,
+      'hasConflict': isDraft && conflictTypes.isNotEmpty,
+      'conflictTypes': conflictTypes,
       'sourceUploadId': uploadId,
       'createdBy': createdBy,
       'createdAt': FieldValue.serverTimestamp(),

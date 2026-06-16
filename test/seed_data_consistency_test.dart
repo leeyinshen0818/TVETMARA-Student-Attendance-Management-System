@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tvetmara_student_attendance/data/mock_data.dart' as mock;
 import 'package:tvetmara_student_attendance/models/app_models.dart';
+import 'package:tvetmara_student_attendance/models/timetable_import_result.dart';
 import 'package:tvetmara_student_attendance/services/timetable_import_service.dart';
 
 String _roomId(String roomName) => roomName.replaceAll(RegExp(r'[/\\.]'), '_');
@@ -14,8 +15,65 @@ int _minutes(String value) {
       (int.tryParse(parts.last) ?? -1);
 }
 
+bool _timeOverlaps(
+  TimetableSlotDraft a,
+  TimetableSlotDraft b,
+) {
+  return _minutes(a.startTime) < _minutes(b.endTime) &&
+      _minutes(b.startTime) < _minutes(a.endTime);
+}
+
+bool _weekOverlaps(
+  TimetableSlotDraft a,
+  TimetableSlotDraft b,
+) {
+  return a.weekStart <= b.weekEnd && b.weekStart <= a.weekEnd;
+}
+
 String _programFromClass(String classId) {
   return classId.trim().split(RegExp(r'\s+')).first;
+}
+
+class _ConflictCounts {
+  const _ConflictCounts({
+    required this.room,
+    required this.lecturer,
+    required this.classConflict,
+  });
+
+  final int room;
+  final int lecturer;
+  final int classConflict;
+}
+
+_ConflictCounts _countCsvConflicts(List<TimetableSlotDraft> drafts) {
+  var room = 0;
+  var lecturer = 0;
+  var classConflict = 0;
+
+  for (var i = 0; i < drafts.length; i++) {
+    for (var j = i + 1; j < drafts.length; j++) {
+      final a = drafts[i];
+      final b = drafts[j];
+      if (a.status == 'inactive' || a.status == 'cancelled') continue;
+      if (b.status == 'inactive' || b.status == 'cancelled') continue;
+      if (a.academicSessionId != b.academicSessionId ||
+          a.dayOfWeek != b.dayOfWeek ||
+          !_timeOverlaps(a, b) ||
+          !_weekOverlaps(a, b)) {
+        continue;
+      }
+      if (a.roomId == b.roomId) room++;
+      if (a.lecturerEmail == b.lecturerEmail) lecturer++;
+      if (a.classId == b.classId) classConflict++;
+    }
+  }
+
+  return _ConflictCounts(
+    room: room,
+    lecturer: lecturer,
+    classConflict: classConflict,
+  );
 }
 
 AttendanceSummary _summaryFor(List<AttendanceRecord> records) {
@@ -353,11 +411,9 @@ void main() {
     );
   });
 
-  test('Elektrik no-conflict timetable CSV is scoped to DED, DCP, and DCB',
-      () {
+  test('Elektrik no-conflict timetable CSV is scoped to DED, DCP, and DCB', () {
     _expectCleanTimetableCsv(
-      path:
-          'demo_data/clean_no_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv',
+      path: 'demo_data/clean_no_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv',
       allowedPrograms: {'DED', 'DCP', 'DCB'},
       minimumRows: 30,
     );
@@ -369,5 +425,42 @@ void main() {
       allowedPrograms: {'DGS'},
       minimumRows: 10,
     );
+  });
+
+  test('Elektrik conflict demo CSV has only the intended conflicts', () {
+    const path = 'demo_data/demo_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv';
+    final content = File(path).readAsStringSync();
+    final result = const TimetableImportService().parseAndValidate(content);
+
+    expect(result.validationErrors, isEmpty, reason: path);
+    expect(result.errorRows, 0, reason: path);
+    expect(result.duplicateRows, 0, reason: path);
+    expect(result.parsedRows.length, 30, reason: path);
+
+    final lecturerEmails = mock.users.map((user) => user.email).toSet();
+    final rooms = {
+      for (final room in mock.roomResources)
+        room.name.replaceAll(RegExp(r'[/\\.]'), '_'),
+    };
+    final classes = {for (final item in mock.demoClasses) item.classId: item};
+    final drafts = result.parsedRows.map((row) => row.draft!).toList();
+
+    for (final draft in drafts) {
+      expect({'DED', 'DCP', 'DCB'}, contains(draft.programId), reason: path);
+      expect(draft.academicSessionId, 'JAN_JUN_2026', reason: path);
+      expect(lecturerEmails, contains(draft.lecturerEmail),
+          reason: draft.lecturerEmail);
+      expect(rooms, contains(draft.roomId), reason: draft.roomId);
+      expect(classes, contains(draft.classId), reason: draft.classId);
+      expect(classes[draft.classId]!.programId, draft.programId,
+          reason: draft.classId);
+    }
+
+    final conflicts = _countCsvConflicts(drafts);
+    expect(conflicts.room, 0, reason: 'No room conflict should be present.');
+    expect(conflicts.lecturer, 1,
+        reason: 'Only rows 4 and 5 should create a lecturer conflict.');
+    expect(conflicts.classConflict, 1,
+        reason: 'Only rows 2 and 3 should create a class conflict.');
   });
 }

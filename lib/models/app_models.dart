@@ -447,6 +447,10 @@ class TimetableSlot {
     required this.slotType,
     required this.status,
     this.sourceUploadId,
+    this.importStatus,
+    this.isOfficial = true,
+    this.hasConflict = false,
+    this.conflictTypes = const [],
     this.createdBy,
     this.createdAt,
     this.updatedAt,
@@ -485,11 +489,22 @@ class TimetableSlot {
   final String slotType;
   final String status;
   final String? sourceUploadId;
+  final String? importStatus;
+  final bool isOfficial;
+  final bool hasConflict;
+  final List<String> conflictTypes;
   final String? createdBy;
   final String? createdAt;
   final String? updatedAt;
 
-  TimetableSlot copyWith({String? status, String? slotType}) {
+  TimetableSlot copyWith({
+    String? status,
+    String? slotType,
+    String? importStatus,
+    bool? isOfficial,
+    bool? hasConflict,
+    List<String>? conflictTypes,
+  }) {
     return TimetableSlot(
       id: id,
       timetableSlotId: timetableSlotId,
@@ -524,6 +539,10 @@ class TimetableSlot {
       slotType: slotType ?? this.slotType,
       status: status ?? this.status,
       sourceUploadId: sourceUploadId,
+      importStatus: importStatus ?? this.importStatus,
+      isOfficial: isOfficial ?? this.isOfficial,
+      hasConflict: hasConflict ?? this.hasConflict,
+      conflictTypes: conflictTypes ?? this.conflictTypes,
       createdBy: createdBy,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -540,12 +559,17 @@ class TimetableUploadRecord {
     required this.uploadedByName,
     required this.uploadedAt,
     required this.status,
+    this.savedAs,
     required this.totalRows,
     required this.successRows,
     required this.skippedRows,
     required this.duplicateRows,
     required this.errorRows,
     required this.warningRows,
+    this.conflictRows = 0,
+    this.roomConflicts = 0,
+    this.lecturerConflicts = 0,
+    this.classConflicts = 0,
     required this.validationErrors,
     required this.validationWarnings,
   });
@@ -557,12 +581,17 @@ class TimetableUploadRecord {
   final String uploadedByName;
   final String uploadedAt;
   final String status;
+  final String? savedAs;
   final int totalRows;
   final int successRows;
   final int skippedRows;
   final int duplicateRows;
   final int errorRows;
   final int warningRows;
+  final int conflictRows;
+  final int roomConflicts;
+  final int lecturerConflicts;
+  final int classConflicts;
   final List<String> validationErrors;
   final List<String> validationWarnings;
 }

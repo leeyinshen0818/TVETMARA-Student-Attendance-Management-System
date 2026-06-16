@@ -60,6 +60,10 @@ class UserTimetableService {
       slotType: d['slotType'] as String? ?? 'Kelas Biasa',
       status: d['status'] as String? ?? 'draft',
       sourceUploadId: d['sourceUploadId'] as String?,
+      importStatus: d['importStatus'] as String?,
+      isOfficial: d['isOfficial'] as bool? ?? true,
+      hasConflict: d['hasConflict'] as bool? ?? false,
+      conflictTypes: List<String>.from(d['conflictTypes'] as List? ?? const []),
       createdBy: d['createdBy'] as String?,
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
@@ -134,7 +138,9 @@ class UserTimetableService {
             .map((snapshot) {
           return snapshot.docs
               .map((doc) => _docToSlot(doc))
-              .where((slot) => _matchesLecturerIdentity(slot, currentUser))
+              .where((slot) =>
+                  slot.isOfficial &&
+                  _matchesLecturerIdentity(slot, currentUser))
               .toList();
         });
 
@@ -226,6 +232,7 @@ class UserTimetableService {
         final sameSession = slot.academicSessionId == academicSessionId ||
             slot.session == academicSessionId;
         if (!sameSession) return false;
+        if (!slot.isOfficial) return false;
         return _matchesLecturerFields(
           slot,
           lecturerId: lecturerId,

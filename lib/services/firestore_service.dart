@@ -154,6 +154,29 @@ class FirestoreService {
     }
   }
 
+  Future<void> publishTimetableSlots(
+    List<String> slotIds, {
+    required AppUser publishedBy,
+  }) async {
+    for (final chunk in _chunks(slotIds, 450)) {
+      final batch = _db.batch();
+      for (final slotId in chunk) {
+        batch.update(_timetableCol.doc(slotId), {
+          'status': 'active',
+          'importStatus': 'official',
+          'isOfficial': true,
+          'hasConflict': false,
+          'conflictTypes': <String>[],
+          'publishedBy': publishedBy.uid,
+          'publishedByName': publishedBy.name,
+          'publishedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> deleteTimetableSlot(String slotId) async {
     await _timetableCol.doc(slotId).delete();
   }
@@ -993,6 +1016,10 @@ class FirestoreService {
       slotType: d['slotType'] as String? ?? 'Kelas Biasa',
       status: d['status'] as String? ?? 'draft',
       sourceUploadId: d['sourceUploadId'] as String?,
+      importStatus: d['importStatus'] as String?,
+      isOfficial: d['isOfficial'] as bool? ?? true,
+      hasConflict: d['hasConflict'] as bool? ?? false,
+      conflictTypes: List<String>.from(d['conflictTypes'] as List? ?? const []),
       createdBy: d['createdBy'] as String?,
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
@@ -1010,12 +1037,17 @@ class FirestoreService {
       uploadedByName: d['uploadedByName'] as String? ?? '-',
       uploadedAt: _readTimestamp(d['uploadedAt']) ?? '-',
       status: d['status'] as String? ?? 'unknown',
+      savedAs: d['savedAs'] as String?,
       totalRows: d['totalRows'] as int? ?? 0,
       successRows: d['successRows'] as int? ?? 0,
       skippedRows: d['skippedRows'] as int? ?? 0,
       duplicateRows: d['duplicateRows'] as int? ?? 0,
       errorRows: d['errorRows'] as int? ?? 0,
       warningRows: d['warningRows'] as int? ?? 0,
+      conflictRows: d['conflictRows'] as int? ?? 0,
+      roomConflicts: d['roomConflicts'] as int? ?? 0,
+      lecturerConflicts: d['lecturerConflicts'] as int? ?? 0,
+      classConflicts: d['classConflicts'] as int? ?? 0,
       validationErrors:
           List<String>.from(d['validationErrors'] as List? ?? const []),
       validationWarnings:
@@ -1210,6 +1242,10 @@ class FirestoreService {
       'weekEnd': slot.weekEnd ?? slot.date,
       'status': slot.status,
       'sourceUploadId': slot.sourceUploadId,
+      'importStatus': slot.importStatus,
+      'isOfficial': slot.isOfficial,
+      'hasConflict': slot.hasConflict,
+      'conflictTypes': slot.conflictTypes,
       'createdBy': slot.createdBy,
       'updatedAt': FieldValue.serverTimestamp(),
 
@@ -1283,7 +1319,9 @@ class FirestoreService {
   List<AttendanceEditEntry> _readAttendanceEditHistory(Object? value) {
     final items = value is List ? value : const [];
     return items.whereType<Map>().map((item) {
-      final changes = (item['changes'] is List ? item['changes'] as List : const [])
+      final changes = (item['changes'] is List
+              ? item['changes'] as List
+              : const [])
           .whereType<Map>()
           .map((change) => AttendanceEditChange(
                 studentId: change['studentId'] as String? ?? '',
@@ -1363,8 +1401,7 @@ class FirestoreService {
         'isExempt': record.isExempt,
         'createdBy': record.createdBy,
         if (record.updatedBy != null) 'updatedBy': record.updatedBy,
-        if (record.updatedByName != null)
-          'updatedByName': record.updatedByName,
+        if (record.updatedByName != null) 'updatedByName': record.updatedByName,
         if (record.editReason != null) 'editReason': record.editReason,
         if (record.originalStatus != null)
           'originalStatus': record.originalStatus!.name,

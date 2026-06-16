@@ -5,11 +5,14 @@ import '../models/app_models.dart';
 import '../models/timetable_import_result.dart';
 import '../models/timetable_import_write_result.dart';
 import '../models/timetable_master_validation_result.dart';
+import '../models/timetable_preview_conflict.dart';
 import '../services/timetable_firestore_import_service.dart';
 import '../services/timetable_import_service.dart';
 import '../services/timetable_file_io.dart';
 import '../services/timetable_master_validation_service.dart';
+import '../services/timetable_preview_conflict_service.dart';
 import '../services/timetable_view_export_service.dart';
+import '../services/timetable_xlsx_export_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
@@ -50,6 +53,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
   ];
 
   TimetableMasterValidationResult? _previewResult;
+  TimetablePreviewConflictSummary _previewConflicts =
+      const TimetablePreviewConflictSummary.empty();
   String? _previewFileName;
   String? _importError;
   TimetableImportWriteResult? _lastImportResult;
@@ -150,7 +155,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             programOptions: generatorPrograms,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         _SectionTabs(
           selectedIndex: _selectedSection,
           onChanged: (index) => setState(() => _selectedSection = index),
@@ -211,6 +216,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             onEdit: (slot) => _showEditDialog(state, slot),
             onConflictEdit: (slot) =>
                 _showEditDialog(state, slot, conflictContext: true),
+            onPublishDraft: (slot) => _confirmPublishDraft(state, slot),
             onDelete: (slot) => _confirmDelete(state, slot),
           )
         else if (_selectedSection == 1)
@@ -219,13 +225,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
             processingImport: _processingImport,
             importError: _importError,
             previewResult: _previewResult,
+            previewConflicts: _previewConflicts,
             previewFileName: _previewFileName,
             lastImportResult: _lastImportResult,
             importing: _importing,
             canImportPreview: _canImportPreview,
+            canSaveDraftPreview: _canSaveDraftPreview,
             onPickFile: () => _pickAndPreviewFile(state),
             onDownloadTemplate: () => _downloadTemplate(state, selectedSession),
             onClearPreview: _clearPreview,
+            onSaveDraftPreview: () => _confirmAndImportPreview(
+              state,
+              saveMode: TimetableImportSaveMode.draft,
+            ),
             onImportPreview: () => _confirmAndImportPreview(state),
             onViewOfficialTimetable: () => setState(() => _selectedSection = 0),
           )
@@ -276,7 +288,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
         if (!haystack.contains(query)) return false;
       }
       if (_dayFilter != null && slot.day != _dayFilter) return false;
-      if (_statusFilter != null && slot.status != _statusFilter) return false;
+      if (_statusFilter != null) {
+        if (_statusFilter == 'conflict_pending') {
+          if (!slot.hasConflict && slot.importStatus != 'conflict_pending') {
+            return false;
+          }
+        } else if (slot.status != _statusFilter) {
+          return false;
+        }
+      }
       if (_programFilter != null && _slotProgramValue(slot) != _programFilter) {
         return false;
       }
@@ -432,12 +452,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return !_processingImport &&
         !_importing &&
         result != null &&
-        result.importableRows > 0;
+        result.importableRows > 0 &&
+        result.canImport &&
+        !_previewConflicts.hasConflicts;
+  }
+
+  bool get _canSaveDraftPreview {
+    final result = _previewResult;
+    return !_processingImport &&
+        !_importing &&
+        result != null &&
+        result.importableRows > 0 &&
+        result.canImport;
   }
 
   void _clearPreview() {
     setState(() {
       _previewResult = null;
+      _previewConflicts = const TimetablePreviewConflictSummary.empty();
       _previewFileName = null;
       _importError = null;
       _lastImportResult = null;
@@ -457,6 +489,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setState(() {
         _previewResult = null;
+        _previewConflicts = const TimetablePreviewConflictSummary.empty();
         _previewFileName = file.name;
         _importError =
             'Hanya fail CSV disokong. Simpan fail Excel sebagai .csv dahulu.';
@@ -469,6 +502,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       setState(() {
         _processingImport = true;
         _previewResult = null;
+        _previewConflicts = const TimetablePreviewConflictSummary.empty();
         _previewFileName = file.name;
         _importError = null;
         _lastImportResult = null;
@@ -488,8 +522,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
         preview,
         _activeAcademicSession(state),
       );
+      final conflicts = const TimetablePreviewConflictService().detect(
+        preview: validatedPreview,
+        existingSlots: state.scopedTimetable,
+      );
       setState(() {
         _previewResult = validatedPreview;
+        _previewConflicts = conflicts;
         _previewFileName = file.name;
         _importError = validatedPreview.validationErrors.isEmpty
             ? null
@@ -498,6 +537,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     } catch (e) {
       setState(() {
         _previewResult = null;
+        _previewConflicts = const TimetablePreviewConflictSummary.empty();
         _previewFileName = file.name;
         _importError = e.toString().replaceFirst('Exception: ', '');
         _lastImportResult = null;
@@ -547,7 +587,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  Future<void> _confirmAndImportPreview(AppState state) async {
+  Future<void> _confirmAndImportPreview(
+    AppState state, {
+    TimetableImportSaveMode saveMode = TimetableImportSaveMode.official,
+  }) async {
     final preview = _previewResult;
     final user = state.currentUser;
     if (preview == null) return;
@@ -559,13 +602,33 @@ class _TimetableScreenState extends State<TimetableScreen> {
       setState(() => _importError = 'Tiada baris layak untuk diimport.');
       return;
     }
+    if (!preview.canImport) {
+      setState(
+        () => _importError = 'Ralat kritikal perlu dibetulkan dahulu.',
+      );
+      return;
+    }
+    if (saveMode == TimetableImportSaveMode.official &&
+        _previewConflicts.hasConflicts) {
+      setState(
+        () => _importError =
+            'Konflik perlu diselesaikan sebelum jadual boleh diterbitkan sebagai rasmi.',
+      );
+      return;
+    }
+
+    final isDraft = saveMode == TimetableImportSaveMode.draft;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Import baris jadual yang layak?'),
+        title: Text(
+          isDraft
+              ? 'Simpan jadual sebagai draf?'
+              : 'Import sebagai jadual rasmi?',
+        ),
         content: Text(
-          '${preview.importableRows} baris akan diimport. '
+          '${preview.importableRows} baris akan ${isDraft ? 'disimpan sebagai draf' : 'diterbitkan sebagai jadual rasmi'}. '
           '${preview.warningRows} baris mempunyai amaran tidak menghalang. '
           '${preview.duplicateRows} pendua dan ${preview.errorRows} ralat akan dilangkau.',
         ),
@@ -576,7 +639,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Import Baris Layak'),
+            child: Text(
+              isDraft ? 'Simpan Sebagai Draf' : 'Import Sebagai Jadual Rasmi',
+            ),
           ),
         ],
       ),
@@ -594,17 +659,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
         preview: preview,
         fileName: _previewFileName ?? 'jadual.csv',
         uploadedBy: user,
+        saveMode: saveMode,
+        conflictSummary: _previewConflicts,
       );
       await state.refreshTimetableData();
       if (!mounted) return;
       setState(() {
         _lastImportResult = result;
         _previewResult = null;
+        _previewConflicts = const TimetablePreviewConflictSummary.empty();
         _previewFileName = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${result.slotsCreated} slot jadual berjaya diimport.'),
+          content: Text(
+            isDraft
+                ? '${result.slotsCreated} slot jadual disimpan sebagai draf.'
+                : '${result.slotsCreated} slot jadual berjaya diterbitkan.',
+          ),
         ),
       );
     } catch (e) {
@@ -651,27 +723,69 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  void _exportTimetable(
-    List<TimetableSlot> timetable, {
-    String? filename,
-  }) {
-    final rows = [
-      _legacyExportColumns,
-      ...timetable.map((slot) => _slotToRow(slot)),
-    ];
-    downloadTextFile(
-      filename: filename ??
-          'eksport_jadual_${DateTime.now().millisecondsSinceEpoch}.csv',
-      content: _toCsv(rows),
+  void _exportTimetable(List<TimetableSlot> timetable) {
+    final state = AppScope.of(context);
+    final user = state.currentUser!;
+    final isProgramScope = user.role == UserRole.ketua_program;
+
+    // Build scope title
+    final scopeTitle = isProgramScope
+        ? 'Program ${user.programId ?? 'Unknown'}'
+        : state.departments
+                .where((d) => d.id == user.departmentId)
+                .firstOrNull
+                ?.name ??
+            user.departmentId ??
+            'Jabatan';
+
+    // Build scoped program IDs list
+    final scopeProgramIds =
+        state.scopedPrograms.map((p) => p.id).toList()..sort();
+
+    // Build role label
+    final roleLabel = isProgramScope
+        ? 'KP ${user.programId ?? ''}'
+        : 'KJ ${state.departments.where((d) => d.id == user.departmentId).firstOrNull?.name ?? user.departmentId ?? ''}';
+
+    final selectedSession = _activeAcademicSession(state);
+
+    final params = TimetableXlsxExportParams(
+      slots: timetable,
+      academicSessionId: selectedSession,
+      scopeTitle: scopeTitle,
+      scopeProgramIds: scopeProgramIds,
+      generatedByName: user.name,
+      generatedByRole: roleLabel,
+      generatedAt: DateTime.now(),
+      filterProgram: _programFilter,
+      filterClass: _classFilter,
+      filterLecturer: _lecturerFilter,
+      filterRoom: _roomFilter,
+      filterDay: _dayFilter,
+      filterStatus: _statusFilter,
+    );
+
+    final bytes = buildTimetableXlsx(params);
+    if (bytes.isEmpty) return;
+
+    downloadBinaryFile(
+      filename: buildExportFilename(params),
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
   }
 
   void _exportSelected(List<TimetableSlot> visibleSlots) {
     final selected = _selectedVisibleSlots(visibleSlots);
     if (selected.isEmpty) return;
-    _exportTimetable(
-      selected,
+    final rows = [
+      _legacyExportColumns,
+      ...selected.map((slot) => _slotToRow(slot)),
+    ];
+    downloadTextFile(
       filename: 'jadual_selected_${_dateStamp()}.csv',
+      content: _toCsv(rows),
     );
   }
 
@@ -779,6 +893,173 @@ class _TimetableScreenState extends State<TimetableScreen> {
     } finally {
       if (mounted) setState(() => _batchProcessing = false);
     }
+  }
+
+  Future<void> _confirmPublishDraft(
+    AppState state,
+    TimetableSlot triggerSlot,
+  ) async {
+    final user = state.currentUser;
+    if (user == null) return;
+    if (!_isDraftSlot(triggerSlot)) {
+      setState(() => _importError = 'Slot ini bukan draf.');
+      return;
+    }
+
+    final draftSlots = _draftPublishBatch(state, triggerSlot);
+    final conflicts = _draftPublishConflicts(state, draftSlots);
+    if (conflicts.hasConflicts) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Draf Masih Berkonflik'),
+          content: Text(
+            'Draf masih mempunyai konflik. Sila selesaikan konflik sebelum diterbitkan.\n\n'
+            'Konflik Bilik: ${conflicts.roomConflicts}\n'
+            'Konflik Pensyarah: ${conflicts.lecturerConflicts}\n'
+            'Konflik Kelas: ${conflicts.classConflicts}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Terbitkan Draf?'),
+        content: Text(
+          '${draftSlots.length} slot draf akan diterbitkan sebagai jadual rasmi.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Terbitkan Draf'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _batchProcessing = true);
+    try {
+      await state.publishTimetableSlots(draftSlots);
+      _clearSelection();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${draftSlots.length} slot diterbitkan sebagai rasmi.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _importError = e.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _batchProcessing = false);
+    }
+  }
+
+  List<TimetableSlot> _draftPublishBatch(
+    AppState state,
+    TimetableSlot triggerSlot,
+  ) {
+    final sourceUploadId = triggerSlot.sourceUploadId?.trim();
+    final scopedSessionSlots = _sessionTimetable(
+      state.scopedTimetable,
+      triggerSlot.academicSessionId ?? triggerSlot.session,
+    );
+    if (sourceUploadId == null || sourceUploadId.isEmpty) {
+      return [triggerSlot];
+    }
+    final batch = scopedSessionSlots
+        .where((slot) =>
+            _isDraftSlot(slot) && slot.sourceUploadId == sourceUploadId)
+        .toList();
+    return batch.isEmpty ? [triggerSlot] : batch;
+  }
+
+  TimetablePreviewConflictSummary _draftPublishConflicts(
+    AppState state,
+    List<TimetableSlot> draftSlots,
+  ) {
+    final previewRows = [
+      for (var i = 0; i < draftSlots.length; i++)
+        _previewRowFromDraftSlot(draftSlots[i], i + 2),
+    ];
+    final preview = TimetableMasterValidationResult(
+      totalRows: previewRows.length,
+      validRows: previewRows.length,
+      warningRows: 0,
+      duplicateRows: 0,
+      errorRows: 0,
+      subjectUpsertDrafts: const [],
+      classCreateDrafts: const [],
+      previewRows: previewRows,
+      validationErrors: const [],
+      validationWarnings: const [],
+    );
+    final draftIds = draftSlots.map((slot) => slot.id).toSet();
+    final existingOfficialSlots = state.scopedTimetable
+        .where((slot) => !draftIds.contains(slot.id) && slot.isOfficial)
+        .toList();
+    return const TimetablePreviewConflictService().detect(
+      preview: preview,
+      existingSlots: existingOfficialSlots,
+    );
+  }
+
+  TimetablePreviewRow _previewRowFromDraftSlot(TimetableSlot slot, int row) {
+    final draft = TimetablePreviewSlotDraft(
+      academicSessionId: slot.academicSessionId ?? slot.session,
+      programId: slot.programId ?? _shortProgramLabel(slot.program),
+      programName: slot.program,
+      departmentId: slot.departmentId,
+      classId: slot.classId ?? slot.section,
+      subjectId: slot.subjectId ?? '',
+      subjectCode: slot.subjectCode,
+      subjectName: slot.subjectName,
+      lecturerId: slot.lecturerId,
+      lecturerEmail: slot.lecturerEmail ?? '',
+      lecturerName: slot.lecturerName,
+      lecturerProfileId: slot.lecturerProfileId,
+      roomId: slot.roomId ?? slot.room,
+      roomName: slot.roomName ?? slot.room,
+      dayOfWeek: slot.dayOfWeek ?? slot.day,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      weekStart: int.tryParse(slot.weekStart ?? slot.date) ?? 1,
+      weekEnd: int.tryParse(slot.weekEnd ?? slot.date) ??
+          (int.tryParse(slot.weekStart ?? slot.date) ?? 1),
+      status: 'active',
+      remarks: null,
+    );
+    return TimetablePreviewRow(
+      rowNumber: row,
+      status: TimetableImportRowStatus.valid,
+      errors: const [],
+      warnings: const [],
+      slotDraft: draft,
+      sourceRow: TimetableImportParsedRow(
+        rowNumber: row,
+        rawData: const {},
+        draft: null,
+        status: TimetableImportRowStatus.valid,
+        errors: const [],
+        warnings: const [],
+      ),
+    );
   }
 
   void _toggleSelectAllVisible(List<TimetableSlot> visibleSlots) {
@@ -2095,19 +2376,44 @@ class _ClassTimetableSecondaryAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      title: 'Jana / Eksport Jadual Kelas',
-      subtitle:
-          'Alat sokongan untuk menghasilkan jadual mingguan satu kelas. Pengurusan rasmi jadual kekal di bahagian bawah.',
-      trailing: OutlinedButton.icon(
-        onPressed: enabled ? onOpen : null,
-        icon: const Icon(Icons.view_week_outlined),
-        label: const Text('Jana / Eksport Jadual Kelas'),
-      ),
-      child: const Text(
-        'Pilih tindakan ini apabila jadual kelas perlu dikongsi kepada pelajar. Muat naik, konflik, edit dan tindakan batch kekal dalam paparan Jadual Rasmi.',
-        style: TextStyle(color: Color(0xff64748b)),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth - 28;
+        final introWidth =
+            available < 720 ? available : (available - 220).clamp(360.0, 680.0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xfff8fafc),
+            border: Border.all(color: const Color(0xffe2e8f0)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                SizedBox(
+                  width: introWidth,
+                  child: const _SectionIntro(
+                    icon: Icons.view_week_outlined,
+                    title: 'Jana / Eksport Jadual Kelas',
+                    subtitle:
+                        'Alat sokongan untuk menjana jadual mingguan satu kelas. Pengurusan rasmi jadual kekal di bahagian Jadual Rasmi.',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: enabled ? onOpen : null,
+                  icon: const Icon(Icons.view_week_outlined),
+                  label: const Text('Jana / Eksport Jadual Kelas'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2135,37 +2441,104 @@ class _HeaderActionBar extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FilledButton.icon(
-              onPressed: onUpload,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Muat Naik Jadual'),
+            const _SectionIntro(
+              icon: Icons.fact_check_outlined,
+              title: 'Tindakan Utama Jadual',
+              subtitle:
+                  'Gunakan tindakan ini untuk memuat naik, mengeksport, atau menambah slot rasmi bagi sesi akademik dipilih.',
             ),
-            Tooltip(
-              message:
-                  'Mengeksport jadual yang sedang dipaparkan berdasarkan penapis semasa.',
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xff1d4ed8),
-                  side: const BorderSide(color: Color(0xff1d4ed8)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: onUpload,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Muat Naik Jadual'),
                 ),
-                onPressed: hasTimetable ? onExport : null,
-                icon: const Icon(Icons.ios_share),
-                label: const Text('Eksport Paparan Semasa'),
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: onAddManual,
-              icon: const Icon(Icons.add),
-              label: const Text('Tambah Slot Manual'),
+                Tooltip(
+                  message:
+                      'Mengeksport jadual yang sedang dipaparkan berdasarkan penapis semasa.',
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xff1d4ed8),
+                      side: const BorderSide(color: Color(0xff1d4ed8)),
+                    ),
+                    onPressed: hasTimetable ? onExport : null,
+                    icon: const Icon(Icons.ios_share),
+                    label: const Text('Eksport Paparan Semasa'),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onAddManual,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Slot Manual'),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SectionIntro extends StatelessWidget {
+  const _SectionIntro({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xffeff6ff),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xff1d4ed8), size: 20),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xff0f172a),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Color(0xff64748b),
+                  fontSize: 12,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2357,6 +2730,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.onDetails,
     required this.onEdit,
     required this.onConflictEdit,
+    required this.onPublishDraft,
     required this.onDelete,
   });
 
@@ -2392,6 +2766,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final void Function(TimetableSlot slot) onDetails;
   final void Function(TimetableSlot slot) onEdit;
   final void Function(TimetableSlot slot) onConflictEdit;
+  final void Function(TimetableSlot slot) onPublishDraft;
   final void Function(TimetableSlot slot) onDelete;
 
   @override
@@ -2406,11 +2781,16 @@ class _OfficialTimetableSection extends StatelessWidget {
 
     return AppPanel(
       title: 'Jadual Rasmi',
-      subtitle:
-          '${slots.length} daripada ${allSlots.length} slot dipaparkan untuk $selectedAcademicSession.',
+      subtitle: 'Senarai slot jadual rasmi untuk sesi akademik dipilih.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _OfficialTimetableStatus(
+            visibleCount: slots.length,
+            totalCount: allSlots.length,
+            selectedAcademicSession: selectedAcademicSession,
+          ),
+          const SizedBox(height: 16),
           _TimetableFilters(
             slots: allSlots,
             searchCtrl: searchCtrl,
@@ -2476,6 +2856,7 @@ class _OfficialTimetableSection extends StatelessWidget {
               onSelectionChanged: onSelectionChanged,
               onDetails: onDetails,
               onEdit: onEdit,
+              onPublishDraft: onPublishDraft,
               onDelete: onDelete,
             )
           else if (selectedViewMode == _TimetableViewMode.weekly)
@@ -2503,6 +2884,57 @@ class _OfficialTimetableSection extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _OfficialTimetableStatus extends StatelessWidget {
+  const _OfficialTimetableStatus({
+    required this.visibleCount,
+    required this.totalCount,
+    required this.selectedAcademicSession,
+  });
+
+  final int visibleCount;
+  final int totalCount;
+  final String selectedAcademicSession;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth - 24;
+        final introWidth =
+            available < 680 ? available : (available - 330).clamp(360.0, 720.0);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xfff8fafc),
+            border: Border.all(color: const Color(0xffe2e8f0)),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: introWidth,
+                  child: const _SectionIntro(
+                    icon: Icons.table_chart_outlined,
+                    title: 'Ruang Kerja Jadual Rasmi',
+                    subtitle:
+                        'Penapis, semakan konflik, paparan jadual dan tindakan batch dikumpulkan di sini.',
+                  ),
+                ),
+                StatusChip('$visibleCount / $totalCount slot dipaparkan'),
+                StatusChip(selectedAcademicSession),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -2759,7 +3191,10 @@ class _TimetableFilters extends StatelessWidget {
       'Sabtu',
       'Ahad',
     ];
-    final statuses = _distinct(slots.map((slot) => slot.status));
+    final statuses = [
+      ..._distinct(slots.map((slot) => slot.status)),
+      if (slots.any((slot) => slot.hasConflict)) 'conflict_pending',
+    ];
     final programs = _distinct(programContext.map(_slotProgramValue));
     final classes = _distinct(classContext.map(_slotClassValue));
     final lecturers =
@@ -4058,13 +4493,16 @@ class _UploadWorkflowSection extends StatelessWidget {
     required this.processingImport,
     required this.importError,
     required this.previewResult,
+    required this.previewConflicts,
     required this.previewFileName,
     required this.lastImportResult,
     required this.importing,
     required this.canImportPreview,
+    required this.canSaveDraftPreview,
     required this.onPickFile,
     required this.onDownloadTemplate,
     required this.onClearPreview,
+    required this.onSaveDraftPreview,
     required this.onImportPreview,
     required this.onViewOfficialTimetable,
   });
@@ -4073,13 +4511,16 @@ class _UploadWorkflowSection extends StatelessWidget {
   final bool processingImport;
   final String? importError;
   final TimetableMasterValidationResult? previewResult;
+  final TimetablePreviewConflictSummary previewConflicts;
   final String? previewFileName;
   final TimetableImportWriteResult? lastImportResult;
   final bool importing;
   final bool canImportPreview;
+  final bool canSaveDraftPreview;
   final VoidCallback onPickFile;
   final VoidCallback onDownloadTemplate;
   final VoidCallback onClearPreview;
+  final VoidCallback onSaveDraftPreview;
   final VoidCallback onImportPreview;
   final VoidCallback onViewOfficialTimetable;
 
@@ -4088,21 +4529,22 @@ class _UploadWorkflowSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppPanel(
-          title: 'Muat Naik Jadual CSV',
+        _UploadStepCard(
+          stepNumber: 1,
+          title: 'Muat Naik Fail CSV',
           subtitle:
-              'Sediakan jadual dalam Excel, kemudian eksport sebagai CSV sebelum dimuat naik.',
+              'Muat naik fail CSV jadual rasmi mengikut format yang ditetapkan.',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _SelectedFileStatus(fileName: previewFileName),
+              const SizedBox(height: 12),
               _UploadActions(
                 processingImport: processingImport,
                 onDownloadTemplate: onDownloadTemplate,
                 onPickFile: onPickFile,
               ),
-              const SizedBox(height: 16),
-              const _UploadSteps(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _TemplateHelper(selectedAcademicSession: selectedAcademicSession),
             ],
           ),
@@ -4135,59 +4577,197 @@ class _UploadWorkflowSection extends StatelessWidget {
           ),
         ],
         if (previewResult != null) ...[
-          _PreviewSummary(result: previewResult!),
+          _PreviewSummary(
+            result: previewResult!,
+            conflicts: previewConflicts,
+          ),
           const SizedBox(height: 16),
-          AppPanel(
-            title: 'Pratonton CSV',
+          _ValidationIssuePanel(
+            result: previewResult!,
+            conflicts: previewConflicts,
+          ),
+          const SizedBox(height: 16),
+          _UploadStepCard(
+            stepNumber: 3,
+            title: 'Senarai Isu Validasi',
             subtitle:
-                '${previewResult!.totalRows} baris daripada ${previewFileName ?? 'fail dipilih'}',
-            trailing: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: processingImport ? null : onClearPreview,
-                  icon: const Icon(Icons.close),
-                  label: const Text('Reset Pratonton'),
-                ),
-                FilledButton.icon(
-                  onPressed: canImportPreview ? onImportPreview : null,
-                  icon: importing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.cloud_upload_outlined),
-                  label: Text(
-                    importing ? 'Mengimport...' : 'Import Baris Layak',
-                  ),
-                ),
-              ],
+                'Semak baris ralat, amaran, pendua dan luar skop sebelum import.',
+            child: _ValidationIssueList(
+              result: previewResult!,
+              conflicts: previewConflicts,
             ),
+          ),
+          const SizedBox(height: 16),
+          _UploadStepCard(
+            stepNumber: 4,
+            title: 'Import Jadual',
+            subtitle:
+                'Import hanya baris yang layak. Baris ralat, pendua atau luar skop tidak akan dimasukkan sebagai slot rasmi.',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (previewResult!.validationWarnings.isNotEmpty) ...[
-                  _MessageList(
-                    title: 'Amaran Fail',
-                    messages: previewResult!.validationWarnings,
-                    color: const Color(0xff92400e),
+                _ImportActionPanel(
+                  result: previewResult!,
+                  conflicts: previewConflicts,
+                  importing: importing,
+                  canImportPreview: canImportPreview,
+                  canSaveDraftPreview: canSaveDraftPreview,
+                  onClearPreview: onClearPreview,
+                  onSaveDraftPreview: onSaveDraftPreview,
+                  onImportPreview: onImportPreview,
+                ),
+                const SizedBox(height: 16),
+                AppPanel(
+                  title: 'Pratonton CSV',
+                  subtitle:
+                      '${previewResult!.totalRows} baris daripada ${previewFileName ?? 'fail dipilih'}',
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 430),
+                    child: SingleChildScrollView(
+                      child: _PreviewTable(rows: previewResult!.previewRows),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                ],
-                _PreviewTable(rows: previewResult!.previewRows),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
         ],
         if (lastImportResult != null)
-          _ImportSuccessPanel(
-            result: lastImportResult!,
-            onViewOfficialTimetable: onViewOfficialTimetable,
+          _UploadStepCard(
+            stepNumber: 5,
+            title: 'Keputusan Import',
+            subtitle:
+                'Semak ringkasan import sebelum kembali ke Jadual Rasmi atau Sejarah Import.',
+            child: _ImportSuccessPanel(
+              result: lastImportResult!,
+              onViewOfficialTimetable: onViewOfficialTimetable,
+            ),
           ),
       ],
+    );
+  }
+}
+
+class _UploadStepCard extends StatelessWidget {
+  const _UploadStepCard({
+    required this.stepNumber,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final int stepNumber;
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xffffffff),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xff1d4ed8),
+                  child: Text(
+                    '$stepNumber',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Color(0xff0f172a),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Color(0xff64748b),
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedFileStatus extends StatelessWidget {
+  const _SelectedFileStatus({required this.fileName});
+
+  final String? fileName;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFile = fileName?.trim().isNotEmpty == true;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: hasFile ? const Color(0xffecfdf5) : const Color(0xfff8fafc),
+        border: Border.all(
+          color: hasFile ? const Color(0xffbbf7d0) : const Color(0xffe2e8f0),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(
+              hasFile ? Icons.description_outlined : Icons.upload_file_outlined,
+              color:
+                  hasFile ? const Color(0xff166534) : const Color(0xff64748b),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hasFile ? fileName! : 'Belum ada fail dipilih.',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasFile
+                      ? const Color(0xff166534)
+                      : const Color(0xff475569),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -4394,74 +4974,6 @@ class _UploadActions extends StatelessWidget {
   }
 }
 
-class _UploadSteps extends StatelessWidget {
-  const _UploadSteps();
-
-  @override
-  Widget build(BuildContext context) {
-    const steps = [
-      'Muat turun templat CSV.',
-      'Isi jadual dalam Excel.',
-      'Eksport sebagai CSV.',
-      'Muat naik fail dan semak pratonton.',
-      'Import baris layak.',
-    ];
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xffeff6ff),
-        border: Border.all(color: const Color(0xffbfdbfe)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Langkah muat naik',
-              style: TextStyle(
-                color: Color(0xff1e3a8a),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            for (var i = 0; i < steps.length; i++) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 11,
-                    backgroundColor: const Color(0xff1d4ed8),
-                    child: Text(
-                      '${i + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      steps[i],
-                      style: const TextStyle(
-                        color: Color(0xff1e3a8a),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (i != steps.length - 1) const SizedBox(height: 8),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _TemplateHelper extends StatelessWidget {
   const _TemplateHelper({required this.selectedAcademicSession});
 
@@ -4536,17 +5048,29 @@ class _InfoPill extends StatelessWidget {
 }
 
 class _PreviewSummary extends StatelessWidget {
-  const _PreviewSummary({required this.result});
+  const _PreviewSummary({
+    required this.result,
+    required this.conflicts,
+  });
 
   final TimetableMasterValidationResult result;
+  final TimetablePreviewConflictSummary conflicts;
 
   @override
   Widget build(BuildContext context) {
+    final hasCriticalErrors = !result.canImport;
+    final officialRows = !hasCriticalErrors && !conflicts.hasConflicts
+        ? result.importableRows
+        : 0;
+    final draftableRows = hasCriticalErrors ? 0 : result.importableRows;
+    final subtitle = hasCriticalErrors
+        ? 'Terdapat ralat kritikal. Sila betulkan format, skop atau data rujukan sebelum import.'
+        : conflicts.hasConflicts
+            ? 'Fail ini sah dari segi format dan skop, tetapi mempunyai konflik jadual. Anda boleh simpan sebagai draf untuk disemak.'
+            : 'Fail sah dan tiada konflik dikesan. Jadual boleh diterbitkan sebagai jadual rasmi.';
     return AppPanel(
-      title: 'Ringkasan Pratonton',
-      subtitle: result.canImport
-          ? 'Baris sah dan baris beramaran tidak menghalang boleh diimport.'
-          : 'Selesaikan ralat sebelum import dibuat.',
+      title: 'Pratonton & Validasi',
+      subtitle: subtitle,
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -4554,19 +5078,598 @@ class _PreviewSummary extends StatelessWidget {
           _SummaryTile(
               'Jumlah Baris', result.totalRows, const Color(0xff334155)),
           _SummaryTile('Sah', result.validRows, const Color(0xff166534)),
-          _SummaryTile('Amaran', result.warningRows, const Color(0xff92400e)),
-          _SummaryTile('Pendua', result.duplicateRows, const Color(0xff7c2d12)),
-          _SummaryTile('Ralat', result.errorRows, const Color(0xff991b1b)),
           _SummaryTile(
-              'Layak Import', result.importableRows, const Color(0xff0f766e)),
-          _SummaryTile('Subjek Baharu', result.subjectUpsertDraftsCount,
+              'Ralat Kritikal', result.errorRows, const Color(0xff991b1b)),
+          _SummaryTile('Konflik Bilik', conflicts.roomConflicts,
+              const Color(0xff7c2d12)),
+          _SummaryTile('Konflik Pensyarah', conflicts.lecturerConflicts,
+              const Color(0xff92400e)),
+          _SummaryTile('Konflik Kelas', conflicts.classConflicts,
+              const Color(0xff991b1b)),
+          _SummaryTile(
+              'Baris Boleh Draf', draftableRows, const Color(0xff0f766e)),
+          _SummaryTile('Baris Boleh Terbit Rasmi', officialRows,
               const Color(0xff1d4ed8)),
-          _SummaryTile('Kelas Baharu', result.classCreateDraftsCount,
-              const Color(0xff6d28d9)),
         ],
       ),
     );
   }
+}
+
+class _ValidationIssuePanel extends StatelessWidget {
+  const _ValidationIssuePanel({
+    required this.result,
+    required this.conflicts,
+  });
+
+  final TimetableMasterValidationResult result;
+  final TimetablePreviewConflictSummary conflicts;
+
+  @override
+  Widget build(BuildContext context) {
+    final outOfScopeRows = result.previewRows
+        .where((row) => row.errors.any(_isValidationScopeMessage))
+        .length;
+    if (outOfScopeRows > 0 && outOfScopeRows == result.previewRows.length) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xfffff1f2),
+          border: Border.all(color: const Color(0xfffecdd3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: _ValidationLegendChip(
+            icon: Icons.block_outlined,
+            label: 'Luar Skop',
+            description:
+                'Fail ini tidak boleh diimport oleh skop pengguna semasa',
+            color: const Color(0xffb91c1c),
+            count: outOfScopeRows,
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _ValidationLegendChip(
+              icon: Icons.check_circle_outline,
+              label: 'Sah',
+              description: 'Boleh diimport',
+              color: const Color(0xff166534),
+              count: result.validRows,
+            ),
+            _ValidationLegendChip(
+              icon: Icons.warning_amber_outlined,
+              label: 'Amaran',
+              description: 'Boleh diimport dengan perhatian',
+              color: const Color(0xff92400e),
+              count: result.warningRows,
+            ),
+            _ValidationLegendChip(
+              icon: Icons.error_outline,
+              label: 'Ralat',
+              description: 'Tidak akan diimport',
+              color: const Color(0xff991b1b),
+              count: result.errorRows,
+            ),
+            _ValidationLegendChip(
+              icon: Icons.content_copy_outlined,
+              label: 'Pendua',
+              description: 'Dilangkau',
+              color: const Color(0xff7c2d12),
+              count: result.duplicateRows,
+            ),
+            _ValidationLegendChip(
+              icon: Icons.warning_amber_outlined,
+              label: 'Konflik',
+              description: 'Boleh draf, tidak boleh rasmi',
+              color: const Color(0xffb45309),
+              count: conflicts.total,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ValidationLegendChip extends StatelessWidget {
+  const _ValidationLegendChip({
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.color,
+    required this.count,
+  });
+
+  final IconData icon;
+  final String label;
+  final String description;
+  final Color color;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 210,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$label: $count',
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xff475569),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValidationIssueList extends StatelessWidget {
+  const _ValidationIssueList({
+    required this.result,
+    required this.conflicts,
+  });
+
+  final TimetableMasterValidationResult result;
+  final TimetablePreviewConflictSummary conflicts;
+
+  @override
+  Widget build(BuildContext context) {
+    final critical = <_ValidationIssueEntry>[
+      for (final message in result.validationErrors)
+        if (!_isScopeMessage(message) && !_isMasterDataMessage(message))
+          _ValidationIssueEntry.file(message),
+      for (final row in result.previewRows)
+        for (final message in row.errors)
+          if (!_rowHasScopeError(row) &&
+              !_isScopeMessage(message) &&
+              !_isMasterDataMessage(message))
+            _ValidationIssueEntry.row(row.rowNumber, message),
+    ];
+    final scope = <_ValidationIssueEntry>[
+      for (final message in result.validationErrors)
+        if (_isScopeMessage(message)) _ValidationIssueEntry.file(message),
+      for (final message in result.validationWarnings)
+        if (_isScopeMessage(message)) _ValidationIssueEntry.file(message),
+      for (final row in result.previewRows)
+        for (final message in row.errors)
+          if (_isScopeMessage(message))
+            _ValidationIssueEntry.row(row.rowNumber, message),
+    ];
+    final masterData = <_ValidationIssueEntry>[
+      for (final row in result.previewRows)
+        for (final message in row.errors)
+          if (!_rowHasScopeError(row) && _isMasterDataMessage(message))
+            _ValidationIssueEntry.row(row.rowNumber, message),
+      for (final row in result.previewRows)
+        for (final message in row.warnings)
+          if (!_rowHasScopeError(row) && _isMasterDataMessage(message))
+            _ValidationIssueEntry.row(row.rowNumber, message),
+    ];
+    final warnings = <_ValidationIssueEntry>[
+      for (final message in result.validationWarnings)
+        if (!_isScopeMessage(message) && !_isMasterDataMessage(message))
+          _ValidationIssueEntry.file(message),
+      for (final row in result.previewRows)
+        for (final message in row.warnings)
+          if (!_rowHasScopeError(row) && !_isMasterDataMessage(message))
+            _ValidationIssueEntry.row(row.rowNumber, message),
+    ];
+    final duplicates = [
+      for (final row in result.previewRows)
+        if (!_rowHasScopeError(row) &&
+            row.status == TimetableImportRowStatus.duplicate)
+          _ValidationIssueEntry.row(
+            row.rowNumber,
+            'Baris ini pendua dan akan dilangkau semasa import.',
+          ),
+    ];
+    final conflictEntries = [
+      for (final conflict in conflicts.conflicts)
+        _ValidationIssueEntry.file(_conflictMessage(conflict)),
+    ];
+
+    final hasIssues = critical.isNotEmpty ||
+        warnings.isNotEmpty ||
+        scope.isNotEmpty ||
+        masterData.isNotEmpty ||
+        duplicates.isNotEmpty ||
+        conflictEntries.isNotEmpty;
+
+    if (!hasIssues) {
+      return const _EmptyState(
+        icon: Icons.verified_outlined,
+        title: 'Tiada ralat validasi dikesan.',
+        subtitle: 'Semua baris yang dipaparkan boleh diteruskan ke import.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (critical.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Ralat Kritikal',
+            emptyText: 'Tiada ralat kritikal.',
+            color: const Color(0xff991b1b),
+            entries: critical,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (scope.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Luar Skop',
+            emptyText: 'Tiada baris luar skop.',
+            color: const Color(0xffb91c1c),
+            entries: _dedupeIssueEntries(scope),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (warnings.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Amaran',
+            emptyText: 'Tiada amaran.',
+            color: const Color(0xff92400e),
+            entries: warnings,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (masterData.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Master Data',
+            emptyText: 'Tiada isu master data.',
+            color: const Color(0xff1d4ed8),
+            entries: masterData,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (duplicates.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Pendua',
+            emptyText: 'Tiada baris pendua.',
+            color: const Color(0xff7c2d12),
+            entries: duplicates,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (conflictEntries.isNotEmpty) ...[
+          _ValidationIssueGroup(
+            title: 'Amaran Konflik',
+            emptyText: 'Tiada konflik jadual.',
+            color: const Color(0xffb45309),
+            entries: conflictEntries,
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  String _conflictMessage(TimetablePreviewConflict conflict) {
+    final typeLabel = switch (conflict.type) {
+      'room' => 'Konflik Bilik',
+      'lecturer' => 'Konflik Pensyarah',
+      'class' => 'Konflik Kelas',
+      _ => 'Konflik Jadual',
+    };
+    final rows = conflict.previewRowNumbers.isEmpty
+        ? '-'
+        : conflict.previewRowNumbers.map((row) => 'Baris $row').join(', ');
+    final existing = conflict.involvesExistingSlot
+        ? ' Bertembung dengan jadual sedia ada.'
+        : '';
+    return '$rows - $typeLabel: ${conflict.target}. '
+        '${conflict.dayOfWeek} ${conflict.startTime}-${conflict.endTime}, '
+        'Minggu ${conflict.weekStart}-${conflict.weekEnd}. '
+        'Kelas: ${conflict.classSummary}. Pensyarah: ${conflict.lecturerSummary}. '
+        'Bilik: ${conflict.roomSummary}.$existing';
+  }
+
+  bool _rowHasScopeError(TimetablePreviewRow row) {
+    return row.errors.any(_isScopeMessage);
+  }
+
+  List<_ValidationIssueEntry> _dedupeIssueEntries(
+    List<_ValidationIssueEntry> entries,
+  ) {
+    final seen = <String>{};
+    return [
+      for (final entry in entries)
+        if (seen.add('${entry.rowNumber ?? 'file'}:${entry.message}')) entry,
+    ];
+  }
+
+  bool _isScopeMessage(String message) {
+    return _isValidationScopeMessage(message);
+  }
+
+  bool _isMasterDataMessage(String message) {
+    final text = message.toLowerCase();
+    return text.contains('programid') ||
+        text.contains('lectureremail') ||
+        text.contains('roomid') ||
+        text.contains('subjectid') ||
+        text.contains('classid') ||
+        text.contains('academic session') ||
+        text.contains('lecturername') ||
+        text.contains('roomname');
+  }
+}
+
+bool _isValidationScopeMessage(String message) {
+  final text = message.toLowerCase();
+  return text.contains('luar skop') || text.contains('bukan dalam skop');
+}
+
+class _ValidationIssueEntry {
+  const _ValidationIssueEntry({
+    required this.rowNumber,
+    required this.message,
+  });
+
+  factory _ValidationIssueEntry.file(String message) {
+    return _ValidationIssueEntry(rowNumber: null, message: message);
+  }
+
+  factory _ValidationIssueEntry.row(int rowNumber, String message) {
+    return _ValidationIssueEntry(rowNumber: rowNumber, message: message);
+  }
+
+  final int? rowNumber;
+  final String message;
+}
+
+class _ValidationIssueGroup extends StatelessWidget {
+  const _ValidationIssueGroup({
+    required this.title,
+    required this.emptyText,
+    required this.color,
+    required this.entries,
+  });
+
+  final String title;
+  final String emptyText;
+  final Color color;
+  final List<_ValidationIssueEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                ),
+                StatusChip('${entries.length} isu'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (entries.isEmpty)
+              Text(
+                emptyText,
+                style: const TextStyle(color: Color(0xff64748b), fontSize: 12),
+              )
+            else
+              for (final entry in entries.take(8)) ...[
+                _ValidationIssueRow(entry: entry, color: color),
+                const SizedBox(height: 8),
+              ],
+            if (entries.length > 8)
+              Text(
+                '${entries.length - 8} isu lagi. Semak jadual pratonton untuk butiran baris.',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ValidationIssueRow extends StatelessWidget {
+  const _ValidationIssueRow({
+    required this.entry,
+    required this.color,
+  });
+
+  final _ValidationIssueEntry entry;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            entry.rowNumber == null ? 'Fail' : 'Baris ${entry.rowNumber}',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          child: SelectableText(
+            _friendlyImportMessage(entry.message),
+            style: const TextStyle(
+              color: Color(0xff334155),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ImportActionPanel extends StatelessWidget {
+  const _ImportActionPanel({
+    required this.result,
+    required this.conflicts,
+    required this.importing,
+    required this.canImportPreview,
+    required this.canSaveDraftPreview,
+    required this.onClearPreview,
+    required this.onSaveDraftPreview,
+    required this.onImportPreview,
+  });
+
+  final TimetableMasterValidationResult result;
+  final TimetablePreviewConflictSummary conflicts;
+  final bool importing;
+  final bool canImportPreview;
+  final bool canSaveDraftPreview;
+  final VoidCallback onClearPreview;
+  final VoidCallback onSaveDraftPreview;
+  final VoidCallback onImportPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final skippedRows = result.totalRows - result.importableRows > 0
+        ? result.totalRows - result.importableRows
+        : 0;
+    final hasCriticalErrors = !result.canImport;
+    final explanation = hasCriticalErrors
+        ? 'Ralat kritikal perlu dibetulkan dahulu. Draf dan jadual rasmi tidak boleh disimpan.'
+        : conflicts.hasConflicts
+            ? '${result.importableRows} baris boleh disimpan sebagai draf. Konflik perlu diselesaikan sebelum jadual boleh diterbitkan sebagai rasmi.'
+            : skippedRows > 0
+                ? '${result.importableRows} baris boleh diterbitkan sebagai rasmi. $skippedRows baris ralat/pendua/luar skop akan dilangkau.'
+                : '${result.importableRows} baris boleh diterbitkan sebagai jadual rasmi.';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xffecfdf5),
+        border: Border.all(color: const Color(0xffbbf7d0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 420,
+              child: Text(
+                explanation,
+                style: const TextStyle(
+                  color: Color(0xff166534),
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: importing ? null : onClearPreview,
+              icon: const Icon(Icons.close),
+              label: const Text('Reset Pratonton'),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: canSaveDraftPreview ? onSaveDraftPreview : null,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Simpan Sebagai Draf'),
+            ),
+            FilledButton.icon(
+              onPressed: canImportPreview ? onImportPreview : null,
+              icon: importing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload_outlined),
+              label: Text(
+                importing ? 'Memproses...' : 'Import Sebagai Jadual Rasmi',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _friendlyImportMessage(String message) {
+  if (message.startsWith('subjectId ')) {
+    return 'Subjek belum wujud dan akan dicipta semasa import.';
+  }
+  if (message.startsWith('classId ')) {
+    return 'Kelas belum wujud dan akan dicipta semasa import.';
+  }
+  if (message.startsWith('Academic session ')) {
+    return 'Sesi akademik perlu disemak atau dicipta dahulu.';
+  }
+  if (message.startsWith('lecturerName is blank')) {
+    return 'Nama pensyarah kosong dan akan dilengkapkan daripada akaun pensyarah.';
+  }
+  if (message.startsWith('roomName is blank')) {
+    return 'Nama bilik kosong dan akan dilengkapkan daripada master bilik.';
+  }
+  return message;
 }
 
 class _SummaryTile extends StatelessWidget {
@@ -4888,44 +5991,6 @@ class _MessageDetailSection extends StatelessWidget {
   }
 }
 
-class _MessageList extends StatelessWidget {
-  const _MessageList({
-    required this.title,
-    required this.messages,
-    required this.color,
-  });
-
-  final String title;
-  final List<String> messages;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(color: color, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            for (final message in messages)
-              Text(message, style: TextStyle(color: color, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MessageDetailsList extends StatelessWidget {
   const _MessageDetailsList({
     required this.title,
@@ -4989,13 +6054,16 @@ class _ImportSuccessPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDraft = result.savedAs == 'draft';
     return AppPanel(
-      title: 'Import Jadual Berjaya',
-      subtitle: 'Rekod upload telah dicipta: ${result.uploadId}',
+      title: isDraft ? 'Draf Jadual Disimpan' : 'Import Jadual Berjaya',
+      subtitle: isDraft
+          ? 'Rekod draf telah dicipta: ${result.uploadId}'
+          : 'Rekod upload telah dicipta: ${result.uploadId}',
       trailing: OutlinedButton.icon(
         onPressed: onViewOfficialTimetable,
         icon: const Icon(Icons.table_chart_outlined),
-        label: const Text('Lihat Jadual Rasmi'),
+        label: Text(isDraft ? 'Lihat Draf Jadual' : 'Lihat Jadual Rasmi'),
       ),
       child: Wrap(
         spacing: 10,
@@ -5013,6 +6081,9 @@ class _ImportSuccessPanel extends StatelessWidget {
               'Ralat Dilangkau', result.errorsSkipped, const Color(0xff991b1b)),
           _SummaryTile(
               'Jumlah Dilangkau', result.skippedRows, const Color(0xff475569)),
+          if (result.conflictRows > 0)
+            _SummaryTile(
+                'Baris Konflik', result.conflictRows, const Color(0xffb45309)),
         ],
       ),
     );
@@ -5029,6 +6100,7 @@ class _TimetableTable extends StatelessWidget {
     required this.onSelectionChanged,
     this.onDetails,
     this.onEdit,
+    this.onPublishDraft,
     this.onDelete,
   });
 
@@ -5040,6 +6112,7 @@ class _TimetableTable extends StatelessWidget {
   final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
   final void Function(TimetableSlot slot)? onDetails;
   final void Function(TimetableSlot slot)? onEdit;
+  final void Function(TimetableSlot slot)? onPublishDraft;
   final void Function(TimetableSlot slot)? onDelete;
 
   @override
@@ -5092,12 +6165,14 @@ class _TimetableTable extends StatelessWidget {
                     onDetails?.call(slot);
                   case 'edit':
                     onEdit?.call(slot);
+                  case 'publish':
+                    onPublishDraft?.call(slot);
                   case 'delete':
                     onDelete?.call(slot);
                 }
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
+              itemBuilder: (context) => [
+                const PopupMenuItem(
                   value: 'details',
                   child: ListTile(
                     leading: Icon(Icons.info_outline),
@@ -5106,7 +6181,7 @@ class _TimetableTable extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                PopupMenuItem(
+                const PopupMenuItem(
                   value: 'edit',
                   child: ListTile(
                     leading: Icon(Icons.edit_outlined),
@@ -5115,7 +6190,17 @@ class _TimetableTable extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                PopupMenuItem(
+                if (_isDraftSlot(slot))
+                  const PopupMenuItem(
+                    value: 'publish',
+                    child: ListTile(
+                      leading: Icon(Icons.verified_outlined),
+                      title: Text('Terbitkan Draf'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                const PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
                     leading:
@@ -5308,11 +6393,22 @@ class _DetailSection extends StatelessWidget {
 String _statusLabel(String status) {
   return switch (status.toLowerCase()) {
     'active' || 'upcoming' => 'Aktif',
+    'draft' => 'Draf',
+    'conflict_pending' => 'Konflik',
     'inactive' => 'Tidak Aktif',
     'cancelled' || 'canceled' => 'Dibatalkan',
     'attendance completed' => 'Kehadiran Selesai',
     _ => status,
   };
+}
+
+bool _isDraftSlot(TimetableSlot slot) {
+  final status = slot.status.toLowerCase();
+  final importStatus = slot.importStatus?.toLowerCase();
+  return !slot.isOfficial ||
+      status == 'draft' ||
+      importStatus == 'draft_saved' ||
+      importStatus == 'conflict_pending';
 }
 
 const _weekdayValues = [
@@ -5673,6 +6769,9 @@ String _uploadStatusLabel(String status) {
   return switch (status.toLowerCase()) {
     'completed' => 'Berjaya',
     'completed_with_warnings' => 'Berjaya Dengan Amaran',
+    'conflict_pending' || 'draft_saved' => 'Disimpan sebagai Draf',
+    'official' => 'Diterbitkan sebagai Rasmi',
+    'blocked_by_errors' => 'Dibatalkan kerana Ralat',
     'failed' => 'Gagal',
     _ => status,
   };

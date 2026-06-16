@@ -81,6 +81,7 @@ class LecturerTimetableService {
     final normalizedEmail = lecturerEmail.trim().toLowerCase();
     return _baseQuery().snapshots().map((snap) {
       return snap.docs
+          .where((doc) => (doc.data()['isOfficial'] as bool? ?? true))
           .where((doc) => _matchesLecturer(
                 doc.data(),
                 lecturerId: lecturerId,
