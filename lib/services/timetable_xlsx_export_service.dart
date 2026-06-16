@@ -53,6 +53,31 @@ String xlsxStatusLabel(String status) {
   };
 }
 
+String xlsxTimetableStatusLabel(List<TimetableSlot> slots) {
+  if (slots.isEmpty) return 'Tiada Rekod';
+  final draftSlots = slots.where(_isDraftSlot).toList();
+  if (draftSlots.isEmpty) return 'Rasmi';
+  final markedConflict = draftSlots.any((slot) {
+    final status = slot.status.toLowerCase();
+    final importStatus = slot.importStatus?.toLowerCase();
+    return status == 'conflict_pending' ||
+        importStatus == 'conflict_pending' ||
+        slot.hasConflict ||
+        slot.conflictTypes.isNotEmpty;
+  });
+  return markedConflict || _hasCoreConflict(slots) ? 'Draf / Konflik' : 'Draf';
+}
+
+bool _isDraftSlot(TimetableSlot slot) {
+  final status = slot.status.toLowerCase();
+  final importStatus = slot.importStatus?.toLowerCase();
+  return !slot.isOfficial ||
+      status == 'draft' ||
+      status == 'conflict_pending' ||
+      importStatus == 'draft_saved' ||
+      importStatus == 'conflict_pending';
+}
+
 // ---------------------------------------------------------------------------
 // Filename builder
 // ---------------------------------------------------------------------------
@@ -61,8 +86,7 @@ String buildExportFilename(TimetableXlsxExportParams params) {
   final segments = <String>['jadual_rasmi'];
   if (params.filterClass != null && params.filterClass!.isNotEmpty) {
     segments.add(_safe(params.filterClass!));
-  } else if (params.filterProgram != null &&
-      params.filterProgram!.isNotEmpty) {
+  } else if (params.filterProgram != null && params.filterProgram!.isNotEmpty) {
     segments.add(_safe(params.filterProgram!));
   } else {
     segments.add(_safe(params.scopeTitle));
@@ -111,6 +135,67 @@ int _dayOrder(String day) {
   };
 }
 
+bool _hasCoreConflict(List<TimetableSlot> slots) {
+  final relevant = slots.where(_isConflictRelevant).toList();
+  for (var i = 0; i < relevant.length; i++) {
+    for (var j = i + 1; j < relevant.length; j++) {
+      final a = relevant[i];
+      final b = relevant[j];
+      if (!_sameWindow(a, b)) continue;
+      if (_sameNonEmpty(a.roomId ?? a.room, b.roomId ?? b.room) ||
+          _sameNonEmpty(a.lecturerId, b.lecturerId) ||
+          _sameNonEmpty(a.classId ?? a.section, b.classId ?? b.section)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool _isConflictRelevant(TimetableSlot slot) {
+  final status = slot.status.toLowerCase();
+  return status != 'inactive' && status != 'cancelled' && status != 'canceled';
+}
+
+bool _sameNonEmpty(String a, String b) {
+  final left = a.trim();
+  final right = b.trim();
+  return left.isNotEmpty && left == right;
+}
+
+bool _sameWindow(TimetableSlot a, TimetableSlot b) {
+  if ((a.academicSessionId ?? a.session) !=
+      (b.academicSessionId ?? b.session)) {
+    return false;
+  }
+  if (_normalDay(a.dayOfWeek ?? a.day) != _normalDay(b.dayOfWeek ?? b.day)) {
+    return false;
+  }
+  final startA = _minutes(a.startTime);
+  final endA = _minutes(a.endTime);
+  final startB = _minutes(b.startTime);
+  final endB = _minutes(b.endTime);
+  if (startA == null || endA == null || startB == null || endB == null) {
+    return false;
+  }
+  if (!(startA < endB && startB < endA)) return false;
+
+  final weekStartA = int.tryParse(a.weekStart ?? a.date) ?? 1;
+  final weekEndA = int.tryParse(a.weekEnd ?? a.date) ?? weekStartA;
+  final weekStartB = int.tryParse(b.weekStart ?? b.date) ?? 1;
+  final weekEndB = int.tryParse(b.weekEnd ?? b.date) ?? weekStartB;
+  return weekStartA <= weekEndB && weekStartB <= weekEndA;
+}
+
+int? _minutes(String value) {
+  final parts = value.trim().split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return (hour * 60) + minute;
+}
+
 // ---------------------------------------------------------------------------
 // Slot value helpers (mirrors screen helpers)
 // ---------------------------------------------------------------------------
@@ -150,13 +235,6 @@ const _darkBlueText = '#1B3A5C';
 const _white = '#FFFFFF';
 const _altRowBg = '#EBF0FA';
 const _metaBg = '#F0F4FA';
-const _statusGreen = '#E6F4EA';
-const _statusYellow = '#FFF3CD';
-const _statusRed = '#FDECEF';
-const _statusGrey = '#E9ECEF';
-const _greenText = '#1B7A3D';
-const _orangeText = '#A65E00';
-const _redText = '#C0392B';
 const _greyText = '#6C757D';
 
 ExcelColor _color(String hex) => ExcelColor.fromHexString(hex);
@@ -225,8 +303,7 @@ CellStyle _tableHeaderStyle() => CellStyle(
       bottomBorder: Border(borderStyle: BorderStyle.Thin),
     );
 
-CellStyle _dataCellStyle({bool altRow = false, bool wrap = false}) =>
-    CellStyle(
+CellStyle _dataCellStyle({bool altRow = false, bool wrap = false}) => CellStyle(
       fontSize: 10,
       backgroundColorHex: altRow ? _color(_altRowBg) : _color(_white),
       horizontalAlign: HorizontalAlign.Left,
@@ -237,29 +314,6 @@ CellStyle _dataCellStyle({bool altRow = false, bool wrap = false}) =>
       topBorder: Border(borderStyle: BorderStyle.Thin),
       bottomBorder: Border(borderStyle: BorderStyle.Thin),
     );
-
-CellStyle _statusCellStyle(String statusLabel, {bool altRow = false}) {
-  final (bg, fg) = switch (statusLabel) {
-    'Rasmi' => (_statusGreen, _greenText),
-    'Draf' => (_statusYellow, _orangeText),
-    'Konflik' => (_statusRed, _redText),
-    'Tidak Aktif' => (_statusGrey, _greyText),
-    'Dibatalkan' => (_statusGrey, _greyText),
-    _ => (altRow ? _altRowBg : _white, '#000000'),
-  };
-  return CellStyle(
-    bold: true,
-    fontSize: 10,
-    fontColorHex: _color(fg),
-    backgroundColorHex: _color(bg),
-    horizontalAlign: HorizontalAlign.Center,
-    verticalAlign: VerticalAlign.Center,
-    leftBorder: Border(borderStyle: BorderStyle.Thin),
-    rightBorder: Border(borderStyle: BorderStyle.Thin),
-    topBorder: Border(borderStyle: BorderStyle.Thin),
-    bottomBorder: Border(borderStyle: BorderStyle.Thin),
-  );
-}
 
 CellStyle _footerStyle() => CellStyle(
       italic: true,
@@ -297,7 +351,6 @@ const _tableColumns = [
   'Masa',
   'Bilik',
   'Minggu',
-  'Status',
 ];
 
 const _columnWidths = <double>[
@@ -311,7 +364,6 @@ const _columnWidths = <double>[
   16, // Masa
   24, // Bilik
   14, // Minggu
-  14, // Status
 ];
 
 // Columns that should text-wrap: Nama Subjek (2), Pensyarah (5), Bilik (8)
@@ -396,12 +448,22 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
   );
   row++;
 
+  _labelValueRow(
+    sheet,
+    row,
+    'Status Jadual:',
+    xlsxTimetableStatusLabel(params.slots),
+    _metaLabelStyle(),
+    _metaValueStyle(),
+  );
+  row++;
+
   // ---- Row 8: Blank spacing ----
   row++;
 
   // ---- Rows 9+: Filter/Summary section ----
-  _mergedTextRow(sheet, row, totalCols,
-      'MAKLUMAT PENAPIS PAPARAN SEMASA', _subtitleStyle());
+  _mergedTextRow(sheet, row, totalCols, 'MAKLUMAT PENAPIS PAPARAN SEMASA',
+      _subtitleStyle());
   row++;
 
   final filterRows = <(String, String)>[
@@ -412,9 +474,12 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
     ('Pensyarah:', params.filterLecturer ?? 'Semua'),
     ('Bilik:', params.filterRoom ?? 'Semua'),
     ('Hari:', params.filterDay ?? 'Semua'),
-    ('Status:', params.filterStatus != null
-        ? xlsxStatusLabel(params.filterStatus!)
-        : 'Semua'),
+    (
+      'Status:',
+      params.filterStatus != null
+          ? xlsxStatusLabel(params.filterStatus!)
+          : 'Semua'
+    ),
   ];
 
   for (final (label, value) in filterRows) {
@@ -463,8 +528,7 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
         if (dayA != dayB) return dayA.compareTo(dayB);
         final timeCompare = a.startTime.compareTo(b.startTime);
         if (timeCompare != 0) return timeCompare;
-        final classCompare =
-            _slotClassValue(a).compareTo(_slotClassValue(b));
+        final classCompare = _slotClassValue(a).compareTo(_slotClassValue(b));
         if (classCompare != 0) return classCompare;
         return a.subjectCode.compareTo(b.subjectCode);
       });
@@ -472,7 +536,6 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
     for (var i = 0; i < sorted.length; i++) {
       final slot = sorted[i];
       final altRow = i.isOdd;
-      final statusLabel = xlsxStatusLabel(slot.status);
       final values = <String>[
         '${i + 1}',
         slot.subjectCode,
@@ -484,7 +547,6 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
         '${slot.startTime}-${slot.endTime}',
         _slotRoomValue(slot),
         _weekText(slot),
-        statusLabel,
       ];
 
       for (var col = 0; col < values.length; col++) {
@@ -492,15 +554,10 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
           CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row),
         );
         cell.value = TextCellValue(values[col]);
-        if (col == values.length - 1) {
-          // Status column gets special styling
-          cell.cellStyle = _statusCellStyle(statusLabel, altRow: altRow);
-        } else {
-          cell.cellStyle = _dataCellStyle(
-            altRow: altRow,
-            wrap: _wrapColumns.contains(col),
-          );
-        }
+        cell.cellStyle = _dataCellStyle(
+          altRow: altRow,
+          wrap: _wrapColumns.contains(col),
+        );
       }
       row++;
     }
@@ -524,7 +581,7 @@ List<int> buildTimetableXlsx(TimetableXlsxExportParams params) {
     row,
     totalCols,
     'Jumlah rekod dieksport: ${params.slots.length}  |  '
-        'Dijana: ${_formatDateTime(params.generatedAt)}',
+    'Dijana: ${_formatDateTime(params.generatedAt)}',
     _footerStyle(),
   );
 

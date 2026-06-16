@@ -216,7 +216,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             onEdit: (slot) => _showEditDialog(state, slot),
             onConflictEdit: (slot) =>
                 _showEditDialog(state, slot, conflictContext: true),
-            onPublishDraft: (slot) => _confirmPublishDraft(state, slot),
+            onPublishDrafts: (slots) => _confirmPublishDraftSlots(state, slots),
             onDelete: (slot) => _confirmDelete(state, slot),
           )
         else if (_selectedSection == 1)
@@ -674,8 +674,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
         SnackBar(
           content: Text(
             isDraft
-                ? '${result.slotsCreated} slot jadual disimpan sebagai draf.'
-                : '${result.slotsCreated} slot jadual berjaya diterbitkan.',
+                ? 'Jadual disimpan sebagai draf. Sila semak dan selesaikan konflik sebelum diterbitkan sebagai jadual rasmi.'
+                : 'Jadual berjaya diimport sebagai jadual rasmi.',
           ),
         ),
       );
@@ -739,8 +739,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
             'Jabatan';
 
     // Build scoped program IDs list
-    final scopeProgramIds =
-        state.scopedPrograms.map((p) => p.id).toList()..sort();
+    final scopeProgramIds = state.scopedPrograms.map((p) => p.id).toList()
+      ..sort();
 
     // Build role label
     final roleLabel = isProgramScope
@@ -895,18 +895,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
   }
 
-  Future<void> _confirmPublishDraft(
+  Future<void> _confirmPublishDraftSlots(
     AppState state,
-    TimetableSlot triggerSlot,
+    List<TimetableSlot> draftSlots,
   ) async {
     final user = state.currentUser;
     if (user == null) return;
-    if (!_isDraftSlot(triggerSlot)) {
-      setState(() => _importError = 'Slot ini bukan draf.');
+    draftSlots = draftSlots.where(_isDraftSlot).toList();
+    if (draftSlots.isEmpty) {
+      setState(() => _importError = 'Tiada slot draf untuk diterbitkan.');
       return;
     }
 
-    final draftSlots = _draftPublishBatch(state, triggerSlot);
     final conflicts = _draftPublishConflicts(state, draftSlots);
     if (conflicts.hasConflicts) {
       await showDialog<void>(
@@ -969,25 +969,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
     } finally {
       if (mounted) setState(() => _batchProcessing = false);
     }
-  }
-
-  List<TimetableSlot> _draftPublishBatch(
-    AppState state,
-    TimetableSlot triggerSlot,
-  ) {
-    final sourceUploadId = triggerSlot.sourceUploadId?.trim();
-    final scopedSessionSlots = _sessionTimetable(
-      state.scopedTimetable,
-      triggerSlot.academicSessionId ?? triggerSlot.session,
-    );
-    if (sourceUploadId == null || sourceUploadId.isEmpty) {
-      return [triggerSlot];
-    }
-    final batch = scopedSessionSlots
-        .where((slot) =>
-            _isDraftSlot(slot) && slot.sourceUploadId == sourceUploadId)
-        .toList();
-    return batch.isEmpty ? [triggerSlot] : batch;
   }
 
   TimetablePreviewConflictSummary _draftPublishConflicts(
@@ -2730,7 +2711,7 @@ class _OfficialTimetableSection extends StatelessWidget {
     required this.onDetails,
     required this.onEdit,
     required this.onConflictEdit,
-    required this.onPublishDraft,
+    required this.onPublishDrafts,
     required this.onDelete,
   });
 
@@ -2766,7 +2747,7 @@ class _OfficialTimetableSection extends StatelessWidget {
   final void Function(TimetableSlot slot) onDetails;
   final void Function(TimetableSlot slot) onEdit;
   final void Function(TimetableSlot slot) onConflictEdit;
-  final void Function(TimetableSlot slot) onPublishDraft;
+  final void Function(List<TimetableSlot> slots) onPublishDrafts;
   final void Function(TimetableSlot slot) onDelete;
 
   @override
@@ -2786,9 +2767,12 @@ class _OfficialTimetableSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _OfficialTimetableStatus(
+            slots: slots,
             visibleCount: slots.length,
             totalCount: allSlots.length,
             selectedAcademicSession: selectedAcademicSession,
+            batchProcessing: batchProcessing,
+            onPublishDrafts: onPublishDrafts,
           ),
           const SizedBox(height: 16),
           _TimetableFilters(
@@ -2856,7 +2840,6 @@ class _OfficialTimetableSection extends StatelessWidget {
               onSelectionChanged: onSelectionChanged,
               onDetails: onDetails,
               onEdit: onEdit,
-              onPublishDraft: onPublishDraft,
               onDelete: onDelete,
             )
           else if (selectedViewMode == _TimetableViewMode.weekly)
@@ -2890,17 +2873,24 @@ class _OfficialTimetableSection extends StatelessWidget {
 
 class _OfficialTimetableStatus extends StatelessWidget {
   const _OfficialTimetableStatus({
+    required this.slots,
     required this.visibleCount,
     required this.totalCount,
     required this.selectedAcademicSession,
+    required this.batchProcessing,
+    required this.onPublishDrafts,
   });
 
+  final List<TimetableSlot> slots;
   final int visibleCount;
   final int totalCount;
   final String selectedAcademicSession;
+  final bool batchProcessing;
+  final void Function(List<TimetableSlot> slots) onPublishDrafts;
 
   @override
   Widget build(BuildContext context) {
+    final summary = _TimetableStatusSummary.fromSlots(slots);
     return LayoutBuilder(
       builder: (context, constraints) {
         final available = constraints.maxWidth - 24;
@@ -2921,20 +2911,106 @@ class _OfficialTimetableStatus extends StatelessWidget {
               children: [
                 SizedBox(
                   width: introWidth,
-                  child: const _SectionIntro(
-                    icon: Icons.table_chart_outlined,
-                    title: 'Ruang Kerja Jadual Rasmi',
-                    subtitle:
-                        'Penapis, semakan konflik, paparan jadual dan tindakan batch dikumpulkan di sini.',
+                  child: _SectionIntro(
+                    icon: summary.icon,
+                    title: summary.title,
+                    subtitle: summary.message,
                   ),
                 ),
                 StatusChip('$visibleCount / $totalCount slot dipaparkan'),
                 StatusChip(selectedAcademicSession),
+                if (summary.hasDrafts) ...[
+                  StatusChip('Konflik Bilik: ${summary.roomConflicts}'),
+                  StatusChip('Konflik Pensyarah: ${summary.lecturerConflicts}'),
+                  StatusChip('Konflik Kelas: ${summary.classConflicts}'),
+                  FilledButton.icon(
+                    onPressed: batchProcessing
+                        ? null
+                        : () => onPublishDrafts(summary.draftSlots),
+                    icon: const Icon(Icons.verified_outlined),
+                    label: const Text('Terbitkan Draf'),
+                  ),
+                ],
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _TimetableStatusSummary {
+  const _TimetableStatusSummary({
+    required this.title,
+    required this.message,
+    required this.icon,
+    required this.draftSlots,
+    required this.roomConflicts,
+    required this.lecturerConflicts,
+    required this.classConflicts,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
+  final List<TimetableSlot> draftSlots;
+  final int roomConflicts;
+  final int lecturerConflicts;
+  final int classConflicts;
+
+  bool get hasDrafts => draftSlots.isNotEmpty;
+
+  factory _TimetableStatusSummary.fromSlots(List<TimetableSlot> slots) {
+    if (slots.isEmpty) {
+      return const _TimetableStatusSummary(
+        title: 'Status Jadual: Tiada Rekod',
+        message: 'Tiada slot jadual untuk sesi dan penapis semasa.',
+        icon: Icons.event_busy_outlined,
+        draftSlots: [],
+        roomConflicts: 0,
+        lecturerConflicts: 0,
+        classConflicts: 0,
+      );
+    }
+
+    final draftSlots = slots.where(_isDraftSlot).toList();
+    if (draftSlots.isEmpty) {
+      return const _TimetableStatusSummary(
+        title: 'Status Jadual: Rasmi',
+        message:
+            'Jadual ini telah diterbitkan dan boleh digunakan oleh pensyarah.',
+        icon: Icons.verified_outlined,
+        draftSlots: [],
+        roomConflicts: 0,
+        lecturerConflicts: 0,
+        classConflicts: 0,
+      );
+    }
+
+    final conflicts = _detectTimetableConflicts(slots);
+    final roomConflicts =
+        conflicts.where((item) => item.type == 'Bilik').length;
+    final lecturerConflicts =
+        conflicts.where((item) => item.type == 'Pensyarah').length;
+    final classConflicts =
+        conflicts.where((item) => item.type == 'Kelas').length;
+    final hasConflicts = conflicts.isNotEmpty;
+
+    return _TimetableStatusSummary(
+      title: hasConflicts
+          ? 'Status Jadual: Draf / Konflik'
+          : 'Status Jadual: Draf',
+      message: hasConflicts
+          ? 'Jadual ini belum diterbitkan. Sila selesaikan konflik sebelum diterbitkan sebagai jadual rasmi.'
+          : 'Jadual ini belum diterbitkan sebagai jadual rasmi. Semakan konflik tidak menemui konflik aktif.',
+      icon: hasConflicts
+          ? Icons.warning_amber_outlined
+          : Icons.pending_actions_outlined,
+      draftSlots: draftSlots,
+      roomConflicts: roomConflicts,
+      lecturerConflicts: lecturerConflicts,
+      classConflicts: classConflicts,
     );
   }
 }
@@ -4005,7 +4081,7 @@ class _ConflictReviewPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final conflicts = _detectConflicts(slots);
+    final conflicts = _detectTimetableConflicts(slots);
     final roomCount = conflicts.where((item) => item.type == 'Bilik').length;
     final lecturerCount =
         conflicts.where((item) => item.type == 'Pensyarah').length;
@@ -4045,96 +4121,6 @@ class _ConflictReviewPanel extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  List<_TimetableConflict> _detectConflicts(List<TimetableSlot> slots) {
-    final activeSlots = slots.where(_isConflictRelevant).toList();
-    final conflicts = <_TimetableConflict>[];
-    for (var i = 0; i < activeSlots.length; i++) {
-      for (var j = i + 1; j < activeSlots.length; j++) {
-        final a = activeSlots[i];
-        final b = activeSlots[j];
-        if (!_sameScheduleWindow(a, b)) continue;
-        _addConflictIfSame(
-          conflicts,
-          type: 'Bilik',
-          valueA: a.roomId ?? a.room,
-          valueB: b.roomId ?? b.room,
-          slotA: a,
-          slotB: b,
-        );
-        _addConflictIfSame(
-          conflicts,
-          type: 'Pensyarah',
-          valueA: a.lecturerId,
-          valueB: b.lecturerId,
-          slotA: a,
-          slotB: b,
-        );
-        _addConflictIfSame(
-          conflicts,
-          type: 'Kelas',
-          valueA: a.classId ?? a.section,
-          valueB: b.classId ?? b.section,
-          slotA: a,
-          slotB: b,
-        );
-      }
-    }
-    return conflicts;
-  }
-
-  bool _isConflictRelevant(TimetableSlot slot) {
-    final status = slot.status.toLowerCase();
-    return status != 'inactive' &&
-        status != 'cancelled' &&
-        status != 'canceled';
-  }
-
-  void _addConflictIfSame(
-    List<_TimetableConflict> conflicts, {
-    required String type,
-    required String valueA,
-    required String valueB,
-    required TimetableSlot slotA,
-    required TimetableSlot slotB,
-  }) {
-    final a = valueA.trim();
-    final b = valueB.trim();
-    if (a.isEmpty || b.isEmpty || a != b) return;
-    conflicts.add(_TimetableConflict(type: type, value: a, a: slotA, b: slotB));
-  }
-
-  bool _sameScheduleWindow(TimetableSlot a, TimetableSlot b) {
-    final sessionA = a.academicSessionId ?? a.session;
-    final sessionB = b.academicSessionId ?? b.session;
-    final dayA = a.dayOfWeek ?? a.day;
-    final dayB = b.dayOfWeek ?? b.day;
-    if (sessionA != sessionB || dayA != dayB) return false;
-
-    final startA = _minutes(a.startTime);
-    final endA = _minutes(a.endTime);
-    final startB = _minutes(b.startTime);
-    final endB = _minutes(b.endTime);
-    if (startA == null || endA == null || startB == null || endB == null) {
-      return false;
-    }
-    if (!(startA < endB && startB < endA)) return false;
-
-    final weekStartA = int.tryParse(a.weekStart ?? a.date) ?? 1;
-    final weekEndA = int.tryParse(a.weekEnd ?? a.date) ?? weekStartA;
-    final weekStartB = int.tryParse(b.weekStart ?? b.date) ?? 1;
-    final weekEndB = int.tryParse(b.weekEnd ?? b.date) ?? weekStartB;
-    return weekStartA <= weekEndB && weekStartB <= weekEndA;
-  }
-
-  int? _minutes(String value) {
-    final parts = value.trim().split(':');
-    if (parts.length != 2) return null;
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return null;
-    return (hour * 60) + minute;
   }
 
   void _showConflictDetails(
@@ -4240,6 +4226,94 @@ class _TimetableConflict {
     }
     return value;
   }
+}
+
+List<_TimetableConflict> _detectTimetableConflicts(List<TimetableSlot> slots) {
+  final activeSlots = slots.where(_isTimetableConflictRelevant).toList();
+  final conflicts = <_TimetableConflict>[];
+  for (var i = 0; i < activeSlots.length; i++) {
+    for (var j = i + 1; j < activeSlots.length; j++) {
+      final a = activeSlots[i];
+      final b = activeSlots[j];
+      if (!_sameTimetableScheduleWindow(a, b)) continue;
+      _addTimetableConflictIfSame(
+        conflicts,
+        type: 'Bilik',
+        valueA: a.roomId ?? a.room,
+        valueB: b.roomId ?? b.room,
+        slotA: a,
+        slotB: b,
+      );
+      _addTimetableConflictIfSame(
+        conflicts,
+        type: 'Pensyarah',
+        valueA: a.lecturerId,
+        valueB: b.lecturerId,
+        slotA: a,
+        slotB: b,
+      );
+      _addTimetableConflictIfSame(
+        conflicts,
+        type: 'Kelas',
+        valueA: a.classId ?? a.section,
+        valueB: b.classId ?? b.section,
+        slotA: a,
+        slotB: b,
+      );
+    }
+  }
+  return conflicts;
+}
+
+bool _isTimetableConflictRelevant(TimetableSlot slot) {
+  final status = slot.status.toLowerCase();
+  return status != 'inactive' && status != 'cancelled' && status != 'canceled';
+}
+
+void _addTimetableConflictIfSame(
+  List<_TimetableConflict> conflicts, {
+  required String type,
+  required String valueA,
+  required String valueB,
+  required TimetableSlot slotA,
+  required TimetableSlot slotB,
+}) {
+  final a = valueA.trim();
+  final b = valueB.trim();
+  if (a.isEmpty || b.isEmpty || a != b) return;
+  conflicts.add(_TimetableConflict(type: type, value: a, a: slotA, b: slotB));
+}
+
+bool _sameTimetableScheduleWindow(TimetableSlot a, TimetableSlot b) {
+  final sessionA = a.academicSessionId ?? a.session;
+  final sessionB = b.academicSessionId ?? b.session;
+  final dayA = a.dayOfWeek ?? a.day;
+  final dayB = b.dayOfWeek ?? b.day;
+  if (sessionA != sessionB || dayA != dayB) return false;
+
+  final startA = _minutes(a.startTime);
+  final endA = _minutes(a.endTime);
+  final startB = _minutes(b.startTime);
+  final endB = _minutes(b.endTime);
+  if (startA == null || endA == null || startB == null || endB == null) {
+    return false;
+  }
+  if (!(startA < endB && startB < endA)) return false;
+
+  final weekStartA = int.tryParse(a.weekStart ?? a.date) ?? 1;
+  final weekEndA = int.tryParse(a.weekEnd ?? a.date) ?? weekStartA;
+  final weekStartB = int.tryParse(b.weekStart ?? b.date) ?? 1;
+  final weekEndB = int.tryParse(b.weekEnd ?? b.date) ?? weekStartB;
+  return weekStartA <= weekEndB && weekStartB <= weekEndA;
+}
+
+int? _minutes(String value) {
+  final parts = value.trim().split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return (hour * 60) + minute;
 }
 
 class _ConflictCard extends StatelessWidget {
@@ -6100,7 +6174,6 @@ class _TimetableTable extends StatelessWidget {
     required this.onSelectionChanged,
     this.onDetails,
     this.onEdit,
-    this.onPublishDraft,
     this.onDelete,
   });
 
@@ -6112,7 +6185,6 @@ class _TimetableTable extends StatelessWidget {
   final void Function(TimetableSlot slot, bool selected) onSelectionChanged;
   final void Function(TimetableSlot slot)? onDetails;
   final void Function(TimetableSlot slot)? onEdit;
-  final void Function(TimetableSlot slot)? onPublishDraft;
   final void Function(TimetableSlot slot)? onDelete;
 
   @override
@@ -6137,7 +6209,6 @@ class _TimetableTable extends StatelessWidget {
         DataColumn(label: Text('Hari & Masa')),
         DataColumn(label: Text('Bilik')),
         DataColumn(label: Text('Minggu')),
-        DataColumn(label: Text('Status')),
       ],
       rows: slots.map((slot) {
         final selected = selectedSlotKeys.contains(_slotSelectionKey(slot));
@@ -6165,8 +6236,6 @@ class _TimetableTable extends StatelessWidget {
                     onDetails?.call(slot);
                   case 'edit':
                     onEdit?.call(slot);
-                  case 'publish':
-                    onPublishDraft?.call(slot);
                   case 'delete':
                     onDelete?.call(slot);
                 }
@@ -6190,16 +6259,6 @@ class _TimetableTable extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-                if (_isDraftSlot(slot))
-                  const PopupMenuItem(
-                    value: 'publish',
-                    child: ListTile(
-                      leading: Icon(Icons.verified_outlined),
-                      title: Text('Terbitkan Draf'),
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
                 const PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
@@ -6245,7 +6304,6 @@ class _TimetableTable extends StatelessWidget {
             child: Text(slot.room),
           )),
           DataCell(Text(_weekText(slot))),
-          DataCell(StatusChip(_statusLabel(slot.status))),
         ]);
       }).toList(),
     );
@@ -6407,6 +6465,7 @@ bool _isDraftSlot(TimetableSlot slot) {
   final importStatus = slot.importStatus?.toLowerCase();
   return !slot.isOfficial ||
       status == 'draft' ||
+      status == 'conflict_pending' ||
       importStatus == 'draft_saved' ||
       importStatus == 'conflict_pending';
 }

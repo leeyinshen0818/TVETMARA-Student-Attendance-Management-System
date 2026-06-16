@@ -20,6 +20,10 @@ TimetableSlot _makeSlot({
   String? classId,
   String? weekStart,
   String? weekEnd,
+  bool isOfficial = true,
+  String? importStatus,
+  bool hasConflict = false,
+  List<String> conflictTypes = const [],
 }) {
   return TimetableSlot(
     id: id,
@@ -46,6 +50,10 @@ TimetableSlot _makeSlot({
     classType: 'lecture',
     slotType: 'regular',
     status: status,
+    isOfficial: isOfficial,
+    importStatus: importStatus,
+    hasConflict: hasConflict,
+    conflictTypes: conflictTypes,
   );
 }
 
@@ -166,7 +174,30 @@ void main() {
       expect(dataRowCount, 3);
     });
 
-    test('contains table column headers', () {
+    test('contains table column headers without row-level status', () {
+      final bytes = buildTimetableXlsx(_defaultParams());
+      final decoded = Excel.decodeBytes(bytes);
+      final sheet = decoded.tables['Jadual Rasmi']!;
+      final headerRow = sheet.rows.firstWhere(
+        (row) => row.any((cell) => cell?.value?.toString() == 'Bil.'),
+      );
+      final headerText =
+          headerRow.map((cell) => cell?.value?.toString() ?? '').toList();
+
+      expect(headerText, contains('Bil.'));
+      expect(headerText, contains('Kod Kursus'));
+      expect(headerText, contains('Nama Subjek'));
+      expect(headerText, contains('Program'));
+      expect(headerText, contains('Kelas'));
+      expect(headerText, contains('Pensyarah'));
+      expect(headerText, contains('Hari'));
+      expect(headerText, contains('Masa'));
+      expect(headerText, contains('Bilik'));
+      expect(headerText, contains('Minggu'));
+      expect(headerText, isNot(contains('Status')));
+    });
+
+    test('contains timetable status metadata', () {
       final bytes = buildTimetableXlsx(_defaultParams());
       final decoded = Excel.decodeBytes(bytes);
       final sheet = decoded.tables['Jadual Rasmi']!;
@@ -174,17 +205,8 @@ void main() {
           .expand((row) => row.map((cell) => cell?.value?.toString() ?? ''))
           .join(' ');
 
-      expect(allText, contains('Bil.'));
-      expect(allText, contains('Kod Kursus'));
-      expect(allText, contains('Nama Subjek'));
-      expect(allText, contains('Program'));
-      expect(allText, contains('Kelas'));
-      expect(allText, contains('Pensyarah'));
-      expect(allText, contains('Hari'));
-      expect(allText, contains('Masa'));
-      expect(allText, contains('Bilik'));
-      expect(allText, contains('Minggu'));
-      expect(allText, contains('Status'));
+      expect(allText, contains('Status Jadual:'));
+      expect(allText, contains('Rasmi'));
     });
 
     test('contains footer text', () {
@@ -358,8 +380,8 @@ void main() {
       expect(allText, contains('Rasmi'));
     });
 
-    test('status label Draf appears for draft slots', () {
-      final slot = _makeSlot(status: 'draft');
+    test('timetable status Draf appears for draft slots', () {
+      final slot = _makeSlot(status: 'draft', isOfficial: false);
       final params = _defaultParams(slots: [slot]);
       final bytes = buildTimetableXlsx(params);
       final decoded = Excel.decodeBytes(bytes);
@@ -371,7 +393,73 @@ void main() {
       expect(allText, contains('Draf'));
     });
 
-    test('status label Konflik appears for conflict_pending slots', () {
+    test('timetable status Draf Konflik appears for conflicting draft slots',
+        () {
+      final slot = _makeSlot(
+        status: 'draft',
+        isOfficial: false,
+        importStatus: 'conflict_pending',
+      );
+      final conflictSlot = _makeSlot(
+        id: 'slot2',
+        subjectCode: 'DED10055',
+        status: 'draft',
+        isOfficial: false,
+        importStatus: 'conflict_pending',
+      );
+      final params = _defaultParams(slots: [slot, conflictSlot]);
+      final bytes = buildTimetableXlsx(params);
+      final decoded = Excel.decodeBytes(bytes);
+      final sheet = decoded.tables['Jadual Rasmi']!;
+      final allText = sheet.rows
+          .expand((row) => row.map((cell) => cell?.value?.toString() ?? ''))
+          .join(' ');
+
+      expect(allText, contains('Draf / Konflik'));
+    });
+  });
+
+  group('xlsxTimetableStatusLabel', () {
+    test('maps official rows to Rasmi', () {
+      expect(xlsxTimetableStatusLabel([_makeSlot()]), 'Rasmi');
+    });
+
+    test('maps draft rows without conflict to Draf', () {
+      final slot = _makeSlot(
+        status: 'draft',
+        isOfficial: false,
+        startTime: '08:00',
+        endTime: '10:00',
+      );
+      final noConflictSlot = _makeSlot(
+        id: 'slot2',
+        status: 'draft',
+        isOfficial: false,
+        startTime: '10:00',
+        endTime: '12:00',
+      );
+      expect(xlsxTimetableStatusLabel([slot, noConflictSlot]), 'Draf');
+    });
+
+    test('maps draft rows with conflict to Draf Konflik', () {
+      final slot = _makeSlot(status: 'draft', isOfficial: false);
+      final conflictSlot = _makeSlot(
+        id: 'slot2',
+        subjectCode: 'DED10055',
+        status: 'draft',
+        isOfficial: false,
+      );
+      expect(
+        xlsxTimetableStatusLabel([slot, conflictSlot]),
+        'Draf / Konflik',
+      );
+    });
+
+    test('maps empty rows to Tiada Rekod', () {
+      expect(xlsxTimetableStatusLabel(const []), 'Tiada Rekod');
+    });
+
+    test('legacy conflict status still maps to Konflik', () {
       final slot = _makeSlot(status: 'conflict_pending');
       final params = _defaultParams(slots: [slot]);
       final bytes = buildTimetableXlsx(params);
