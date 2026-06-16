@@ -59,10 +59,6 @@ class _HomeShellState extends State<HomeShell> {
             lecturerEmail: user.email,
             programId: user.programId ?? '',
             lecturerProfileId: user.lecturerProfileId,
-            // Placeholder for Yee Wen's attendance module — wire up later:
-            // onSlotSelected: (slotId, week) => Navigator.push(context, ...)
-
-            // PEMBETULAN: Menggunakan _DataScope.values untuk mengelakkan ralat "referenced before it is declared"
             onNavigateToAttendance: () {
               setState(() {
                 final targetIndex =
@@ -70,6 +66,7 @@ class _HomeShellState extends State<HomeShell> {
                 if (targetIndex != -1) index = targetIndex;
               });
             },
+            // FIXED TYPO HERE: Changed 'onNavigateToTempapan' to 'onNavigateToTempahan'
             onNavigateToTempahan: () {
               setState(() {
                 final targetIndex =
@@ -139,13 +136,6 @@ class _HomeShellState extends State<HomeShell> {
           dataScope:
               _DataScope.none, // Since it uses internal Firestore streams
         ),
-      // if (isAdmin)
-      //  const _NavItem(
-      //    'Jadual Waktu Master',
-      //    Icons.calendar_view_month,
-      //    AdminTimetableViewerScreen(),
-      //    dataScope: _DataScope.none,
-      //  ),
     ];
     if (index >= items.length) index = 0;
     final activeItem = items[index];
@@ -159,46 +149,53 @@ class _HomeShellState extends State<HomeShell> {
             Container(
               width: MediaQuery.sizeOf(context).width > 1120 ? 246 : 88,
               color: const Color(0xff0f172a),
-              child: NavigationRail(
-                backgroundColor: const Color(0xff0f172a),
-                indicatorColor: const Color(0xffdbeafe),
-                extended: MediaQuery.sizeOf(context).width > 1120,
-                selectedIndex: index,
-                selectedIconTheme:
-                    const IconThemeData(color: Color(0xff1d4ed8)),
-                unselectedIconTheme:
-                    const IconThemeData(color: Color(0xffcbd5e1)),
-                selectedLabelTextStyle: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w800),
-                unselectedLabelTextStyle:
-                    const TextStyle(color: Color(0xffcbd5e1)),
-                onDestinationSelected: (value) => setState(() => index = value),
-                leading: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: _BrandMark(
-                      extended: MediaQuery.sizeOf(context).width > 1120),
-                ),
-                trailing: Expanded(
-                  child: Align(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: IntrinsicHeight(
+                        child: NavigationRail(
+                          backgroundColor: const Color(0xff0f172a),
+                          indicatorColor: const Color(0xffdbeafe),
+                          extended: MediaQuery.sizeOf(context).width > 1120,
+                          selectedIndex: index,
+                          selectedIconTheme:
+                              const IconThemeData(color: Color(0xff1d4ed8)),
+                          unselectedIconTheme:
+                              const IconThemeData(color: Color(0xffcbd5e1)),
+                          selectedLabelTextStyle: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w800),
+                          unselectedLabelTextStyle:
+                              const TextStyle(color: Color(0xffcbd5e1)),
+                          onDestinationSelected: (value) => setState(() => index = value),
+                          leading: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: _BrandMark(
+                                extended: MediaQuery.sizeOf(context).width > 1120),
+                          ),
+                          destinations: [
+                            for (final item in items)
+                              NavigationRailDestination(
+                                icon: Icon(item.icon),
+                                selectedIcon: Icon(item.icon),
+                                label: Text(item.label),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Align(
                     alignment: Alignment.bottomCenter,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: IconButton(
                         tooltip: 'Log Keluar',
                         onPressed: state.logout,
-                        icon:
-                            const Icon(Icons.logout, color: Color(0xffcbd5e1)),
+                        icon: const Icon(Icons.logout, color: Color(0xffcbd5e1)),
                       ),
                     ),
                   ),
-                ),
-                destinations: [
-                  for (final item in items)
-                    NavigationRailDestination(
-                      icon: Icon(item.icon),
-                      selectedIcon: Icon(item.icon),
-                      label: Text(item.label),
-                    ),
                 ],
               ),
             ),

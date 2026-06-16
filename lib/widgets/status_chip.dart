@@ -20,6 +20,8 @@ class StatusChip extends StatelessWidget {
       'Present' ||
       'Active' ||
       'Safe' ||
+      'Selamat' ||
+      'Aktif' ||
       'Available' =>
         Colors.green,
       'inactive' ||
@@ -31,6 +33,8 @@ class StatusChip extends StatelessWidget {
       'Absent' ||
       'High' ||
       'Critical' ||
+      'Kritikal' ||
+      'Tidak Aktif' ||
       'Unavailable' =>
         scheme.error,
       'pending' ||
@@ -40,7 +44,8 @@ class StatusChip extends StatelessWidget {
       'Attendance Not Taken' ||
       'Ongoing' ||
       'Late' ||
-      'Warning' =>
+      'Warning' ||
+      'Amaran' =>
         Colors.orange,
       'MC' || 'CK' => Colors.blueGrey,
       'Replacement Class' || 'Kelas Ganti' => Colors.purple,
