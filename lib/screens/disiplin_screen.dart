@@ -319,29 +319,49 @@ class _DisciplineTabSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      child: Row(
         children: [
           for (var index = 0; index < labels.length; index++)
-            ChoiceChip(
-              label: Text(labels[index]),
-              selected: selectedIndex == index,
-              selectedColor: AppColors.primary.withValues(alpha: .12),
-              checkmarkColor: AppColors.primary,
-              labelStyle: TextStyle(
-                color: selectedIndex == index
-                    ? AppColors.primary
-                    : AppColors.muted,
-                fontWeight: FontWeight.w800,
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(9),
+                  onTap: () => onChanged(index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selectedIndex == index
+                          ? AppColors.primary.withValues(alpha: .12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      labels[index],
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: selectedIndex == index
+                            ? AppColors.primary
+                            : AppColors.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              onSelected: (_) => onChanged(index),
             ),
         ],
       ),
@@ -520,26 +540,15 @@ class _NewDisciplineReportPanel extends StatelessWidget {
                       'Contoh: Pelajar tidak hadir 4 minggu berturut-turut tanpa sebab.',
                       style: TextStyle(color: Color(0xff64748b), fontSize: 13),
                     ),
-                    const SizedBox(height: 18),
-                    const _FormSectionTitle('Hantar'),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xfff8fafc),
-                        border: Border.all(color: const Color(0xffe2e8f0)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Align(
-                        alignment:
-                            isWide ? Alignment.centerRight : Alignment.center,
-                        child: isWide
-                            ? submitButton
-                            : SizedBox(
-                                width: double.infinity,
-                                child: submitButton,
-                              ),
-                      ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: isWide
+                          ? submitButton
+                          : SizedBox(
+                              width: double.infinity,
+                              child: submitButton,
+                            ),
                     ),
                   ],
                 );
