@@ -368,6 +368,35 @@ class Student {
   final bool active;
 }
 
+class StudentDashboardSummary {
+  const StudentDashboardSummary({
+    required this.totalStudents,
+    required this.belowThresholdStudents,
+    required this.meetsThresholdStudents,
+    required this.below95Students,
+    required this.below90Students,
+    required this.below85Students,
+    required this.below80Students,
+  });
+
+  const StudentDashboardSummary.empty()
+      : totalStudents = 0,
+        belowThresholdStudents = 0,
+        meetsThresholdStudents = 0,
+        below95Students = 0,
+        below90Students = 0,
+        below85Students = 0,
+        below80Students = 0;
+
+  final int totalStudents;
+  final int belowThresholdStudents;
+  final int meetsThresholdStudents;
+  final int below95Students;
+  final int below90Students;
+  final int below85Students;
+  final int below80Students;
+}
+
 class RoomResource {
   const RoomResource({
     required this.name,

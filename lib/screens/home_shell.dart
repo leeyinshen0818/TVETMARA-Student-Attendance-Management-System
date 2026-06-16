@@ -118,8 +118,8 @@ class _HomeShellState extends State<HomeShell> {
             Icons.warning_amber_outlined, const DisiplinScreen(),
             dataScope: _DataScope.discipline),
 
-      // Admin sees all records; KJ/KP see records within their own scope.
-      if (isAdmin || isKetuaJabatan || isKetuaProgram)
+      // KJ/KP see student records within operational scope.
+      if (isKetuaJabatan || isKetuaProgram)
         const _NavItem(
             'Rekod Pelajar', Icons.people_alt_outlined, RecordsScreen(),
             dataScope: _DataScope.records),

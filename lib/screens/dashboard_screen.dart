@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/academic_session_manager_dialog.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
@@ -113,6 +114,8 @@ class _PentadbirDashboard extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _AdminQuickActionsPanel(state: state),
         const SizedBox(height: 20),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -183,6 +186,34 @@ class _PentadbirDashboard extends StatelessWidget {
   }
 }
 
+class _AdminQuickActionsPanel extends StatelessWidget {
+  const _AdminQuickActionsPanel({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      title: 'Tindakan Pentadbiran',
+      subtitle: 'Urus akaun pengguna dan data asas sistem.',
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          FilledButton.icon(
+            onPressed: () => showAcademicSessionManagerDialog(
+              context: context,
+              state: state,
+            ),
+            icon: const Icon(Icons.event_note_outlined),
+            label: const Text('Urus Sesi Akademik'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _KetuaDashboard extends StatelessWidget {
   const _KetuaDashboard({required this.state});
 
@@ -194,7 +225,9 @@ class _KetuaDashboard extends StatelessWidget {
     final isKj = user.role == UserRole.ketua_jabatan;
     final inheritsKj = state.currentKetuaProgramInheritsKetuaJabatanTasks;
     final scopedPrograms = state.scopedPrograms;
-    final scopedStudents = state.scopedStudents;
+    final hasStudentData = state.isStudentRecordDataLoaded;
+    final scopedStudents = hasStudentData ? state.scopedStudents : <Student>[];
+    final studentSummary = state.studentDashboardSummary;
     final sessionSlots = _currentSessionSlots(state);
     final activeSlots = sessionSlots.where(_isActiveSlot).toList();
     final bookings = state.scopedBookings;
@@ -204,11 +237,16 @@ class _KetuaDashboard extends StatelessWidget {
     final pendingDiscipline = disciplineReports
         .where((report) => _isPendingDisciplineStatus(report.status))
         .length;
-    final riskStudents = scopedStudents
-        .where((student) =>
-            state.attendanceSummaryForStudent(student).percentage <
-            state.attendanceThreshold)
-        .toList();
+    final riskStudents = hasStudentData
+        ? scopedStudents
+            .where((student) =>
+                state.attendanceSummaryForStudent(student).percentage <
+                state.attendanceThreshold)
+            .toList()
+        : <Student>[];
+    final riskStudentCount = hasStudentData
+        ? riskStudents.length
+        : studentSummary.belowThresholdStudents;
     final conflictCount = _countTimetableConflicts(activeSlots);
     final pendingActions = pendingBookings + pendingDiscipline + conflictCount;
     final scopeCode = isKj
@@ -236,9 +274,13 @@ class _KetuaDashboard extends StatelessWidget {
           tiles: [
             StatTile(
               label: isKj ? 'Pelajar Dalam Jabatan' : 'Pelajar Program',
-              value: '${scopedStudents.length}',
+              value: hasStudentData
+                  ? '${scopedStudents.length}'
+                  : '${studentSummary.totalStudents}',
               icon: Icons.school_outlined,
-              helper: 'Jumlah pelajar dalam skop $scopeWord',
+              helper: hasStudentData
+                  ? 'Jumlah pelajar dalam skop $scopeWord'
+                  : 'Ringkasan ringan tanpa memuatkan jadual rekod penuh',
             ),
             StatTile(
               label: isKj ? 'Slot Jadual Aktif' : 'Slot Jadual Program',
@@ -248,10 +290,12 @@ class _KetuaDashboard extends StatelessWidget {
             ),
             StatTile(
               label: 'Pelajar Bawah Had',
-              value: '${riskStudents.length}',
+              value: '$riskStudentCount',
               icon: Icons.warning_amber_outlined,
-              color: riskStudents.isEmpty ? Colors.green : Colors.red,
-              helper: 'Pelajar di bawah had ${state.attendanceThreshold}%',
+              color: riskStudentCount == 0 ? Colors.green : Colors.red,
+              helper: hasStudentData
+                  ? 'Pelajar di bawah had ${state.attendanceThreshold}%'
+                  : 'Ringkasan berdasarkan medan kehadiran pelajar',
             ),
             StatTile(
               label: isKj ? 'Tindakan Menunggu' : 'Laporan / Tindakan Program',
@@ -267,7 +311,7 @@ class _KetuaDashboard extends StatelessWidget {
         _ActionRequiredPanel(
           pendingBookings: pendingBookings,
           pendingDiscipline: pendingDiscipline,
-          riskStudents: riskStudents.length,
+          riskStudents: riskStudentCount,
           timetableConflicts: conflictCount,
         ),
         const SizedBox(height: 16),
@@ -278,6 +322,8 @@ class _KetuaDashboard extends StatelessWidget {
               _AttendanceSummaryPanel(
                 state: state,
                 students: scopedStudents,
+                summary: studentSummary,
+                useLoadedStudents: hasStudentData,
                 title: isKj
                     ? 'Ringkasan Kehadiran Jabatan'
                     : 'Ringkasan Kehadiran Program',
@@ -331,7 +377,8 @@ class _PensyarahDashboard extends StatelessWidget {
     final user = state.currentUser!;
     final slots = _currentSessionSlots(state).where(_isActiveSlot).toList()
       ..sort(_compareSlotsBySchedule);
-    final students = state.scopedStudents;
+    final hasStudentData = state.isStudentRecordDataLoaded;
+    final students = hasStudentData ? state.scopedStudents : <Student>[];
     final bookings = state.scopedBookings;
     final reports = state.scopedDisciplineReports;
     final assignedClasses = slots.map((slot) => slot.section).toSet();
@@ -1038,11 +1085,15 @@ class _AttendanceSummaryPanel extends StatelessWidget {
   const _AttendanceSummaryPanel({
     required this.state,
     required this.students,
+    required this.summary,
+    required this.useLoadedStudents,
     required this.title,
   });
 
   final AppState state;
   final List<Student> students;
+  final StudentDashboardSummary summary;
+  final bool useLoadedStudents;
   final String title;
 
   @override
@@ -1050,40 +1101,63 @@ class _AttendanceSummaryPanel extends StatelessWidget {
     final summaries = students
         .map((student) => state.attendanceSummaryForStudent(student).percentage)
         .toList();
-    final belowThreshold = summaries
-        .where((percentage) => percentage < state.attendanceThreshold)
-        .length;
-    final safe = summaries.length - belowThreshold;
+    final total = useLoadedStudents ? summaries.length : summary.totalStudents;
+    final belowThreshold = useLoadedStudents
+        ? summaries
+            .where((percentage) => percentage < state.attendanceThreshold)
+            .length
+        : summary.belowThresholdStudents;
+    final safe = useLoadedStudents
+        ? summaries.length - belowThreshold
+        : summary.meetsThresholdStudents;
+    final below95 = useLoadedStudents
+        ? summaries.where((item) => item < 95).length
+        : summary.below95Students;
+    final below90 = useLoadedStudents
+        ? summaries.where((item) => item < 90).length
+        : summary.below90Students;
+    final below85 = useLoadedStudents
+        ? summaries.where((item) => item < 85).length
+        : summary.below85Students;
+    final below80 = useLoadedStudents
+        ? summaries.where((item) => item < 80).length
+        : summary.below80Students;
 
     return AppPanel(
       title: title,
-      subtitle: 'Agihan risiko kehadiran berdasarkan rekod semasa.',
+      subtitle: useLoadedStudents
+          ? 'Agihan risiko kehadiran berdasarkan rekod semasa.'
+          : 'Agihan ringkas tanpa memuatkan senarai penuh pelajar.',
       child: Column(
         children: [
           _ProgressSummaryRow(
             label: 'Melepasi Had',
             value: safe,
-            total: summaries.length,
+            total: total,
             color: const Color(0xff16a34a),
           ),
           _ProgressSummaryRow(
             label: 'Bawah ${state.attendanceThreshold}%',
             value: belowThreshold,
-            total: summaries.length,
+            total: total,
             color: const Color(0xffdc2626),
           ),
           const Divider(height: 24),
           _SummaryRow(
             label: 'Pelajar <95%',
-            value: '${summaries.where((item) => item < 95).length}',
+            value: '$below95',
           ),
           _SummaryRow(
             label: 'Pelajar <90%',
-            value: '${summaries.where((item) => item < 90).length}',
+            value: '$below90',
           ),
           _SummaryRow(
             label: 'Pelajar <85%',
-            value: '${summaries.where((item) => item < 85).length}',
+            value: '$below85',
+          ),
+          _SummaryRow(
+            label: 'Pelajar <80%',
+            value: '$below80',
           ),
         ],
       ),

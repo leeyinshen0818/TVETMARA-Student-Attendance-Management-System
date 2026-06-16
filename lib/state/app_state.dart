@@ -37,6 +37,8 @@ class AppState extends ChangeNotifier {
   List<ProgramCode> programs = [];
   List<Department> departments = [];
   List<AcademicSession> academicSessions = [];
+  StudentDashboardSummary studentDashboardSummary =
+      const StudentDashboardSummary.empty();
 
   int attendanceThreshold = 80;
   String reportFrequency = 'Weekly';
@@ -81,9 +83,7 @@ class AppState extends ChangeNotifier {
   bool get canManageAcademicSessions {
     final user = currentUser;
     if (user == null) return false;
-    return user.role == UserRole.pentadbir ||
-        user.role == UserRole.ketua_jabatan ||
-        currentKetuaProgramInheritsKetuaJabatanTasks;
+    return user.role == UserRole.pentadbir;
   }
 
   bool get isTimetableDataLoaded =>
@@ -103,13 +103,14 @@ class AppState extends ChangeNotifier {
 
   bool get isDashboardDataLoaded {
     final requiredCollections = [
-      'students',
       'timetable',
       'bookings',
       'discipline',
       'sessionAttendance',
+      if (_currentUserNeedsStudentDashboardSummary) 'studentDashboardSummary',
       if (currentUser?.role == UserRole.pentadbir) ...[
         'users',
+        'students',
         'lecturers',
       ],
     ];
@@ -118,17 +119,24 @@ class AppState extends ChangeNotifier {
 
   bool get isDashboardDataLoading {
     final loadingCollections = [
-      'students',
       'timetable',
       'bookings',
       'discipline',
       'sessionAttendance',
+      if (_currentUserNeedsStudentDashboardSummary) 'studentDashboardSummary',
       if (currentUser?.role == UserRole.pentadbir) ...[
         'users',
+        'students',
         'lecturers',
       ],
     ];
     return loadingCollections.any(isCollectionLoading);
+  }
+
+  bool get _currentUserNeedsStudentDashboardSummary {
+    final user = currentUser;
+    return user?.role == UserRole.ketua_jabatan ||
+        user?.role == UserRole.ketua_program;
   }
 
   /// Load all data from Firestore.
@@ -224,12 +232,14 @@ class AppState extends ChangeNotifier {
     await loadBootstrapDataIfNeeded();
     await Future.wait([
       loadTimetableIfNeeded(),
-      loadStudentsIfNeeded(),
       loadBookingsIfNeeded(),
       loadDisciplineIfNeeded(),
       loadSessionAttendanceIfNeeded(),
+      if (_currentUserNeedsStudentDashboardSummary)
+        loadStudentDashboardSummaryIfNeeded(),
       if (currentUser?.role == UserRole.pentadbir) ...[
         loadUsersIfNeeded(),
+        loadStudentsIfNeeded(),
         loadLecturersIfNeeded(),
       ],
     ]);
@@ -283,6 +293,25 @@ class AppState extends ChangeNotifier {
       loadSessionAttendanceIfNeeded(),
     ]);
   }
+
+  Future<void> refreshStudentRecordData() async {
+    _loadedCollections.removeAll([
+      'students',
+      'timetable',
+      'lecturers',
+      'sessionAttendance',
+    ]);
+    await loadStudentRecordDataIfNeeded();
+  }
+
+  Future<void> loadStudentDashboardSummaryIfNeeded() =>
+      _loadCollection('studentDashboardSummary', () async {
+        final programIds = scopedPrograms.map((program) => program.id).toSet();
+        studentDashboardSummary = await _fs.getStudentDashboardSummary(
+          programIds: programIds,
+          attendanceThreshold: attendanceThreshold,
+        );
+      });
 
   Future<void> refreshTimetableData() async {
     _loadedCollections.removeAll(['timetable', 'uploads', 'rooms']);
@@ -386,6 +415,7 @@ class AppState extends ChangeNotifier {
     programs = [];
     departments = [];
     academicSessions = [];
+    studentDashboardSummary = const StudentDashboardSummary.empty();
     _loadedCollections.clear();
     _loadingCollections.clear();
     _pendingLoads.clear();
@@ -1005,6 +1035,8 @@ class AppState extends ChangeNotifier {
 
   void updateAttendanceThreshold(int value) {
     attendanceThreshold = value;
+    _loadedCollections.remove('studentDashboardSummary');
+    studentDashboardSummary = const StudentDashboardSummary.empty();
     notifyListeners();
   }
 

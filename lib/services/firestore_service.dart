@@ -82,6 +82,49 @@ class FirestoreService {
     return snap.docs.map(_docToStudent).toList();
   }
 
+  Future<StudentDashboardSummary> getStudentDashboardSummary({
+    required Set<String> programIds,
+    required int attendanceThreshold,
+  }) async {
+    if (programIds.isEmpty) return const StudentDashboardSummary.empty();
+
+    var total = 0;
+    var belowThreshold = 0;
+    var below95 = 0;
+    var below90 = 0;
+    var below85 = 0;
+    var below80 = 0;
+    for (final programId in programIds) {
+      // Keep this dashboard query single-field so demo Firestore projects do
+      // not need a composite index before the Ketua dashboard can load.
+      final snap =
+          await _studentsCol.where('programId', isEqualTo: programId).get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final active =
+            data['active'] as bool? ?? data['isActive'] as bool? ?? true;
+        if (!active) continue;
+        total++;
+        final attendance = data['attendance'] as int? ?? 100;
+        if (attendance < attendanceThreshold) belowThreshold++;
+        if (attendance < 95) below95++;
+        if (attendance < 90) below90++;
+        if (attendance < 85) below85++;
+        if (attendance < 80) below80++;
+      }
+    }
+
+    return StudentDashboardSummary(
+      totalStudents: total,
+      belowThresholdStudents: belowThreshold,
+      meetsThresholdStudents: total - belowThreshold,
+      below95Students: below95,
+      below90Students: below90,
+      below85Students: below85,
+      below80Students: below80,
+    );
+  }
+
   Stream<List<Student>> studentsStream() {
     return _studentsCol.orderBy('name').snapshots().map(
           (snap) => snap.docs.map(_docToStudent).toList(),

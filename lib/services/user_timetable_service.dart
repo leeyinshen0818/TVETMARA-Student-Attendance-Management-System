@@ -180,6 +180,21 @@ class UserTimetableService {
     });
   }
 
+  Future<void> updateUserProfile(AppUser user) async {
+    await _db.collection(FirestoreCollections.users).doc(user.uid).set({
+      UserFields.uid: user.uid,
+      UserFields.name: user.name,
+      UserFields.email: user.email,
+      UserFields.role: user.role.firestoreValue,
+      UserFields.programId: user.programId,
+      UserFields.departmentId: user.departmentId,
+      UserFields.phoneNumber: user.phoneNumber,
+      UserFields.lecturerProfileId: user.lecturerProfileId,
+      UserFields.isActive: user.isActive,
+      UserFields.updatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   /// Helper function to query the 'students' collection (Admin scope requirements).
   Stream<List<Student>> getStudentsStream() {
     return _db

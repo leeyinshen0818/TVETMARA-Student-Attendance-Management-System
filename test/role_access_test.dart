@@ -194,15 +194,15 @@ void main() {
     expect(state.scopedBookings, isEmpty);
   });
 
-  test('academic session management follows role hierarchy', () {
+  test('academic session management is restricted to pentadbir', () {
     expect(_stateFor(_user('admin@tvetmara.edu.my')).canManageAcademicSessions,
         isTrue);
     expect(
         _stateFor(_user('kj_elektrik@tvetmara.edu.my'))
             .canManageAcademicSessions,
-        isTrue);
+        isFalse);
     expect(_stateFor(_user('kp_dgs@tvetmara.edu.my')).canManageAcademicSessions,
-        isTrue);
+        isFalse);
     expect(_stateFor(_user('kp_ded@tvetmara.edu.my')).canManageAcademicSessions,
         isFalse);
     expect(

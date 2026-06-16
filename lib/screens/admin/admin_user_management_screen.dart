@@ -19,8 +19,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   final Set<String> _cancelledAssignments = {};
 
   final TextEditingController _userSearchController = TextEditingController();
-  final TextEditingController _studentSearchController = TextEditingController();
-  final TextEditingController _lecturerSearchController = TextEditingController();
+  final TextEditingController _studentSearchController =
+      TextEditingController();
+  final TextEditingController _lecturerSearchController =
+      TextEditingController();
 
   UserRole? _selectedRoleFilter;
   String? _selectedProgramFilter;
@@ -34,18 +36,56 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   String _studentSearchQuery = '';
   String _lecturerSearchQuery = '';
 
+  static const List<(String, String)> _departmentOptions = [
+    ('elektrik', 'Jabatan Elektrik'),
+    ('mekanikal', 'Jabatan Mekanikal'),
+    ('automotif', 'Jabatan Automotif'),
+  ];
+
+  static const List<(String, String)> _programOptions = [
+    ('DED', 'DED - Diploma Teknologi Elektrik'),
+    ('DCP', 'DCP - Diploma Teknologi Komputer'),
+    ('DCB', 'DCB - Diploma Teknologi Elektronik'),
+    ('ITW', 'ITW'),
+    ('SLR', 'SLR'),
+    ('SMI', 'SMI'),
+    ('IMF', 'IMF'),
+    ('SMM', 'SMM'),
+    ('DMM', 'DMM'),
+    ('DGS', 'DGS'),
+    ('DPP', 'DPP'),
+    ('DEK', 'DEK'),
+    ('DGM', 'DGM'),
+    ('SMK', 'SMK'),
+  ];
+
+  static const Map<String, String> _programDepartments = {
+    'DED': 'elektrik',
+    'DCP': 'elektrik',
+    'DCB': 'elektrik',
+    'ITW': 'mekanikal',
+    'SLR': 'mekanikal',
+    'SMI': 'mekanikal',
+    'IMF': 'automotif',
+    'SMM': 'automotif',
+    'DMM': 'automotif',
+  };
+
   @override
   void initState() {
     super.initState();
     _service = UserTimetableService();
     _userSearchController.addListener(() {
-      setState(() => _userSearchQuery = _userSearchController.text.toLowerCase());
+      setState(
+          () => _userSearchQuery = _userSearchController.text.toLowerCase());
     });
     _studentSearchController.addListener(() {
-      setState(() => _studentSearchQuery = _studentSearchController.text.toLowerCase());
+      setState(() =>
+          _studentSearchQuery = _studentSearchController.text.toLowerCase());
     });
     _lecturerSearchController.addListener(() {
-      setState(() => _lecturerSearchQuery = _lecturerSearchController.text.toLowerCase());
+      setState(() =>
+          _lecturerSearchQuery = _lecturerSearchController.text.toLowerCase());
     });
   }
 
@@ -114,16 +154,19 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(fontSize: 13, color: Color(0xff94a3b8)),
-        prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xff94a3b8)),
+        prefixIcon:
+            const Icon(Icons.search, size: 18, color: Color(0xff94a3b8)),
         suffixIcon: controller.text.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.close, size: 16, color: Color(0xff94a3b8)),
+                icon:
+                    const Icon(Icons.close, size: 16, color: Color(0xff94a3b8)),
                 onPressed: () => controller.clear(),
               )
             : null,
         filled: true,
         fillColor: const Color(0xfff8fafc),
-        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xffe2e8f0)),
@@ -185,7 +228,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           final matchesSearch = _userSearchQuery.isEmpty ||
               u.name.toLowerCase().contains(_userSearchQuery) ||
               u.email.toLowerCase().contains(_userSearchQuery) ||
-              (u.departmentId?.toLowerCase().contains(_userSearchQuery) ?? false);
+              (u.departmentId?.toLowerCase().contains(_userSearchQuery) ??
+                  false);
           final matchesRole =
               _selectedRoleFilter == null || u.role == _selectedRoleFilter;
           return matchesSearch && matchesRole;
@@ -345,8 +389,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                                 : Colors.grey,
                                             onTap: () {
                                               final next = !isActive;
-                                              setState(() => _activeOverrides[
-                                                  user.uid] = next);
+                                              setState(() =>
+                                                  _activeOverrides[user.uid] =
+                                                      next);
                                               _handleUserStatusToggle(
                                                   user.uid, next);
                                             },
@@ -415,9 +460,24 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   void _showEditUserDialog(AppUser user) {
     final nameController = TextEditingController(text: user.name);
     final emailController = TextEditingController(text: user.email);
-    final deptController =
-        TextEditingController(text: user.departmentId ?? '');
     UserRole selectedRole = user.role;
+    String? selectedDepartmentId = _normalizeDepartmentId(user.departmentId);
+    String? selectedProgramId = user.programId;
+
+    void normalizeScopeForRole() {
+      if (selectedRole == UserRole.ketua_jabatan) {
+        selectedDepartmentId ??= _departmentOptions.first.$1;
+        selectedProgramId = null;
+      } else if (selectedRole == UserRole.ketua_program) {
+        selectedProgramId ??= _programOptions.first.$1;
+        selectedDepartmentId = _departmentForProgram(selectedProgramId);
+      } else if (selectedRole == UserRole.pentadbir) {
+        selectedDepartmentId = null;
+        selectedProgramId = null;
+      }
+    }
+
+    normalizeScopeForRole();
 
     showDialog(
       context: context,
@@ -437,8 +497,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   children: [
                     const Text(
                       'Edit Pengguna',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
@@ -449,8 +509,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildDialogField(
-                    label: 'Nama', controller: nameController),
+                _buildDialogField(label: 'Nama', controller: nameController),
                 const SizedBox(height: 16),
                 _buildDialogField(
                     label: 'Emel',
@@ -467,7 +526,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             color: Color(0xff374151))),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<UserRole>(
-                      value: selectedRole,
+                      initialValue: selectedRole,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xfff9fafb),
@@ -475,12 +534,12 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                             horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                                color: Color(0xffe5e7eb))),
+                            borderSide:
+                                const BorderSide(color: Color(0xffe5e7eb))),
                         enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                                color: Color(0xffe5e7eb))),
+                            borderSide:
+                                const BorderSide(color: Color(0xffe5e7eb))),
                       ),
                       items: UserRole.values
                           .map((r) => DropdownMenuItem(
@@ -491,15 +550,46 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                           .toList(),
                       onChanged: (v) {
                         if (v != null) {
-                          setDialogState(() => selectedRole = v);
+                          setDialogState(() {
+                            selectedRole = v;
+                            normalizeScopeForRole();
+                          });
                         }
                       },
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildDialogField(
-                    label: 'Jabatan', controller: deptController),
+                if (selectedRole == UserRole.ketua_jabatan)
+                  _buildScopeDropdown(
+                    label: 'Jabatan',
+                    value: selectedDepartmentId,
+                    items: _departmentOptions,
+                    onChanged: (value) =>
+                        setDialogState(() => selectedDepartmentId = value),
+                  )
+                else if (selectedRole == UserRole.ketua_program) ...[
+                  _buildScopeDropdown(
+                    label: 'Program',
+                    value: selectedProgramId,
+                    items: _programOptions,
+                    onChanged: (value) => setDialogState(() {
+                      selectedProgramId = value;
+                      selectedDepartmentId = _departmentForProgram(value);
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    selectedDepartmentId == null
+                        ? 'Jabatan: Tiada Ketua Jabatan'
+                        : 'Jabatan: ${_departmentLabel(selectedDepartmentId)}',
+                    style: const TextStyle(
+                      color: Color(0xff64748b),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -515,9 +605,35 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      onPressed: () async {
+                        final navigator = Navigator.of(ctx);
+                        final messenger = ScaffoldMessenger.of(context);
+                        final updated = AppUser(
+                          uid: user.uid,
+                          name: nameController.text.trim(),
+                          email: emailController.text.trim(),
+                          role: selectedRole,
+                          programId: selectedRole == UserRole.ketua_program
+                              ? selectedProgramId
+                              : selectedRole == UserRole.pensyarah
+                                  ? user.programId
+                                  : null,
+                          departmentId:
+                              selectedRole == UserRole.ketua_jabatan ||
+                                      selectedRole == UserRole.ketua_program
+                                  ? selectedDepartmentId
+                                  : selectedRole == UserRole.pensyarah
+                                      ? user.departmentId
+                                      : null,
+                          lecturerProfileId: user.lecturerProfileId,
+                          phoneNumber: user.phoneNumber,
+                          isActive: _activeOverrides[user.uid] ?? user.isActive,
+                          createdAt: user.createdAt,
+                          updatedAt: user.updatedAt,
+                        );
+                        await _service.updateUserProfile(updated);
+                        navigator.pop();
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Maklumat pengguna dikemaskini.'),
                             backgroundColor: Colors.green,
@@ -526,8 +642,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.primary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 24, vertical: 12),
@@ -577,12 +692,82 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                 borderSide: const BorderSide(color: Color(0xffe5e7eb))),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                    color: Theme.of(context).colorScheme.primary)),
+                borderSide:
+                    BorderSide(color: Theme.of(context).colorScheme.primary)),
           ),
         ),
       ],
     );
+  }
+
+  Widget _buildScopeDropdown({
+    required String label,
+    required String? value,
+    required List<(String, String)> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xff374151))),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xfff9fafb),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xffe5e7eb))),
+          ),
+          items: items
+              .map((item) => DropdownMenuItem<String>(
+                    value: item.$1,
+                    child: Text(
+                      item.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  String? _departmentForProgram(String? programId) {
+    if (programId == null || programId.trim().isEmpty) return null;
+    return _programDepartments[programId.trim().toUpperCase()];
+  }
+
+  String? _normalizeDepartmentId(String? value) {
+    final clean = value?.trim().toLowerCase();
+    if (clean == null || clean.isEmpty) return null;
+    if (clean.contains('elektrik')) return 'elektrik';
+    if (clean.contains('mekanikal')) return 'mekanikal';
+    if (clean.contains('automotif')) return 'automotif';
+    return _departmentOptions.any((item) => item.$1 == clean) ? clean : null;
+  }
+
+  String _departmentLabel(String? departmentId) {
+    if (departmentId == null || departmentId.isEmpty) return '-';
+    return _departmentOptions
+            .where((item) => item.$1 == departmentId)
+            .map((item) => item.$2)
+            .firstOrNull ??
+        departmentId;
   }
 
   String _roleLabel(UserRole role) {
@@ -698,7 +883,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               _selectedClassFilter == null || s.section == _selectedClassFilter;
           final matchesSemester = _selectedSemesterFilter == null ||
               s.semester.toString() == _selectedSemesterFilter;
-          return matchesSearch && matchesProgram && matchesClass && matchesSemester;
+          return matchesSearch &&
+              matchesProgram &&
+              matchesClass &&
+              matchesSemester;
         }).toList();
 
         if (allStudents.isEmpty) {
@@ -723,7 +911,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                     hint: 'Nama, ID, kelas...',
                   ),
                 ),
-                const SizedBox(width: 12),                                
+                const SizedBox(width: 12),
                 _buildFilterDropdown<String?>(
                   value: _selectedProgramFilter,
                   hint: 'Semua Kursus',
@@ -767,8 +955,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                         child: Text('Sem $s',
                             style: const TextStyle(fontSize: 13)))),
                   ],
-                  onChanged: (v) =>
-                      setState(() => _selectedSemesterFilter = v),
+                  onChanged: (v) => setState(() => _selectedSemesterFilter = v),
                 ),
               ],
             ),
@@ -776,8 +963,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text('${students.length} pelajar dijumpai',
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xff94a3b8))),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -821,13 +1008,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                     DataColumn(label: Text('Telefon')),
                                     DataColumn(label: Text('Program')),
                                     DataColumn(label: Text('Seksyen')),
-                                    DataColumn(label: Text('Sem'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Sem'), numeric: true),
                                     DataColumn(label: Text('Status')),
-                                    DataColumn(label: Text('Att %'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Att %'), numeric: true),
                                     DataColumn(label: Text('Tindakan')),
                                   ],
                                   rows: students.map((student) {
-                                    final bool isSafe = student.attendance >= 80;
+                                    final bool isSafe =
+                                        student.attendance >= 80;
                                     final Color attColor =
                                         isSafe ? Colors.green : Colors.red;
                                     return DataRow(cells: [
@@ -889,7 +1079,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                       )),
-                                      DataCell(_buildStatusBadge(student.active)),
+                                      DataCell(
+                                          _buildStatusBadge(student.active)),
                                       DataCell(SizedBox(
                                         width: 80,
                                         child: Column(
@@ -987,7 +1178,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   const SizedBox(height: 20),
                   _buildDetailGrid([
                     _DetailField(label: 'Student ID', value: student.id),
-                    _DetailField(label: 'IC', value: '—'),
+                    const _DetailField(label: 'IC', value: '—'),
                     _DetailField(label: 'Seksyen', value: student.section),
                     _DetailField(label: 'Emel', value: student.email),
                     _DetailField(label: 'Telefon', value: student.phone),
@@ -1048,8 +1239,8 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   ),
                   const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xfff8fafc),
                       borderRadius: const BorderRadius.only(
@@ -1127,8 +1318,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                 child: Text(
                                   '${subj['sessions']}',
                                   style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xff475569)),
+                                      fontSize: 12, color: Color(0xff475569)),
                                 ),
                               ),
                               Expanded(
@@ -1230,7 +1420,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       final base = student.attendance + (i % 2 == 0 ? -5 + i * 3 : 5 - i * 2);
       final clamped = base.clamp(0, 100);
       return {
-        'subjectCode': '${prefix}${100 + i + 1}',
+        'subjectCode': '$prefix${100 + i + 1}',
         'sessions': sessions,
         'percentage': clamped,
       };
@@ -1251,7 +1441,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           return Center(child: Text('Ralat memuat data: ${snapshot.error}'));
         }
         final allAssignments = snapshot.data ?? [];
- 
+
         if (allAssignments.isEmpty) {
           return const Center(
             child: AppPanel(
@@ -1262,16 +1452,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             ),
           );
         }
- 
+
         // ── Group raw assignment docs by lecturerId ──────────────────────────
         final Map<String, List<Map<String, dynamic>>> grouped = {};
         for (final map in allAssignments) {
           final lid = map['lecturerId']?.toString() ?? 'unknown';
           grouped.putIfAbsent(lid, () => []).add(map);
         }
- 
-        final List<Map<String, dynamic>> lecturerRows =
-            grouped.entries.map((e) {
+
+        final List<Map<String, dynamic>> lecturerRows = grouped.entries
+            .map((e) {
           final rows = e.value;
           final first = rows.first;
           final subjects = rows
@@ -1286,18 +1476,16 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
               .toSet()
               .toList()
             ..sort();
- 
+
           // Extract latest date from the assignment documents
           final dates = rows
               .map((m) =>
-                  m['date']?.toString() ??
-                  m['createdAt']?.toString() ??
-                  '')
+                  m['date']?.toString() ?? m['createdAt']?.toString() ?? '')
               .where((d) => d.isNotEmpty)
               .toList()
             ..sort();
           final latestDate = dates.isNotEmpty ? dates.last : '';
- 
+
           return {
             'lecturerId': first['lecturerId'] ?? '-',
             'lecturerName': first['lecturerName'] ?? '-',
@@ -1308,7 +1496,9 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             'classesPerWeek': classes.length,
             'appUser': first['appUser'],
             // ✅ NEW: raw assignment id for undo cancel
-            'assignmentId': first['id']?.toString() ?? first['lecturerId']?.toString() ?? '-',
+            'assignmentId': first['id']?.toString() ??
+                first['lecturerId']?.toString() ??
+                '-',
             // ✅ NEW: date field for display
             'latestDate': latestDate,
           };
@@ -1316,7 +1506,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           ..sort((a, b) => a['lecturerName']
               .toString()
               .compareTo(b['lecturerName'].toString()));
- 
+
         // ── Filter options ───────────────────────────────────────────────────
         final programs = allAssignments
             .map((m) => m['programId']?.toString() ?? '')
@@ -1336,7 +1526,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             .toSet()
             .toList()
           ..sort();
- 
+
         // ── Apply filters + search ───────────────────────────────────────────
         final assignments = lecturerRows.where((row) {
           final name = row['lecturerName'].toString().toLowerCase();
@@ -1351,13 +1541,14 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           final matchesProg = _selectedDepartmentFilter == null ||
               prog == _selectedDepartmentFilter;
           final matchesSubject = _selectedSubjectFilter == null ||
-              (row['subjects'] as List<String>).contains(_selectedSubjectFilter);
+              (row['subjects'] as List<String>)
+                  .contains(_selectedSubjectFilter);
           final matchesClass = _selectedLecturerClassFilter == null ||
               (row['classes'] as List<String>)
                   .contains(_selectedLecturerClassFilter);
           return matchesSearch && matchesProg && matchesSubject && matchesClass;
         }).toList();
- 
+
         return Column(
           children: [
             // ── Filter bar ─────────────────────────────────────────────────
@@ -1422,11 +1613,11 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text('${assignments.length} pensyarah dijumpai',
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xff94a3b8))),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
             ),
             const SizedBox(height: 8),
- 
+
             // ── DataTable ──────────────────────────────────────────────────
             Expanded(
               child: assignments.isEmpty
@@ -1482,24 +1673,22 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                       row['lecturerName'].toString();
                                   final assignmentId =
                                       row['assignmentId'].toString();
- 
+
                                   // ✅ NEW: Check local cancelled state
                                   final isCancelled = _cancelledAssignments
                                       .contains(assignmentId);
- 
+
                                   return DataRow(
                                     // ✅ NEW: Dim cancelled rows
                                     color: isCancelled
                                         ? WidgetStateProperty.all(
-                                            Colors.red
-                                                .withValues(alpha: 0.04))
+                                            Colors.red.withValues(alpha: 0.04))
                                         : null,
                                     cells: [
                                       // Nama
                                       DataCell(SizedBox(
                                           width: 180,
-                                          child: Text(
-                                              lecturerName,
+                                          child: Text(lecturerName,
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 13,
@@ -1516,8 +1705,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                               overflow:
                                                   TextOverflow.ellipsis))),
                                       // Emel
-                                      DataCell(Text(
-                                          lecturerEmail,
+                                      DataCell(Text(lecturerEmail,
                                           style: const TextStyle(
                                               fontSize: 11,
                                               color: Color(0xff64748b)))),
@@ -1569,7 +1757,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                                                 _showLecturerTimetableDialog(
                                                     row),
                                           ),
-                                          const SizedBox(width: 4),                                          
+                                          const SizedBox(width: 4),
                                         ],
                                       )),
                                     ],
@@ -1587,7 +1775,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       },
     );
   }
- 
+
   // ── Opens the lecturer timetable popup dialog ─────────────────────────────
   void _showLecturerTimetableDialog(Map<String, dynamic> row) {
     showDialog(
@@ -1600,7 +1788,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       ),
     );
   }
- 
+
   Widget _buildLecturerProgramBadge(String programId) {
     const colorMap = {
       'DCB': Colors.purple,
@@ -1628,7 +1816,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     );
   }
 }
- 
+
 // =============================================================================
 // Lecturer Timetable Dialog
 // Shows timetable slots for a specific lecturer with:
@@ -1643,28 +1831,38 @@ class _LecturerTimetableDialog extends StatefulWidget {
     required this.lecturerEmail,
     required this.service,
   });
- 
+
   final String lecturerId;
   final String lecturerName;
   final String lecturerEmail;
   final UserTimetableService service;
- 
+
   @override
   State<_LecturerTimetableDialog> createState() =>
       _LecturerTimetableDialogState();
 }
- 
+
 class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
   // ✅ UPDATED: Locally cancelled slot IDs (undo-capable)
   final Set<String> _cancelledSlotIds = {};
- 
+
   static const Map<String, int> _dayOrder = {
-    'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
-    'Friday': 4, 'Saturday': 5, 'Sunday': 6,
-    'Isnin': 0, 'Selasa': 1, 'Rabu': 2, 'Khamis': 3,
-    'Jumaat': 4, 'Sabtu': 5, 'Ahad': 6,
+    'Monday': 0,
+    'Tuesday': 1,
+    'Wednesday': 2,
+    'Thursday': 3,
+    'Friday': 4,
+    'Saturday': 5,
+    'Sunday': 6,
+    'Isnin': 0,
+    'Selasa': 1,
+    'Rabu': 2,
+    'Khamis': 3,
+    'Jumaat': 4,
+    'Sabtu': 5,
+    'Ahad': 6,
   };
- 
+
   // ✅ UPDATED: Returns full Malay day name (not English abbreviation)
   String _dayToMalay(String? day) {
     const map = {
@@ -1686,7 +1884,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
     };
     return map[day?.trim() ?? ''] ?? (day ?? '—');
   }
- 
+
   // ✅ NEW: Format slot date for display
   String _formatSlotDate(TimetableSlot slot) {
     final raw = slot.date.isNotEmpty
@@ -1704,12 +1902,12 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
     }
     return raw.length > 10 ? raw.substring(0, 10) : raw;
   }
- 
+
   // ✅ UPDATED: Undo-cancel with SnackBar action instead of confirmation dialog
   void _handleCancelSlot(TimetableSlot slot) {
     // 1. Immediately mark cancelled in local state
     setState(() => _cancelledSlotIds.add(slot.id));
- 
+
     // 2. Show SnackBar with URUS BALIK action
     ScaffoldMessenger.of(context).clearSnackBars();
     final snackBar = SnackBar(
@@ -1726,7 +1924,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
         },
       ),
     );
- 
+
     ScaffoldMessenger.of(context)
         .showSnackBar(snackBar)
         .closed
@@ -1750,7 +1948,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
       }
     });
   }
- 
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1804,7 +2002,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                 ],
               ),
               const SizedBox(height: 14),
- 
+
               // ── Dark banner ───────────────────────────────────────────────────
               Container(
                 width: double.infinity,
@@ -1840,7 +2038,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                 ),
               ),
               const SizedBox(height: 16),
- 
+
               // ── Table ─────────────────────────────────────────────────────────
               Expanded(
                 child: StreamBuilder<List<TimetableSlot>>(
@@ -1862,9 +2060,9 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                           child: Text('Ralat: ${snapshot.error}',
                               style: const TextStyle(color: Colors.red)));
                     }
- 
+
                     final allSlots = snapshot.data ?? [];
- 
+
                     // Sort by day order → start time
                     final slots = [...allSlots]..sort((a, b) {
                         final dayA = _dayOrder[a.dayOfWeek ?? a.day] ?? 99;
@@ -1872,7 +2070,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                         if (dayA != dayB) return dayA.compareTo(dayB);
                         return a.startTime.compareTo(b.startTime);
                       });
- 
+
                     if (slots.isEmpty) {
                       return const Center(
                         child: Padding(
@@ -1884,7 +2082,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                         ),
                       );
                     }
- 
+
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1903,8 +2101,8 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: const Color(0xffe2e8f0)),
+                              border:
+                                  Border.all(color: const Color(0xffe2e8f0)),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             // ✅ UPDATED: LayoutBuilder + ConstrainedBox for full-width table
@@ -1918,9 +2116,8 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                     constraints: BoxConstraints(
                                         minWidth: constraints.maxWidth),
                                     child: DataTable(
-                                      headingRowColor:
-                                          WidgetStateProperty.all(
-                                              const Color(0xfff1f5f9)),
+                                      headingRowColor: WidgetStateProperty.all(
+                                          const Color(0xfff1f5f9)),
                                       headingTextStyle: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
@@ -1936,11 +2133,9 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                       dataRowMaxHeight: 80,
                                       columns: const [
                                         DataColumn(
-                                            label: Text('NO.'),
-                                            numeric: true),
+                                            label: Text('NO.'), numeric: true),
                                         DataColumn(label: Text('KOD')),
-                                        DataColumn(
-                                            label: Text('NAMA KURSUS')),
+                                        DataColumn(label: Text('NAMA KURSUS')),
                                         DataColumn(label: Text('SEKSYEN')),
                                         DataColumn(label: Text('PROGRAM')),
                                         DataColumn(
@@ -1957,11 +2152,10 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                         final index = entry.key;
                                         final slot = entry.value;
                                         final isCancelled =
-                                            _cancelledSlotIds
-                                                .contains(slot.id);
+                                            _cancelledSlotIds.contains(slot.id);
                                         final capacityText =
                                             '${slot.enrolled}/${slot.capacity}';
- 
+
                                         // ✅ UPDATED: Full Malay day name
                                         final dayMalay = _dayToMalay(
                                             slot.dayOfWeek ?? slot.day);
@@ -1970,23 +2164,22 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                         final location = slot.roomName ??
                                             slot.roomId ??
                                             slot.room;
- 
+
                                         // ✅ NEW: Formatted date
                                         final dateDisplay =
                                             _formatSlotDate(slot);
- 
-                                        final jenis =
-                                            slot.classType.isNotEmpty
+
+                                        final jenis = slot.classType.isNotEmpty
+                                            ? slot.classType
+                                            : slot.classType.isNotEmpty
                                                 ? slot.classType
-                                                : slot.classType.isNotEmpty
-                                                    ? slot.classType
-                                                    : 'Teori/Amali';
- 
+                                                : 'Teori/Amali';
+
                                         return DataRow(
                                           color: isCancelled
-                                              ? WidgetStateProperty.all(
-                                                  Colors.red.withValues(
-                                                      alpha: 0.04))
+                                              ? WidgetStateProperty.all(Colors
+                                                  .red
+                                                  .withValues(alpha: 0.04))
                                               : null,
                                           cells: [
                                             // NO.
@@ -2009,15 +2202,14 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                               child: Text(
                                                 slot.subjectName,
                                                 maxLines: 2,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: isCancelled
                                                     ? const TextStyle(
                                                         decoration:
                                                             TextDecoration
                                                                 .lineThrough,
-                                                        color: Color(
-                                                            0xff94a3b8))
+                                                        color:
+                                                            Color(0xff94a3b8))
                                                     : null,
                                               ),
                                             )),
@@ -2027,8 +2219,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                   ? slot.section
                                                   : slot.classId ?? '—',
                                               style: const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight.w600),
+                                                  fontWeight: FontWeight.w600),
                                             )),
                                             // PROGRAM
                                             DataCell(SizedBox(
@@ -2038,15 +2229,14 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                     ? slot.program
                                                     : slot.programId ?? '—',
                                                 maxLines: 2,
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             )),
                                             // KAPASITI
                                             DataCell(Text(
                                               capacityText,
-                                              style: const TextStyle(
-                                                  fontSize: 12),
+                                              style:
+                                                  const TextStyle(fontSize: 12),
                                             )),
                                             // ✅ UPDATED: HARI / MASA / TARIKH / LOKASI
                                             DataCell(SizedBox(
@@ -2059,7 +2249,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                 children: [
                                                   // Day: short abbr + full Malay
                                                   Row(
-                                                    children: [                                                      
+                                                    children: [
                                                       const SizedBox(width: 5),
                                                       Text(
                                                         dayMalay,
@@ -2078,8 +2268,8 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                     timeRange,
                                                     style: const TextStyle(
                                                         fontSize: 11,
-                                                        color: Color(
-                                                            0xff475569)),
+                                                        color:
+                                                            Color(0xff475569)),
                                                   ),
                                                   // ✅ NEW: Date below time
                                                   if (dateDisplay.isNotEmpty)
@@ -2095,8 +2285,8 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                     location,
                                                     style: const TextStyle(
                                                         fontSize: 10,
-                                                        color: Color(
-                                                            0xff64748b)),
+                                                        color:
+                                                            Color(0xff64748b)),
                                                     maxLines: 1,
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -2164,8 +2354,8 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                             DataCell(
                                               isCancelled
                                                   ? TextButton.icon(
-                                                      onPressed: () =>
-                                                          setState(() =>
+                                                      onPressed: () => setState(
+                                                          () =>
                                                               _cancelledSlotIds
                                                                   .remove(
                                                                       slot.id)),
@@ -2184,15 +2374,15 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                       ),
                                                       style:
                                                           TextButton.styleFrom(
-                                                        padding: const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 4),
-                                                        backgroundColor:
-                                                            Colors.green
-                                                                .withValues(
-                                                                    alpha:
-                                                                        0.07),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 6,
+                                                                vertical: 4),
+                                                        backgroundColor: Colors
+                                                            .green
+                                                            .withValues(
+                                                                alpha: 0.07),
                                                         shape:
                                                             RoundedRectangleBorder(
                                                           borderRadius:
@@ -2220,15 +2410,15 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                                                       ),
                                                       style:
                                                           TextButton.styleFrom(
-                                                        padding: const EdgeInsets
-                                                            .symmetric(
-                                                            horizontal: 6,
-                                                            vertical: 4),
-                                                        backgroundColor:
-                                                            Colors.red
-                                                                .withValues(
-                                                                    alpha:
-                                                                        0.06),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 6,
+                                                                vertical: 4),
+                                                        backgroundColor: Colors
+                                                            .red
+                                                            .withValues(
+                                                                alpha: 0.06),
                                                         shape:
                                                             RoundedRectangleBorder(
                                                           borderRadius:
@@ -2253,7 +2443,7 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
                   },
                 ),
               ),
- 
+
               // ── Footer ─────────────────────────────────────────────────────────
               const SizedBox(height: 16),
               Align(
