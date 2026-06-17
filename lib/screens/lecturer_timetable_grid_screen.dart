@@ -1,3 +1,15 @@
+// lib/screens/lecturer_timetable_grid_screen.dart
+//
+// Module 5 – Timetable Slot Display  |  Lecturer (Pensyarah) View
+// Author : Farra
+//
+// FIX: Removed nested Scaffold that caused unbounded-height layout crash.
+// The screen is now a plain widget that can be embedded inside the app's
+// home shell (which already owns the Scaffold/AppBar).
+//
+// READ-ONLY — no writes, no attendance forms, no upload code.
+// Placeholder hook: onSlotSelected(slotId, week) → Yee Wen's module.
+
 import 'package:flutter/material.dart';
 
 import '../state/lecturer_timetable_controller.dart';
