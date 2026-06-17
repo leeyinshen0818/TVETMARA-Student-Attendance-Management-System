@@ -266,285 +266,6 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
-class _MobileLecturerSchedule extends StatelessWidget {
-  const _MobileLecturerSchedule({
-    required this.slots,
-    required this.week,
-    required this.onSlotSelected,
-    required this.onNavigateToAttendance,
-    required this.onNavigateToTempahan,
-  });
-
-  final List<LecturerSlot> slots;
-  final String week;
-  final void Function(String slotId, String week)? onSlotSelected;
-  final VoidCallback? onNavigateToAttendance;
-  final VoidCallback? onNavigateToTempahan;
-
-  @override
-  Widget build(BuildContext context) {
-    if (slots.isEmpty) {
-      return const _MobileScheduleEmpty();
-    }
-    final sorted = [...slots]..sort(_compareMobileSlots);
-    final highlighted = _highlightSlot(sorted);
-    final remaining =
-        sorted.where((slot) => slot.slotId != highlighted.slotId).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _MobileScheduleCard(
-          slot: highlighted,
-          week: week,
-          highlighted: true,
-          onSlotSelected: onSlotSelected,
-          onNavigateToAttendance: onNavigateToAttendance,
-          onNavigateToTempahan: onNavigateToTempahan,
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Kelas Akan Datang',
-          style: TextStyle(
-            color: _kText,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final slot in remaining)
-          _MobileScheduleCard(
-            slot: slot,
-            week: week,
-            onSlotSelected: onSlotSelected,
-            onNavigateToAttendance: onNavigateToAttendance,
-            onNavigateToTempahan: onNavigateToTempahan,
-          ),
-      ],
-    );
-  }
-
-  LecturerSlot _highlightSlot(List<LecturerSlot> sorted) {
-    final now = DateTime.now();
-    final todayName = _weekdayMalay(now.weekday).toUpperCase();
-    final todaySlots = sorted.where((slot) => slot.day == todayName).toList();
-    final upcomingToday = todaySlots.where((slot) {
-      final minutes = _timeMinutes(slot.startTime);
-      if (minutes == null) return false;
-      return minutes >= now.hour * 60 + now.minute;
-    }).firstOrNull;
-    return upcomingToday ?? todaySlots.firstOrNull ?? sorted.first;
-  }
-}
-
-class _MobileScheduleCard extends StatelessWidget {
-  const _MobileScheduleCard({
-    required this.slot,
-    required this.week,
-    required this.onSlotSelected,
-    required this.onNavigateToAttendance,
-    required this.onNavigateToTempahan,
-    this.highlighted = false,
-  });
-
-  final LecturerSlot slot;
-  final String week;
-  final void Function(String slotId, String week)? onSlotSelected;
-  final VoidCallback? onNavigateToAttendance;
-  final VoidCallback? onNavigateToTempahan;
-  final bool highlighted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: highlighted ? 0 : 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: highlighted ? _kTeal.withValues(alpha: .08) : _kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: highlighted ? _kTeal.withValues(alpha: .25) : _kBorder,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (highlighted) ...[
-            const Text(
-              'Kelas Seterusnya',
-              style: TextStyle(
-                color: _kTeal,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      slot.subjectCode,
-                      style: const TextStyle(
-                        color: _kText,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      slot.subjectName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _kMuted,
-                        fontSize: 12,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              _JenisChip(
-                label:
-                    slot.classType.isNotEmpty ? slot.classType : 'Normal Class',
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MobileScheduleMeta(Icons.groups_outlined, slot.section),
-              _MobileScheduleMeta(Icons.schedule,
-                  '${_normalDay(slot.day)} ${slot.startTime}-${slot.endTime}'),
-              if (slot.roomId.isNotEmpty)
-                _MobileScheduleMeta(Icons.meeting_room_outlined, slot.roomId),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _ActionButtons(
-            slot: slot,
-            week: week,
-            onTake: onSlotSelected,
-            onNavigateToAttendance: onNavigateToAttendance,
-            onNavigateToTempahan: onNavigateToTempahan,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MobileScheduleMeta extends StatelessWidget {
-  const _MobileScheduleMeta(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _kBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: _kMuted),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              color: _kText,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MobileScheduleEmpty extends StatelessWidget {
-  const _MobileScheduleEmpty();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _kBorder),
-      ),
-      child: const Text(
-        'Tiada slot jadual ditemui untuk penapis semasa.',
-        style: TextStyle(color: _kMuted, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
-
-/// Normalise a day string (e.g. "ISNIN" → "Isnin").
-String _normalDay(String raw) {
-  final s = raw.trim();
-  if (s.isEmpty) return s;
-  return s[0].toUpperCase() + s.substring(1).toLowerCase();
-}
-
-int _compareMobileSlots(LecturerSlot a, LecturerSlot b) {
-  final day = _mobileDayOrder(a.day).compareTo(_mobileDayOrder(b.day));
-  if (day != 0) return day;
-  return a.startTime.compareTo(b.startTime);
-}
-
-int _mobileDayOrder(String day) {
-  return switch (_normalDay(day).toLowerCase()) {
-    'isnin' => 1,
-    'selasa' => 2,
-    'rabu' => 3,
-    'khamis' => 4,
-    'jumaat' => 5,
-    'sabtu' => 6,
-    'ahad' => 7,
-    _ => 99,
-  };
-}
-
-String _weekdayMalay(int weekday) {
-  return switch (weekday) {
-    DateTime.monday => 'Isnin',
-    DateTime.tuesday => 'Selasa',
-    DateTime.wednesday => 'Rabu',
-    DateTime.thursday => 'Khamis',
-    DateTime.friday => 'Jumaat',
-    DateTime.saturday => 'Sabtu',
-    _ => 'Ahad',
-  };
-}
-
-int? _timeMinutes(String value) {
-  final parts = value.split(':');
-  if (parts.length < 2) return null;
-  final hour = int.tryParse(parts[0]);
-  final minute = int.tryParse(parts[1]);
-  if (hour == null || minute == null) return null;
-  return hour * 60 + minute;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Stat card row
 // ─────────────────────────────────────────────────────────────────────────────
@@ -565,7 +286,7 @@ class _StatCardRow extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(child: _StatCard(label: 'KELAS GANTI', value: '6')),
           const SizedBox(width: 12),
-          Expanded(child: _StatCard(label: 'SECTION', value: '$sections')),
+          Expanded(child: _StatCard(label: 'SEKSYEN', value: '$sections')),
         ],
       ),
     );
@@ -860,9 +581,15 @@ class _OfficialTableState extends State<_OfficialTable> {
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.sizeOf(context).width < 600) {
-      return _MobileLecturerSchedule(
+      // ── Mobile: same card shell as web, horizontal-scrolling grid, PDF button
+      return _MobileOfficialTable(
         slots: widget.slots,
         week: widget.week,
+        lecturerName: widget.lecturerName,
+        lecturerEmail: widget.lecturerEmail,
+        programId: widget.programId,
+        exportingPdf: _exportingPdf,
+        onExportPdf: _onExportPdf,
         onSlotSelected: widget.onSlotSelected,
         onNavigateToAttendance: widget.onNavigateToAttendance,
         onNavigateToTempahan: widget.onNavigateToTempahan,
@@ -962,6 +689,158 @@ class _OfficialTableState extends State<_OfficialTable> {
                       onSlotSelected: widget.onSlotSelected,
                       onNavigateToAttendance: widget.onNavigateToAttendance,
                       onNavigateToTempahan: widget.onNavigateToTempahan,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mobile official table  (replaces old stacked-card layout on width < 600)
+//
+// Matches the web card shell exactly:
+//   • Same outer Container decoration (rounded card, shadow)
+//   • Same header row with record count + "Eksport PDF" button
+//   • Same dark navy title / sub-title banners
+//   • _DataTable wrapped in SingleChildScrollView(horizontal) so users can
+//     pan left–right through all columns without overflow
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileOfficialTable extends StatelessWidget {
+  const _MobileOfficialTable({
+    required this.slots,
+    required this.week,
+    required this.lecturerName,
+    required this.lecturerEmail,
+    required this.programId,
+    required this.exportingPdf,
+    required this.onExportPdf,
+    required this.onSlotSelected,
+    this.onNavigateToAttendance,
+    this.onNavigateToTempahan,
+  });
+
+  final List<LecturerSlot> slots;
+  final String week;
+  final String lecturerName;
+  final String lecturerEmail;
+  final String programId;
+  final bool exportingPdf;
+  final VoidCallback onExportPdf;
+  final void Function(String slotId, String week)? onSlotSelected;
+  final VoidCallback? onNavigateToAttendance;
+  final VoidCallback? onNavigateToTempahan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // ── Same card shell as the web layout ──────────────────────────────
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Card header — title + record count + PDF button ────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.table_chart_outlined,
+                    size: 16, color: _kTeal),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Jadual waktu rasmi',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _kText),
+                  ),
+                ),
+                Text('${slots.length} rekod',
+                    style:
+                        const TextStyle(fontSize: 12, color: _kMuted)),
+                // ── PDF export button — same path as web ────────────────
+                if (slots.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  _ExportButton(
+                    icon: Icons.picture_as_pdf_outlined,
+                    label: 'Eksport PDF',
+                    loading: exportingPdf,
+                    color: const Color(0xFFDC2626),
+                    onTap: onExportPdf,
+                    tooltip:
+                        'Muat turun jadual waktu rasmi sebagai PDF secara terus',
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: _kBorder),
+
+          // ── Empty state ───────────────────────────────────────────────
+          if (slots.isEmpty)
+            _EmptyState(lecturerName: lecturerName, programId: programId)
+          else
+            // ── Title banners + horizontally scrollable data table ─────
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Dark navy title banner
+                    Container(
+                      color: const Color(0xFF0D1B2A),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 10),
+                      child: const Text(
+                        'JADUAL WAKTU SEMESTER SESI 2025/2026',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            letterSpacing: 0.4),
+                      ),
+                    ),
+                    // Sub-banner
+                    Container(
+                      color: const Color(0xFF16293D),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 7),
+                      child: const Text(
+                        'PAPARAN SLOT JADUAL',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Color(0xFF7BA7BC),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            letterSpacing: 0.5),
+                      ),
+                    ),
+                    // Shared _DataTable — identical to web rendering
+                    _DataTable(
+                      slots: slots,
+                      week: week,
+                      onSlotSelected: onSlotSelected,
+                      onNavigateToAttendance: onNavigateToAttendance,
+                      onNavigateToTempahan: onNavigateToTempahan,
                     ),
                   ],
                 ),
