@@ -498,6 +498,13 @@ class _MobileScheduleEmpty extends StatelessWidget {
   }
 }
 
+/// Normalise a day string (e.g. "ISNIN" → "Isnin").
+String _normalDay(String raw) {
+  final s = raw.trim();
+  if (s.isEmpty) return s;
+  return s[0].toUpperCase() + s.substring(1).toLowerCase();
+}
+
 int _compareMobileSlots(LecturerSlot a, LecturerSlot b) {
   final day = _mobileDayOrder(a.day).compareTo(_mobileDayOrder(b.day));
   if (day != 0) return day;
@@ -854,11 +861,11 @@ class _OfficialTableState extends State<_OfficialTable> {
   Widget build(BuildContext context) {
     if (MediaQuery.sizeOf(context).width < 600) {
       return _MobileLecturerSchedule(
-        slots: slots,
-        week: week,
-        onSlotSelected: onSlotSelected,
-        onNavigateToAttendance: onNavigateToAttendance,
-        onNavigateToTempahan: onNavigateToTempahan,
+        slots: widget.slots,
+        week: widget.week,
+        onSlotSelected: widget.onSlotSelected,
+        onNavigateToAttendance: widget.onNavigateToAttendance,
+        onNavigateToTempahan: widget.onNavigateToTempahan,
       );
     }
     return Container(
