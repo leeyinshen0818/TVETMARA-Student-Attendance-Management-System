@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/app_models.dart';
@@ -20,6 +21,7 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final phoneController = TextEditingController();
+  final authUidController = TextEditingController();
 
   UserRole _selectedRole = UserRole.pensyarah;
   String? _selectedDepartmentId;
@@ -30,6 +32,8 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
   List<ProgramCode> _programs = [];
   bool _loadingData = true;
   bool _isSubmitting = false;
+  bool _showRepairPanel = false;
+  String? _repairMessage;
 
   @override
   void initState() {
@@ -43,6 +47,7 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
     emailController.dispose();
     passwordController.dispose();
     phoneController.dispose();
+    authUidController.dispose();
     super.dispose();
   }
 
@@ -87,8 +92,9 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final normalizedEmail = emailController.text.trim().toLowerCase();
       final credential = await AuthService.instance.registerNewUserByAdmin(
-        emailController.text,
+        normalizedEmail,
         passwordController.text,
       );
 
@@ -98,33 +104,292 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
         return;
       }
 
-      final newUser = AppUser(
-        uid: uid,
-        name: nameController.text.trim(),
-        email: emailController.text.trim().toLowerCase(),
-        role: _selectedRole,
-        programId: _requiresProgram ? selectedProgram?.id : null,
-        departmentId: _departmentIdForProfile(selectedProgram),
-        phoneNumber: phoneController.text.trim().isEmpty
-            ? null
-            : phoneController.text.trim(),
-        isActive: _isActive,
-      );
+      final newUser = _buildUserProfile(uid, selectedProgram);
 
-      await FirestoreService.instance.createUserProfile(newUser);
+      try {
+        await FirestoreService.instance.createUserProfile(newUser);
+      } on FirebaseException catch (e, stackTrace) {
+        authUidController.text = uid;
+        debugPrint('Register profile write failed after Auth creation: '
+            'email=$normalizedEmail uid=$uid code=${e.code} message=${e.message}');
+        debugPrintStack(stackTrace: stackTrace);
+        _enableRepairPanel(
+          'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan. '
+          'UID telah diisi secara automatik; tekan Retry Save Profile selepas sambungan atau kebenaran Firestore pulih.',
+        );
+        _showError(_messageForProfileWriteError(e, normalizedEmail));
+        return;
+      } catch (e, stackTrace) {
+        authUidController.text = uid;
+        debugPrint('Register profile write failed after Auth creation: '
+            'email=$normalizedEmail uid=$uid error=$e');
+        debugPrintStack(stackTrace: stackTrace);
+        _enableRepairPanel(
+          'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan. '
+          'UID telah diisi secara automatik; tekan Retry Save Profile.',
+        );
+        _showError(
+          'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan '
+          'untuk $normalizedEmail. Sila gunakan Retry Save Profile dengan UID Auth '
+          'atau hubungi pentadbir sistem.',
+        );
+        return;
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Akaun pengguna berjaya dicipta.')),
+        const SnackBar(content: Text('Akaun pengguna berjaya didaftarkan.')),
       );
       _clearForm();
     } on FirebaseAuthException catch (e) {
+      debugPrint('Register Auth error: ${e.code} ${e.message}');
+      if (e.code == 'email-already-in-use') {
+        await _showDuplicateEmailMessage();
+        return;
+      }
+      if (e.code == 'network-request-failed') {
+        final recovered = await _tryAutoCreateMissingProfileFromAuth(
+          selectedProgram,
+          reason: 'network-request-failed',
+        );
+        if (recovered) return;
+      }
       _showError(_messageForAuthError(e));
     } catch (e) {
+      debugPrint('Register unexpected error: $e');
       _showError('Pendaftaran gagal: $e');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  AppUser _buildUserProfile(String uid, ProgramCode? selectedProgram) {
+    final phone = phoneController.text.trim();
+    return AppUser(
+      uid: uid,
+      name: nameController.text.trim(),
+      email: emailController.text.trim().toLowerCase(),
+      role: _selectedRole,
+      programId: _requiresProgram ? selectedProgram?.id : null,
+      departmentId: _departmentIdForProfile(selectedProgram),
+      phoneNumber: phone.isEmpty ? null : phone,
+      isActive: _isActive,
+    );
+  }
+
+  Future<void> _showDuplicateEmailMessage() async {
+    final normalizedEmail = emailController.text.trim().toLowerCase();
+
+    try {
+      final existingProfile =
+          await FirestoreService.instance.getUserByEmail(normalizedEmail);
+      if (existingProfile != null) {
+        _showError(
+          'Emel ini telah digunakan. Jika pengguna tidak boleh log masuk, '
+          'semak sama ada profil Firestore wujud.',
+        );
+        return;
+      }
+      final recovered = await _tryAutoCreateMissingProfileFromAuth(
+        _selectedProgram,
+        reason: 'email-already-in-use',
+      );
+      if (recovered) return;
+      _showError(
+        'Akaun Auth wujud tetapi profil Firestore tidak dijumpai. '
+        'Untuk membaiki, masukkan Firebase Auth UID dan tekan Save Missing Firestore Profile.',
+      );
+      _enableRepairPanel(
+        'Akaun Auth wujud tetapi profil Firestore tidak dijumpai. '
+        'Salin UID daripada Firebase Console > Authentication > Users, kemudian cipta profil Firestore di sini.',
+      );
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint('Email duplicate profile lookup failed: '
+          '${e.code} ${e.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      _showError(
+        'Emel ini telah digunakan, tetapi semakan profil Firestore gagal. '
+        'Sila semak Firebase Authentication dan Firestore.',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Email duplicate profile lookup failed: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      _showError(
+        'Emel ini telah digunakan, tetapi semakan profil Firestore gagal.',
+      );
+    }
+  }
+
+  Future<bool> _tryAutoCreateMissingProfileFromAuth(
+    ProgramCode? selectedProgram, {
+    required String reason,
+  }) async {
+    final normalizedEmail = emailController.text.trim().toLowerCase();
+    try {
+      final uid = await AuthService.instance.getUidBySecondarySignIn(
+        normalizedEmail,
+        passwordController.text,
+      );
+      if (uid == null || uid.isEmpty) return false;
+
+      final existingByUid = await FirestoreService.instance.getUserById(uid);
+      if (existingByUid != null) {
+        _showError(
+          'Emel ini telah digunakan. Profil Firestore untuk akaun ini sudah wujud.',
+        );
+        return true;
+      }
+
+      final existingByEmail =
+          await FirestoreService.instance.getUserByEmail(normalizedEmail);
+      if (existingByEmail != null) {
+        _showError(
+          'Emel ini telah digunakan. Profil Firestore untuk emel ini sudah wujud.',
+        );
+        return true;
+      }
+
+      await FirestoreService.instance.createUserProfile(
+        _buildUserProfile(uid, selectedProgram),
+      );
+
+      if (!mounted) return true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Akaun Auth telah wujud dan profil Firestore berjaya dicipta. Pengguna kini boleh log masuk.',
+          ),
+        ),
+      );
+      _clearForm();
+      return true;
+    } on FirebaseAuthException catch (e, stackTrace) {
+      debugPrint('Auto profile repair Auth lookup failed: '
+          'reason=$reason email=$normalizedEmail code=${e.code} message=${e.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      _enableRepairPanel(
+        'Akaun Auth mungkin wujud tetapi profil Firestore tidak dijumpai. '
+        'Sistem tidak dapat mendapatkan UID secara automatik. Salin UID daripada Firebase Console > Authentication > Users.',
+      );
+      return false;
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint('Auto profile repair Firestore write failed: '
+          'reason=$reason email=$normalizedEmail code=${e.code} message=${e.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      _enableRepairPanel(
+        'Akaun Auth wujud tetapi profil Firestore gagal dicipta secara automatik. '
+        'Salin UID daripada Firebase Console jika perlu dan cuba simpan profil secara manual.',
+      );
+      _showError(
+        'Akaun Auth wujud tetapi profil Firestore gagal dicipta secara automatik. Sila cuba semula atau gunakan repair manual.',
+      );
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('Auto profile repair failed: '
+          'reason=$reason email=$normalizedEmail error=$e');
+      debugPrintStack(stackTrace: stackTrace);
+      _enableRepairPanel(
+        'Akaun Auth mungkin wujud tetapi profil Firestore tidak dijumpai. '
+        'Sistem tidak dapat membaiki secara automatik. Salin UID daripada Firebase Console.',
+      );
+      return false;
+    }
+  }
+
+  void _enableRepairPanel(String message) {
+    if (!mounted) return;
+    setState(() {
+      _showRepairPanel = true;
+      _repairMessage = message;
+    });
+  }
+
+  Future<void> _repairFirestoreProfile() async {
+    if (_isSubmitting) return;
+
+    final selectedProgram = _selectedProgram;
+    final validationMessage = _validateRepairProfile(selectedProgram);
+    if (validationMessage != null) {
+      _showError(validationMessage);
+      return;
+    }
+
+    final uid = authUidController.text.trim();
+    final normalizedEmail = emailController.text.trim().toLowerCase();
+
+    setState(() => _isSubmitting = true);
+    try {
+      final existingByUid = await FirestoreService.instance.getUserById(uid);
+      if (existingByUid != null) {
+        _showError(
+          'Profil Firestore untuk UID ini sudah wujud. Tiada profil baharu dicipta.',
+        );
+        return;
+      }
+
+      final existingByEmail =
+          await FirestoreService.instance.getUserByEmail(normalizedEmail);
+      if (existingByEmail != null) {
+        _showError(
+          'Profil Firestore untuk emel ini sudah wujud. Tiada profil baharu dicipta.',
+        );
+        return;
+      }
+
+      await FirestoreService.instance.createUserProfile(
+        _buildUserProfile(uid, selectedProgram),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Profil Firestore berjaya dibaiki. Pengguna kini boleh log masuk.',
+          ),
+        ),
+      );
+      setState(() {
+        _showRepairPanel = false;
+        _repairMessage = null;
+      });
+      _clearForm();
+    } on FirebaseException catch (e, stackTrace) {
+      debugPrint('Firestore profile repair failed: '
+          'email=$normalizedEmail uid=$uid code=${e.code} message=${e.message}');
+      debugPrintStack(stackTrace: stackTrace);
+      _showError(
+        'Profil Firestore gagal dibaiki. Sila semak kebenaran Firestore dan cuba semula.',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Firestore profile repair failed: '
+          'email=$normalizedEmail uid=$uid error=$e');
+      debugPrintStack(stackTrace: stackTrace);
+      _showError('Profil Firestore gagal dibaiki. Sila cuba semula.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  String? _validateRepairProfile(ProgramCode? selectedProgram) {
+    if (authUidController.text.trim().isEmpty) {
+      return 'Sila masukkan Firebase Auth UID.';
+    }
+    if (nameController.text.trim().isEmpty) {
+      return 'Nama penuh diperlukan.';
+    }
+    final email = emailController.text.trim();
+    if (email.isEmpty) return 'Emel diperlukan.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Format emel tidak sah.';
+    }
+    if (_requiresProgram && selectedProgram == null) {
+      return 'Sila pilih program.';
+    }
+    if (_selectedRole == UserRole.ketua_jabatan &&
+        _selectedDepartmentId == null) {
+      return 'Sila pilih jabatan.';
+    }
+    return null;
   }
 
   String? _departmentIdForProfile(ProgramCode? selectedProgram) {
@@ -153,12 +418,15 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
     emailController.clear();
     passwordController.clear();
     phoneController.clear();
+    authUidController.clear();
     setState(() {
       _selectedRole = UserRole.pensyarah;
       _selectedProgramId = _programs.isEmpty ? null : _programs.first.id;
       _selectedDepartmentId =
           _departments.isEmpty ? null : _departments.first.id;
       _isActive = true;
+      _showRepairPanel = false;
+      _repairMessage = null;
     });
   }
 
@@ -177,6 +445,21 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
       'too-many-requests' =>
         'Terlalu banyak permintaan. Sila cuba semula kemudian.',
       _ => 'Ralat Firebase Auth: ${error.message ?? error.code}',
+    };
+  }
+
+  String _messageForProfileWriteError(
+    FirebaseException error,
+    String email,
+  ) {
+    return switch (error.code) {
+      'permission-denied' =>
+        'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan untuk $email kerana kebenaran Firestore. Sila gunakan Retry Save Profile selepas kebenaran Firestore dipulihkan.',
+      'unavailable' ||
+      'deadline-exceeded' =>
+        'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan untuk $email. Sila gunakan Retry Save Profile selepas sambungan pulih.',
+      _ =>
+        'Akaun Auth telah dicipta tetapi profil Firestore gagal disimpan untuk $email. Sila gunakan Retry Save Profile dengan UID Auth atau hubungi pentadbir sistem.',
     };
   }
 
@@ -341,6 +624,16 @@ class _RegisterUserScreenState extends State<RegisterUserScreen> {
                     ? null
                     : (value) => setState(() => _isActive = value),
               ),
+              if (_showRepairPanel) ...[
+                const SizedBox(height: 16),
+                _RepairProfilePanel(
+                  message: _repairMessage ??
+                      'Akaun Auth wujud tetapi profil Firestore tidak dijumpai.',
+                  uidController: authUidController,
+                  isSubmitting: _isSubmitting,
+                  onRepair: _repairFirestoreProfile,
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -387,6 +680,105 @@ class _ScopeNote extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(color: Color(0xff475569), fontSize: 13),
+      ),
+    );
+  }
+}
+
+class _RepairProfilePanel extends StatelessWidget {
+  const _RepairProfilePanel({
+    required this.message,
+    required this.uidController,
+    required this.isSubmitting,
+    required this.onRepair,
+  });
+
+  final String message;
+  final TextEditingController uidController;
+  final bool isSubmitting;
+  final VoidCallback onRepair;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xfffffbeb),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: const Color(0xfff59e0b).withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xffb45309)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Repair Missing Firestore Profile',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xff92400e),
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: Color(0xff92400e),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Gunakan medan nama, emel, peranan, program/jabatan, telefon dan status aktif di atas. Tindakan ini hanya mencipta profil Firestore; ia tidak mencipta akaun Auth baharu dan tidak menukar kata laluan.',
+            style: TextStyle(color: Color(0xff78350f), height: 1.35),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: uidController,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              labelText: 'Firebase Auth UID',
+              helperText:
+                  'Salin UID daripada Firebase Console > Authentication > Users.',
+              prefixIcon: Icon(Icons.key_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: isSubmitting ? null : onRepair,
+                icon: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.build_circle_outlined),
+                label: const Text('Save Missing Firestore Profile'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

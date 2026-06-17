@@ -51,6 +51,38 @@ class AuthService {
     }
   }
 
+  /// Look up an existing Firebase Auth UID without replacing the signed-in admin.
+  ///
+  /// This is used only for admin recovery when Auth already created the account
+  /// but the Firestore user profile was not saved.
+  Future<String?> getUidBySecondarySignIn(String email, String password) async {
+    const secondaryAppName = 'SecondaryRegistrationLookup';
+    FirebaseApp? secondaryApp;
+    try {
+      try {
+        await Firebase.app(secondaryAppName).delete();
+      } on FirebaseException {
+        // No stale secondary app exists.
+      }
+
+      secondaryApp = await Firebase.initializeApp(
+        name: secondaryAppName,
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+      final credential = await secondaryAuth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      final uid = credential.user?.uid;
+      await secondaryAuth.signOut();
+      return uid;
+    } finally {
+      await secondaryApp?.delete();
+    }
+  }
+
   /// Create a new user with email + password (standard).
   Future<UserCredential> createUser(String email, String password) {
     return _auth.createUserWithEmailAndPassword(

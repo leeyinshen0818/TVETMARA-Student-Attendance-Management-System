@@ -13,7 +13,6 @@ import 'disiplin_screen.dart';
 import 'dashboard_screen.dart';
 import 'records_screen.dart';
 import 'reports_screen.dart';
-import 'settings_screen.dart';
 import 'timetable_screen.dart';
 // import 'admin/admin_timetable_viewer_screen.dart';
 import 'admin/admin_user_management_screen.dart';
@@ -135,9 +134,6 @@ class _HomeShellState extends State<HomeShell> {
             dataScope: _DataScope.records),
 
       // Admin Only Modules
-      if (isAdmin)
-        const _NavItem(
-            'Tetapan Sistem', Icons.settings_outlined, SettingsScreen()),
       if (isAdmin)
         const _NavItem(
             'Daftar Akaun', Icons.person_add_outlined, RegisterUserScreen()),
@@ -445,9 +441,11 @@ class _MobileHomeShell extends StatelessWidget {
         .toList();
     final moreItems =
         items.where((item) => !primaryItems.contains(item)).toList();
+    final hasMoreMenu = moreItems.isNotEmpty;
     final selectedPrimaryIndex = primaryIndexes.indexOf(activeIndex);
-    final navIndex =
-        selectedPrimaryIndex == -1 ? primaryItems.length : selectedPrimaryIndex;
+    final navIndex = selectedPrimaryIndex == -1
+        ? (hasMoreMenu ? primaryItems.length : 0)
+        : selectedPrimaryIndex;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -508,7 +506,9 @@ class _MobileHomeShell extends StatelessWidget {
                 onSelectIndex(primaryIndexes[value]);
                 return;
               }
-              _showMobileMoreSheet(context, moreItems);
+              if (hasMoreMenu) {
+                _showMobileMoreSheet(context, moreItems);
+              }
             },
             destinations: [
               for (final item in primaryItems)
@@ -517,11 +517,12 @@ class _MobileHomeShell extends StatelessWidget {
                   selectedIcon: Icon(item.icon),
                   label: _mobileNavLabel(item.label),
                 ),
-              const NavigationDestination(
-                icon: Icon(Icons.grid_view_outlined),
-                selectedIcon: Icon(Icons.grid_view_rounded),
-                label: 'Menu',
-              ),
+              if (hasMoreMenu)
+                const NavigationDestination(
+                  icon: Icon(Icons.grid_view_outlined),
+                  selectedIcon: Icon(Icons.grid_view_rounded),
+                  label: 'Menu',
+                ),
             ],
           ),
         ),
@@ -530,6 +531,10 @@ class _MobileHomeShell extends StatelessWidget {
   }
 
   List<_NavItem> _mobilePrimaryItems(AppUser user, List<_NavItem> allItems) {
+    if (allItems.length <= 5) {
+      return List<_NavItem>.from(allItems);
+    }
+
     final labels = switch (user.role) {
       UserRole.pensyarah => [
           'Papan Pemuka',
@@ -548,12 +553,12 @@ class _MobileHomeShell extends StatelessWidget {
           'Pengurusan Jadual',
           'Jadual Program',
           'Laporan',
-          'Rekod Pelajar',
+          'Tempahan Bilik',
         ],
       UserRole.pentadbir => [
           'Papan Pemuka',
+          'Daftar Akaun',
           'Pengurusan Pengguna',
-          'Tetapan Sistem',
         ],
     };
 
@@ -576,8 +581,10 @@ class _MobileHomeShell extends StatelessWidget {
       'Jadual Program' => 'Jadual',
       'Jadual Saya' => 'Jadual',
       'Tempahan Bilik' => 'Tempahan',
+      'Daftar Akaun' => 'Daftar',
       'Pengurusan Pengguna' => 'Pengguna',
-      'Tetapan Sistem' => 'Tetapan',
+      'Laporan Disiplin' => 'Disiplin',
+      'Laporan Disiplin Saya' => 'Disiplin',
       'Rekod Pelajar' => 'Rekod',
       _ => label,
     };

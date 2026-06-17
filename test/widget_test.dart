@@ -68,6 +68,46 @@ void main() {
     expect(find.text('lecturer046@tvetmara.edu.my'), findsNothing);
   });
 
+  testWidgets('forgot password dialog validates email before sending',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      AppScope(
+        state: AppState(),
+        child: const TvetmaraApp(),
+      ),
+    );
+
+    await tester.tap(find.text('Forgot Password?'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reset Password'), findsOneWidget);
+    expect(
+      find.text(
+        'Enter your email address and we will send a password reset link.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Gunakan emel yang wujud dalam Firebase Auth dan boleh diakses untuk menerima pautan reset.',
+      ),
+      findsOneWidget,
+    );
+
+    final resetEmailField = find.widgetWithText(TextField, 'Email address');
+    await tester.enterText(resetEmailField, '');
+    await tester.tap(find.text('Send Reset Link'));
+    await tester.pump();
+    expect(find.text('Please enter your email address.'), findsOneWidget);
+
+    await tester.enterText(resetEmailField, 'not-an-email');
+    await tester.tap(find.text('Send Reset Link'));
+    await tester.pump();
+    expect(find.text('Format emel tidak sah.'), findsOneWidget);
+  });
+
   testWidgets('status chip localizes lowercase timetable status',
       (tester) async {
     await tester.pumpWidget(

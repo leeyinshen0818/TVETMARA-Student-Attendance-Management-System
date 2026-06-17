@@ -320,12 +320,6 @@ class _AdminQuickActionsPanel extends StatelessWidget {
             state: state,
           ),
         ),
-        _DashboardQuickAction(
-          icon: Icons.settings_outlined,
-          label: 'Tetapan Sistem',
-          description: 'Semak tetapan asas sistem',
-          onPressed: () => onNavigateToLabel?.call('Tetapan Sistem'),
-        ),
       ],
     );
   }
@@ -2031,11 +2025,14 @@ class _AdminStatGrid extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         const spacing = 12.0;
-        final columns = width >= 1180
-            ? 3
-            : width >= 760
-                ? 2
-                : 1;
+        final mobile = context.isMobile;
+        final columns = mobile
+            ? 2
+            : width >= 1180
+                ? 3
+                : width >= 760
+                    ? 2
+                    : 1;
         final tileWidth = (width - (spacing * (columns - 1))) / columns;
         return Wrap(
           spacing: spacing,
@@ -2044,7 +2041,15 @@ class _AdminStatGrid extends StatelessWidget {
             for (final tile in tiles)
               SizedBox(
                 width: tileWidth,
-                child: tile,
+                child: mobile && tile is StatTile
+                    ? MobileStatCard(
+                        icon: tile.icon,
+                        value: tile.value,
+                        label: tile.label,
+                        helper: tile.helper,
+                        color: tile.color ?? AppColors.primary,
+                      )
+                    : tile,
               ),
           ],
         );

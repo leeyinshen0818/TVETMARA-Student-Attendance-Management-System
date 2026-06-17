@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../data/seed_firestore.dart';
 import '../state/app_scope.dart';
@@ -96,6 +97,164 @@ class _LoginScreenState extends State<LoginScreen> {
     password.text = demoPassword;
   }
 
+  bool _looksLikeEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+  }
+
+  String _resetPasswordMessage(Object error) {
+    if (error is FirebaseAuthException) {
+      debugPrint('Password reset Firebase error: '
+          '${error.code} ${error.message}');
+      switch (error.code) {
+        case 'invalid-email':
+          return 'Format emel tidak sah.';
+        case 'user-not-found':
+          return 'Jika emel ini wujud, pautan tetapan semula akan dihantar.';
+        case 'too-many-requests':
+          return 'Terlalu banyak permintaan. Sila cuba semula kemudian.';
+        case 'network-request-failed':
+          return 'Ralat rangkaian. Sila semak sambungan internet.';
+      }
+    }
+    debugPrint('Password reset unexpected error: $error');
+    return 'Pautan tetapan semula tidak dapat dihantar. Sila cuba semula.';
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final resetEmail = TextEditingController(text: email.text.trim());
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          var sending = false;
+          String? errorText;
+
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> sendResetLink() async {
+                if (sending) return;
+
+                final value = resetEmail.text.trim();
+                if (value.isEmpty) {
+                  setDialogState(() {
+                    errorText = 'Please enter your email address.';
+                  });
+                  return;
+                }
+
+                if (!_looksLikeEmail(value)) {
+                  setDialogState(() {
+                    errorText = 'Format emel tidak sah.';
+                  });
+                  return;
+                }
+
+                setDialogState(() {
+                  sending = true;
+                  errorText = null;
+                });
+
+                try {
+                  await FirebaseAuth.instance
+                      .sendPasswordResetEmail(email: value);
+                  if (!dialogContext.mounted) return;
+                  Navigator.pop(dialogContext);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Pautan tetapan semula kata laluan telah dihantar. Sila semak emel anda.',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    sending = false;
+                    errorText = _resetPasswordMessage(e);
+                  });
+                }
+              }
+
+              final width = MediaQuery.sizeOf(context).width;
+              final mobile = width < 600;
+
+              return AlertDialog(
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 16 : 40,
+                  vertical: 24,
+                ),
+                title: const Text('Reset Password'),
+                content: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Enter your email address and we will send a password reset link.',
+                        style: TextStyle(color: AppColors.muted, height: 1.35),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Gunakan emel yang wujud dalam Firebase Auth dan boleh diakses untuk menerima pautan reset.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      TextField(
+                        controller: resetEmail,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.done,
+                        enabled: !sending,
+                        autofillHints: const [AutofillHints.email],
+                        onSubmitted: (_) => sendResetLink(),
+                        decoration: InputDecoration(
+                          labelText: 'Email address',
+                          hintText: 'nama@tvetmara.edu.my',
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          border: const OutlineInputBorder(),
+                          errorText: errorText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed:
+                        sending ? null : () => Navigator.pop(dialogContext),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: sending ? null : sendResetLink,
+                    icon: sending
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.mark_email_read_outlined),
+                    label: Text(sending ? 'Sending...' : 'Send Reset Link'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      resetEmail.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,6 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 setState(() => _obscurePassword = !_obscurePassword);
               },
               onSubmit: _login,
+              onForgotPassword: _showForgotPasswordDialog,
               onSeedDemo: _seedDemoData,
               onFillDemo: _fillDemo,
             );
@@ -281,6 +441,7 @@ class _LoginForm extends StatelessWidget {
     required this.mobile,
     required this.onTogglePassword,
     required this.onSubmit,
+    required this.onForgotPassword,
     required this.onSeedDemo,
     required this.onFillDemo,
   });
@@ -293,6 +454,7 @@ class _LoginForm extends StatelessWidget {
   final bool mobile;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
+  final VoidCallback onForgotPassword;
   final VoidCallback onSeedDemo;
   final void Function(String email, String password) onFillDemo;
 
@@ -370,6 +532,18 @@ class _LoginForm extends StatelessWidget {
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined),
                       ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: loggingIn ? null : onForgotPassword,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: const Size(44, 40),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Forgot Password?'),
                     ),
                   ),
                   const SizedBox(height: 22),

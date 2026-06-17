@@ -54,6 +54,31 @@ class FirestoreService {
     await _usersCol.doc(user.uid).set(_userToMap(user));
   }
 
+  Future<AppUser?> getUserByEmail(String email) async {
+    final normalizedEmail = email.trim().toLowerCase();
+    final snap = await _usersCol
+        .where(UserFields.email, isEqualTo: normalizedEmail)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return _docToAppUser(snap.docs.first);
+  }
+
+  Future<void> updateUserProfile(AppUser user) async {
+    await _usersCol.doc(user.uid).set({
+      UserFields.uid: user.uid,
+      UserFields.name: user.name,
+      UserFields.email: user.email.toLowerCase(),
+      UserFields.role: user.role.firestoreValue,
+      UserFields.programId: user.programId,
+      UserFields.departmentId: user.departmentId,
+      UserFields.phoneNumber: user.phoneNumber,
+      UserFields.lecturerProfileId: user.lecturerProfileId,
+      UserFields.isActive: user.isActive,
+      UserFields.updatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   // ---------------------------------------------------------------------------
   // Users
   // ---------------------------------------------------------------------------

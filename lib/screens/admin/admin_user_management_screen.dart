@@ -4,6 +4,8 @@ import '../../models/app_models.dart';
 import '../../services/user_timetable_service.dart';
 import '../../widgets/app_layout.dart';
 import '../../widgets/app_theme.dart';
+import '../../widgets/mobile_components.dart';
+import '../../widgets/responsive.dart';
 import '../../widgets/status_chip.dart';
 
 class AdminUserManagementScreen extends StatefulWidget {
@@ -37,6 +39,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   String _userSearchQuery = '';
   String _studentSearchQuery = '';
   String _lecturerSearchQuery = '';
+  int _mobileTabIndex = 0;
 
   static const List<(String, String)> _departmentOptions = [
     ('elektrik', 'Jabatan Elektrik'),
@@ -101,6 +104,10 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return _buildMobileAdminView();
+    }
+
     return DefaultTabController(
       length: 3,
       child: Container(
@@ -160,6 +167,611 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildMobileAdminView() {
+    const tabs = ['Pengguna', 'Pelajar', 'Tugasan'];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const MobileHeroCard(
+            icon: Icons.manage_accounts_outlined,
+            title: 'Pengurusan Pengguna',
+            subtitle:
+                'Urus akaun sistem, rekod pelajar dan tugasan pensyarah dalam paparan ringkas.',
+            chips: [StatusChip('Pentadbir')],
+          ),
+          const SizedBox(height: 14),
+          MobileSegmentedControl(
+            labels: tabs,
+            selectedIndex: _mobileTabIndex,
+            onChanged: (index) => setState(() => _mobileTabIndex = index),
+          ),
+          const SizedBox(height: 14),
+          IndexedStack(
+            index: _mobileTabIndex,
+            children: [
+              _buildMobileSystemUsersTab(),
+              _buildMobileStudentsTab(),
+              _buildMobileLecturerCoursesTab(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileSystemUsersTab() {
+    return StreamBuilder<List<AppUser>>(
+      stream: _service.getUsersStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return MobileEmptyState(
+            icon: Icons.error_outline,
+            title: 'Ralat memuat pengguna',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final allUsers = snapshot.data ?? [];
+        final users = allUsers.where((u) {
+          final matchesSearch = _userSearchQuery.isEmpty ||
+              u.name.toLowerCase().contains(_userSearchQuery) ||
+              u.email.toLowerCase().contains(_userSearchQuery) ||
+              (u.departmentId?.toLowerCase().contains(_userSearchQuery) ??
+                  false);
+          final matchesRole =
+              _selectedRoleFilter == null || u.role == _selectedRoleFilter;
+          return matchesSearch && matchesRole;
+        }).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MobileFilterCard(
+              title: 'Tapis Pengguna',
+              subtitle: '${users.length} akaun dijumpai',
+              onReset: () {
+                _userSearchController.clear();
+                setState(() => _selectedRoleFilter = null);
+              },
+              children: [
+                _buildSearchBar(
+                  controller: _userSearchController,
+                  hint: 'Cari nama, emel atau jabatan...',
+                ),
+                DropdownButtonFormField<UserRole?>(
+                  initialValue: _selectedRoleFilter,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Peranan'),
+                  items: [
+                    const DropdownMenuItem<UserRole?>(
+                      value: null,
+                      child: Text('Semua Peranan'),
+                    ),
+                    ...UserRole.values.map(
+                      (role) => DropdownMenuItem<UserRole?>(
+                        value: role,
+                        child: Text(_roleLabel(role)),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _selectedRoleFilter = value),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            MobileSection(
+              title: 'Pengguna Sistem',
+              subtitle:
+                  'Kad pengguna memaparkan emel, peranan, skop dan tindakan utama.',
+              child: allUsers.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.people_outline,
+                      title: 'Tiada pengguna sistem',
+                      subtitle:
+                          'Akaun yang didaftarkan akan dipaparkan di sini.',
+                    )
+                  : users.isEmpty
+                      ? const MobileEmptyState(
+                          icon: Icons.search_off,
+                          title: 'Tiada hasil carian',
+                          subtitle: 'Cuba ubah carian atau tapis peranan.',
+                        )
+                      : Column(
+                          children: [
+                            for (final user in users) ...[
+                              _buildMobileUserCard(user),
+                              if (user != users.last)
+                                const SizedBox(height: 10),
+                            ],
+                          ],
+                        ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileUserCard(AppUser user) {
+    final isActive = _activeOverrides.containsKey(user.uid)
+        ? _activeOverrides[user.uid]!
+        : user.isActive;
+    final lastLogin = user.lastLogin.isEmpty
+        ? 'Belum direkod'
+        : user.lastLogin.length > 16
+            ? user.lastLogin.substring(0, 16)
+            : user.lastLogin;
+    return MobileInfoCard(
+      leadingIcon: Icons.person_outline,
+      title: user.name,
+      subtitle: user.email,
+      chips: [
+        StatusChip(isActive ? 'Aktif' : 'Tidak Aktif'),
+        _buildRoleBadge(user.role),
+      ],
+      metadata: [
+        _MobileMetaPill(
+          icon: Icons.account_tree_outlined,
+          label: _userScopeLabel(user),
+        ),
+        _MobileMetaPill(icon: Icons.schedule, label: lastLogin),
+      ],
+      actions: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _showEditUserDialog(user),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final next = !isActive;
+                setState(() => _activeOverrides[user.uid] = next);
+                _handleUserStatusToggle(user.uid, next);
+              },
+              icon: Icon(
+                isActive ? Icons.toggle_on_outlined : Icons.toggle_off_outlined,
+                size: 18,
+              ),
+              label: Text(isActive ? 'Nyahaktif' : 'Aktifkan'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileStudentsTab() {
+    return StreamBuilder<List<Student>>(
+      stream: _service.getStudentsStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return MobileEmptyState(
+            icon: Icons.error_outline,
+            title: 'Ralat memuat pelajar',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final allStudents = snapshot.data ?? [];
+        final programs = allStudents.map((s) => s.program).toSet().toList()
+          ..sort();
+        final classes = allStudents
+            .map((s) => s.section)
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        final semesters = allStudents
+            .map((s) => s.semester.toString())
+            .toSet()
+            .toList()
+          ..sort();
+
+        final students = allStudents.where((s) {
+          final matchesSearch = _studentSearchQuery.isEmpty ||
+              s.name.toLowerCase().contains(_studentSearchQuery) ||
+              s.email.toLowerCase().contains(_studentSearchQuery) ||
+              s.id.toLowerCase().contains(_studentSearchQuery) ||
+              s.section.toLowerCase().contains(_studentSearchQuery);
+          final matchesProgram = _selectedProgramFilter == null ||
+              s.program == _selectedProgramFilter;
+          final matchesClass =
+              _selectedClassFilter == null || s.section == _selectedClassFilter;
+          final matchesSemester = _selectedSemesterFilter == null ||
+              s.semester.toString() == _selectedSemesterFilter;
+          return matchesSearch &&
+              matchesProgram &&
+              matchesClass &&
+              matchesSemester;
+        }).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MobileFilterCard(
+              title: 'Tapis Pelajar',
+              subtitle: '${students.length} pelajar dijumpai',
+              onReset: () {
+                _studentSearchController.clear();
+                setState(() {
+                  _selectedProgramFilter = null;
+                  _selectedClassFilter = null;
+                  _selectedSemesterFilter = null;
+                });
+              },
+              children: [
+                _buildSearchBar(
+                  controller: _studentSearchController,
+                  hint: 'Nama, ID atau kelas...',
+                ),
+                _mobileStringDropdown(
+                  label: 'Program',
+                  value: _selectedProgramFilter,
+                  allLabel: 'Semua Program',
+                  options: programs,
+                  onChanged: (value) =>
+                      setState(() => _selectedProgramFilter = value),
+                ),
+                _mobileStringDropdown(
+                  label: 'Kelas',
+                  value: _selectedClassFilter,
+                  allLabel: 'Semua Kelas',
+                  options: classes,
+                  onChanged: (value) =>
+                      setState(() => _selectedClassFilter = value),
+                ),
+                _mobileStringDropdown(
+                  label: 'Semester',
+                  value: _selectedSemesterFilter,
+                  allLabel: 'Semua Semester',
+                  options: semesters,
+                  optionLabel: (value) => 'Sem $value',
+                  onChanged: (value) =>
+                      setState(() => _selectedSemesterFilter = value),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            MobileSection(
+              title: 'Senarai Pelajar',
+              subtitle: 'Paparan kad ringkas untuk semakan pantas.',
+              child: allStudents.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.school_outlined,
+                      title: 'Tiada pelajar ditemui',
+                      subtitle:
+                          'Rekod pelajar akan dipaparkan selepas dimuatkan.',
+                    )
+                  : students.isEmpty
+                      ? const MobileEmptyState(
+                          icon: Icons.search_off,
+                          title: 'Tiada hasil carian',
+                          subtitle: 'Cuba ubah carian atau tapis pelajar.',
+                        )
+                      : Column(
+                          children: [
+                            for (final student in students) ...[
+                              _buildMobileStudentCard(student),
+                              if (student != students.last)
+                                const SizedBox(height: 10),
+                            ],
+                          ],
+                        ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileStudentCard(Student student) {
+    final riskLabel = _attendanceRiskLabel(student.attendance);
+    return MobileInfoCard(
+      leadingIcon: Icons.school_outlined,
+      title: student.name,
+      subtitle: student.id,
+      chips: [StatusChip(riskLabel)],
+      metadata: [
+        _MobileMetaPill(icon: Icons.apartment_outlined, label: student.program),
+        _MobileMetaPill(icon: Icons.group_outlined, label: student.section),
+        _MobileMetaPill(
+          icon: Icons.percent,
+          label: '${student.attendance.toStringAsFixed(0)}%',
+        ),
+      ],
+      actions: Text(
+        student.email,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileLecturerCoursesTab() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _service.getLecturerCoursesStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return MobileEmptyState(
+            icon: Icons.error_outline,
+            title: 'Ralat memuat tugasan',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final allAssignments = snapshot.data ?? [];
+        final lecturerRows = _groupLecturerAssignments(allAssignments);
+
+        final programs = allAssignments
+            .map((m) => m['programId']?.toString() ?? '')
+            .where((p) => p.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        final subjectOptions = allAssignments
+            .map((m) => m['subjectCode']?.toString() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        final classOptions = allAssignments
+            .map((m) => m['classId']?.toString() ?? '')
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+        final assignments = lecturerRows.where((row) {
+          final name = row['lecturerName'].toString().toLowerCase();
+          final email = row['lecturerEmail'].toString().toLowerCase();
+          final subjects =
+              (row['subjects'] as List<String>).join(' ').toLowerCase();
+          final prog = row['programId'].toString();
+          final matchesSearch = _lecturerSearchQuery.isEmpty ||
+              name.contains(_lecturerSearchQuery) ||
+              email.contains(_lecturerSearchQuery) ||
+              subjects.contains(_lecturerSearchQuery);
+          final matchesProg = _selectedDepartmentFilter == null ||
+              prog == _selectedDepartmentFilter;
+          final matchesSubject = _selectedSubjectFilter == null ||
+              (row['subjects'] as List<String>)
+                  .contains(_selectedSubjectFilter);
+          final matchesClass = _selectedLecturerClassFilter == null ||
+              (row['classes'] as List<String>)
+                  .contains(_selectedLecturerClassFilter);
+          return matchesSearch && matchesProg && matchesSubject && matchesClass;
+        }).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MobileFilterCard(
+              title: 'Tapis Tugasan',
+              subtitle: '${assignments.length} pensyarah dijumpai',
+              onReset: () {
+                _lecturerSearchController.clear();
+                setState(() {
+                  _selectedDepartmentFilter = null;
+                  _selectedSubjectFilter = null;
+                  _selectedLecturerClassFilter = null;
+                });
+              },
+              children: [
+                _buildSearchBar(
+                  controller: _lecturerSearchController,
+                  hint: 'Nama pensyarah, emel atau subjek...',
+                ),
+                _mobileStringDropdown(
+                  label: 'Program',
+                  value: _selectedDepartmentFilter,
+                  allLabel: 'Semua Program',
+                  options: programs,
+                  onChanged: (value) =>
+                      setState(() => _selectedDepartmentFilter = value),
+                ),
+                _mobileStringDropdown(
+                  label: 'Subjek',
+                  value: _selectedSubjectFilter,
+                  allLabel: 'Semua Subjek',
+                  options: subjectOptions,
+                  onChanged: (value) =>
+                      setState(() => _selectedSubjectFilter = value),
+                ),
+                _mobileStringDropdown(
+                  label: 'Kelas',
+                  value: _selectedLecturerClassFilter,
+                  allLabel: 'Semua Kelas',
+                  options: classOptions,
+                  onChanged: (value) =>
+                      setState(() => _selectedLecturerClassFilter = value),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            MobileSection(
+              title: 'Tugasan Pensyarah',
+              subtitle: 'Setiap kad mewakili seorang pensyarah.',
+              child: allAssignments.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.assignment_ind_outlined,
+                      title: 'Tiada tugasan ditemui',
+                      subtitle: 'Tugasan pensyarah akan dipaparkan di sini.',
+                    )
+                  : assignments.isEmpty
+                      ? const MobileEmptyState(
+                          icon: Icons.search_off,
+                          title: 'Tiada hasil carian',
+                          subtitle: 'Cuba ubah carian atau tapis tugasan.',
+                        )
+                      : Column(
+                          children: [
+                            for (final row in assignments) ...[
+                              _buildMobileLecturerAssignmentCard(row),
+                              if (row != assignments.last)
+                                const SizedBox(height: 10),
+                            ],
+                          ],
+                        ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileLecturerAssignmentCard(Map<String, dynamic> row) {
+    final subjects = (row['subjects'] as List<String>).join(', ');
+    final classes = (row['classes'] as List<String>).join(', ');
+    return MobileInfoCard(
+      leadingIcon: Icons.assignment_ind_outlined,
+      title: row['lecturerName'].toString(),
+      subtitle: row['lecturerEmail'].toString(),
+      chips: [_buildLecturerProgramBadge(row['programId'].toString())],
+      metadata: [
+        _MobileMetaPill(icon: Icons.group_outlined, label: classes),
+        _MobileMetaPill(icon: Icons.menu_book_outlined, label: subjects),
+        _MobileMetaPill(
+          icon: Icons.format_list_numbered,
+          label: '${row['classesPerWeek']} tugasan',
+        ),
+      ],
+      actions: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => _showLecturerTimetableDialog(row),
+          icon: const Icon(Icons.calendar_month_outlined, size: 18),
+          label: const Text('Lihat Jadual'),
+        ),
+      ),
+    );
+  }
+
+  Widget _mobileStringDropdown({
+    required String label,
+    required String? value,
+    required String allLabel,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+    String Function(String value)? optionLabel,
+  }) {
+    return DropdownButtonFormField<String?>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label),
+      items: [
+        DropdownMenuItem<String?>(value: null, child: Text(allLabel)),
+        ...options.map(
+          (option) => DropdownMenuItem<String?>(
+            value: option,
+            child: Text(
+              optionLabel?.call(option) ?? option,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+      onChanged: onChanged,
+    );
+  }
+
+  String _userScopeLabel(AppUser user) {
+    if (user.role == UserRole.pentadbir) return 'Semua sistem';
+    if (user.programId != null && user.programId!.isNotEmpty) {
+      return user.programId!;
+    }
+    if (user.departmentId != null && user.departmentId!.isNotEmpty) {
+      return _departmentLabel(user.departmentId);
+    }
+    return 'Skop belum ditetapkan';
+  }
+
+  String _attendanceRiskLabel(num attendance) {
+    if (attendance < 80) return 'Bawah 80%';
+    if (attendance < 85) return 'Bawah 85%';
+    if (attendance < 90) return 'Bawah 90%';
+    if (attendance < 95) return 'Bawah 95%';
+    return 'Selamat';
+  }
+
+  List<Map<String, dynamic>> _groupLecturerAssignments(
+    List<Map<String, dynamic>> allAssignments,
+  ) {
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final map in allAssignments) {
+      final lid = map['lecturerId']?.toString() ?? 'unknown';
+      grouped.putIfAbsent(lid, () => []).add(map);
+    }
+
+    return grouped.entries.map((entry) {
+      final rows = entry.value;
+      final first = rows.first;
+      final subjects = rows
+          .map((m) => m['subjectCode']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      final classes = rows
+          .map((m) => m['classId']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      final dates = rows
+          .map((m) => m['date']?.toString() ?? m['createdAt']?.toString() ?? '')
+          .where((d) => d.isNotEmpty)
+          .toList()
+        ..sort();
+
+      return {
+        'lecturerId': first['lecturerId'] ?? '-',
+        'lecturerName': first['lecturerName'] ?? '-',
+        'lecturerEmail': first['lecturerEmail'] ?? '-',
+        'programId': first['programId'] ?? '-',
+        'subjects': subjects,
+        'classes': classes,
+        'classesPerWeek': classes.length,
+        'appUser': first['appUser'],
+        'assignmentId':
+            first['id']?.toString() ?? first['lecturerId']?.toString() ?? '-',
+        'latestDate': dates.isNotEmpty ? dates.last : '',
+      };
+    }).toList()
+      ..sort((a, b) =>
+          a['lecturerName'].toString().compareTo(b['lecturerName'].toString()));
   }
 
   Widget _buildSearchBar({
@@ -1880,6 +2492,48 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
       child: Text(programId,
           style: TextStyle(
               fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
+}
+
+class _MobileMetaPill extends StatelessWidget {
+  const _MobileMetaPill({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 220),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.muted),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label.isEmpty ? '-' : label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.primaryDark,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
