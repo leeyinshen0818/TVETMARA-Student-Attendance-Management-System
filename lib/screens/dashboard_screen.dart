@@ -6,6 +6,8 @@ import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/academic_session_manager_dialog.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
@@ -76,6 +78,84 @@ class _PentadbirDashboard extends StatelessWidget {
         .map((student) => student.section)
         .toSet()
         .length;
+
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MobileDashboardWelcomeCard(
+            title: 'Selamat kembali, Pentadbir',
+            subtitle: 'Ringkasan akaun, data sistem dan tetapan asas.',
+            scopeLabel: 'Pentadbir',
+            sessionLabel: activeSession,
+            icon: Icons.admin_panel_settings_outlined,
+          ),
+          const SizedBox(height: 12),
+          _AdminStatGrid(
+            tiles: [
+              StatTile(
+                label: 'Jumlah Pengguna',
+                value: '${users.length}',
+                icon: Icons.people_alt_outlined,
+                helper: 'Semua akaun pengguna sistem',
+              ),
+              StatTile(
+                label: 'Pelajar Berdaftar',
+                value: '${students.length}',
+                icon: Icons.school_outlined,
+                helper: 'Jumlah rekod pelajar dalam sistem',
+              ),
+              StatTile(
+                label: 'Pensyarah',
+                value: '${lecturerEmails.length}',
+                icon: Icons.badge_outlined,
+                helper: 'Akaun dan profil pensyarah unik',
+              ),
+              StatTile(
+                label: 'Akaun Tidak Aktif',
+                value: '$inactiveAccounts',
+                icon: Icons.person_off_outlined,
+                color: inactiveAccounts > 0
+                    ? AppColors.warning
+                    : AppColors.success,
+                helper: 'Akaun yang perlu disemak',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _AdminQuickActionsPanel(
+            state: state,
+            onNavigateToLabel: onNavigateToLabel,
+          ),
+          const SizedBox(height: 16),
+          AppPanel(
+            title: 'Status Data Sistem',
+            subtitle: 'Kesediaan data asas untuk operasi semester semasa.',
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _ReadinessTile(
+                    label: 'Program aktif', value: '${programs.length}'),
+                _ReadinessTile(label: 'Kelas aktif', value: '$activeClasses'),
+                _ReadinessTile(label: 'Pelajar', value: '${students.length}'),
+                _ReadinessTile(
+                    label: 'Pensyarah / profil',
+                    value: '${lecturerEmails.length}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _ReviewNeededPanel(
+            inactiveAccounts: inactiveAccounts,
+            lecturerProfilesWithoutLogin: _lecturerProfilesWithoutLogin(
+              lecturers,
+              users,
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,6 +383,137 @@ class _KetuaDashboard extends StatelessWidget {
             ? 'Pemantauan program untuk kehadiran, laporan dan kelulusan tempahan.'
             : 'Pemantauan program sendiri untuk kehadiran, jadual dan laporan.';
 
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MobileDashboardWelcomeCard(
+            title: title,
+            subtitle: subtitle,
+            scopeLabel: '$scopeWord $scopeCode',
+            sessionLabel: _activeSessionLabel(state),
+            icon: Icons.admin_panel_settings_outlined,
+          ),
+          const SizedBox(height: 12),
+          _AdminStatGrid(
+            tiles: [
+              StatTile(
+                label: isKj ? 'Pelajar Dalam Jabatan' : 'Pelajar Program',
+                value: hasStudentData
+                    ? '${scopedStudents.length}'
+                    : '${studentSummary.totalStudents}',
+                icon: Icons.school_outlined,
+                helper: hasStudentData
+                    ? 'Jumlah pelajar dalam skop $scopeWord'
+                    : 'Ringkasan ringan tanpa memuatkan jadual rekod penuh',
+              ),
+              StatTile(
+                label: isKj ? 'Slot Jadual Aktif' : 'Slot Jadual Program',
+                value: '${activeSlots.length}',
+                icon: Icons.calendar_month_outlined,
+                helper: 'Slot aktif untuk sesi akademik dipilih',
+              ),
+              StatTile(
+                label: 'Pelajar Bawah Had',
+                value: '$riskStudentCount',
+                icon: Icons.warning_amber_outlined,
+                color: riskStudentCount == 0
+                    ? AppColors.success
+                    : AppColors.danger,
+                helper: hasStudentData
+                    ? 'Pelajar di bawah had ${state.attendanceThreshold}%'
+                    : 'Ringkasan berdasarkan medan kehadiran pelajar',
+              ),
+              StatTile(
+                label:
+                    isKj ? 'Tindakan Menunggu' : 'Laporan / Tindakan Program',
+                value: '$pendingActions',
+                icon: Icons.pending_actions_outlined,
+                color:
+                    pendingActions == 0 ? AppColors.success : AppColors.warning,
+                helper:
+                    'Tempahan, disiplin dan konflik jadual yang perlu disemak',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DashboardQuickActionsPanel(
+            title: 'Tindakan Pantas $scopeWord',
+            subtitle: 'Buka modul utama untuk semakan dan tindakan lanjut.',
+            actions: [
+              if (isKj || inheritsKj)
+                _DashboardQuickAction(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Pengurusan Jadual',
+                  description: 'Urus jadual, konflik dan import CSV',
+                  onPressed: () => onNavigateToLabel?.call('Pengurusan Jadual'),
+                )
+              else
+                _DashboardQuickAction(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Jadual Program',
+                  description: 'Lihat slot jadual program sendiri',
+                  onPressed: () => onNavigateToLabel?.call('Jadual Program'),
+                ),
+              _DashboardQuickAction(
+                icon: Icons.bar_chart_outlined,
+                label: 'Laporan Kehadiran',
+                description: 'Semak ringkasan dan analisis scoped',
+                onPressed: () => onNavigateToLabel?.call('Laporan'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.meeting_room_outlined,
+                label: 'Semak Tempahan',
+                description: 'Luluskan atau semak permohonan bilik',
+                onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.warning_amber_outlined,
+                label: 'Semak Disiplin',
+                description: 'Lihat laporan disiplin dalam skop',
+                onPressed: () => onNavigateToLabel?.call('Laporan Disiplin'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.people_alt_outlined,
+                label: 'Rekod Pelajar',
+                description: 'Semak pelajar dan tugasan pensyarah',
+                onPressed: () => onNavigateToLabel?.call('Rekod Pelajar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _ActionRequiredPanel(
+            pendingBookings: pendingBookings,
+            pendingDiscipline: pendingDiscipline,
+            riskStudents: riskStudentCount,
+            timetableConflicts: conflictCount,
+          ),
+          const SizedBox(height: 16),
+          _AttendanceSummaryPanel(
+            state: state,
+            students: scopedStudents,
+            summary: studentSummary,
+            useLoadedStudents: hasStudentData,
+            title: isKj
+                ? 'Ringkasan Kehadiran Jabatan'
+                : 'Ringkasan Kehadiran Program',
+          ),
+          const SizedBox(height: 16),
+          _TimetableProgrammeSummaryPanel(
+            programs: scopedPrograms,
+            slots: activeSlots,
+            title:
+                isKj ? 'Ringkasan Jadual Jabatan' : 'Ringkasan Jadual Program',
+          ),
+          const SizedBox(height: 16),
+          _MobileTimetableListPanel(
+            title: isKj ? 'Slot Jadual Terkini' : 'Jadual Program Terkini',
+            slots: activeSlots,
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -486,6 +697,103 @@ class _PensyarahDashboard extends StatelessWidget {
           .percentage
           .compareTo(state.attendanceSummaryForStudent(b).percentage));
     final nextSlot = slots.firstOrNull;
+
+    if (context.isMobile) {
+      final displayName =
+          user.name.trim().isEmpty ? 'Pensyarah' : user.name.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MobileDashboardWelcomeCard(
+            title: 'Selamat kembali, $displayName',
+            subtitle: 'Pantau jadual mengajar, kehadiran dan permohonan anda.',
+            scopeLabel: 'Pensyarah',
+            sessionLabel: _activeSessionLabel(state),
+            icon: Icons.badge_outlined,
+          ),
+          const SizedBox(height: 12),
+          _AdminStatGrid(
+            tiles: [
+              StatTile(
+                label: 'Kelas Ditugaskan',
+                value: '${assignedClasses.length}',
+                icon: Icons.groups_outlined,
+                helper: 'Bilangan kelas atau seksyen yang ditugaskan',
+              ),
+              StatTile(
+                label: 'Slot Jadual Saya',
+                value: '${slots.length}',
+                icon: Icons.calendar_month_outlined,
+                helper: 'Slot mengajar aktif untuk sesi akademik dipilih',
+              ),
+              StatTile(
+                label: 'Kehadiran Belum Diambil',
+                value: '${pendingAttendanceSlots.length}',
+                icon: Icons.fact_check_outlined,
+                color: pendingAttendanceSlots.isEmpty
+                    ? AppColors.success
+                    : AppColors.warning,
+                helper: 'Slot aktif tanpa rekod kehadiran selesai',
+              ),
+              StatTile(
+                label: 'Pelajar Bawah Had',
+                value: '${riskStudents.length}',
+                icon: Icons.report_problem_outlined,
+                color:
+                    riskStudents.isEmpty ? AppColors.success : AppColors.danger,
+                helper:
+                    'Pelajar kelas anda di bawah ${state.attendanceThreshold}%',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _DashboardQuickActionsPanel(
+            title: 'Tindakan Pantas Mengajar',
+            subtitle: 'Akses tugasan harian pensyarah dengan cepat.',
+            actions: [
+              _DashboardQuickAction(
+                icon: Icons.calendar_view_week_outlined,
+                label: 'Jadual Saya',
+                description: 'Lihat slot mengajar yang ditugaskan',
+                onPressed: () => onNavigateToLabel?.call('Jadual Saya'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.fact_check_outlined,
+                label: 'Ambil Kehadiran',
+                description: 'Lengkapkan rekod kehadiran kelas',
+                onPressed: () => onNavigateToLabel?.call('Kehadiran'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.meeting_room_outlined,
+                label: 'Tempah Bilik',
+                description: 'Mohon bilik atau kelas ganti',
+                onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.warning_amber_outlined,
+                label: 'Lapor Disiplin',
+                description: 'Hantar laporan disiplin pelajar',
+                onPressed: () =>
+                    onNavigateToLabel?.call('Laporan Disiplin Saya'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _NextClassPanel(slot: nextSlot),
+          const SizedBox(height: 16),
+          _LecturerAttendanceActionPanel(slots: pendingAttendanceSlots),
+          const SizedBox(height: 16),
+          _RiskStudentPanel(state: state, students: riskStudents),
+          const SizedBox(height: 16),
+          _LecturerRequestsPanel(bookings: bookings, reports: reports),
+          const SizedBox(height: 16),
+          _MobileTimetableListPanel(
+            title: 'Slot Jadual Saya',
+            slots: slots,
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1080,6 +1388,35 @@ class _DashboardQuickActionsPanel extends StatelessWidget {
   }
 }
 
+class _MobileDashboardWelcomeCard extends StatelessWidget {
+  const _MobileDashboardWelcomeCard({
+    required this.title,
+    required this.subtitle,
+    required this.scopeLabel,
+    required this.sessionLabel,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final String scopeLabel;
+  final String sessionLabel;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return MobileHeroCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      chips: [
+        StatusChip(scopeLabel),
+        StatusChip(sessionLabel),
+      ],
+    );
+  }
+}
+
 class _DashboardQuickAction extends StatelessWidget {
   const _DashboardQuickAction({
     required this.icon,
@@ -1095,63 +1432,144 @@ class _DashboardQuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 235,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.all(14),
-          side: const BorderSide(color: AppColors.border),
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = MediaQuery.sizeOf(context).width < 600;
+        final mobileWidth = (MediaQuery.sizeOf(context).width - 64).clamp(
+          240.0,
+          520.0,
+        );
+        if (narrow) {
+          return SizedBox(
+            width: mobileWidth,
+            child: MobileActionCard(
+              icon: icon,
+              title: label,
+              subtitle: description,
+              onTap: onPressed,
+            ),
+          );
+        }
+        return SizedBox(
+          width: 235,
+          child: OutlinedButton(
+            onPressed: onPressed,
+            style: OutlinedButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.all(14),
+              side: const BorderSide(color: AppColors.border),
+              backgroundColor: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: .1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppColors.primary, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                    ),
-                  ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileTimetableListPanel extends StatelessWidget {
+  const _MobileTimetableListPanel({
+    required this.title,
+    required this.slots,
+  });
+
+  final String title;
+  final List<TimetableSlot> slots;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = slots.toList()..sort(_compareSlotsBySchedule);
+
+    return AppPanel(
+      title: title,
+      subtitle: 'Ringkasan lima slot pertama untuk sesi akademik dipilih.',
+      child: recent.isEmpty
+          ? const _CleanEmptyState(
+              icon: Icons.event_note_outlined,
+              message: 'Tiada slot jadual aktif untuk sesi akademik ini.',
+            )
+          : Column(
+              children: [
+                for (final slot in recent.take(5)) ...[
+                  _MobileTimetableSlotCard(slot: slot),
+                  if (slot != recent.take(5).last) const SizedBox(height: 10),
                 ],
-              ),
+              ],
             ),
-          ],
+    );
+  }
+}
+
+class _MobileTimetableSlotCard extends StatelessWidget {
+  const _MobileTimetableSlotCard({required this.slot});
+
+  final TimetableSlot slot;
+
+  @override
+  Widget build(BuildContext context) {
+    return MobileInfoCard(
+      leadingIcon: Icons.event_note_outlined,
+      title: slot.subjectName,
+      subtitle: slot.lecturerName.isEmpty ? slot.section : slot.lecturerName,
+      chips: [StatusChip(_statusLabel(slot.status))],
+      metadata: [
+        MobileMetaPill(icon: Icons.calendar_today_outlined, label: slot.day),
+        MobileMetaPill(
+          icon: Icons.schedule_outlined,
+          label: '${slot.startTime}-${slot.endTime}',
         ),
-      ),
+        MobileMetaPill(icon: Icons.groups_outlined, label: slot.section),
+        MobileMetaPill(
+          icon: Icons.meeting_room_outlined,
+          label: slot.roomName ?? slot.roomId ?? '-',
+        ),
+      ],
     );
   }
 }
@@ -1567,6 +1985,14 @@ class _CleanEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return MobileEmptyState(
+        icon: icon,
+        title: message,
+        subtitle:
+            'Semakan ini akan dikemas kini apabila data baharu dimuatkan.',
+      );
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -1604,23 +2030,23 @@ class _AdminStatGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final crossAxisCount = width >= 1180
+        const spacing = 12.0;
+        final columns = width >= 1180
             ? 3
             : width >= 760
                 ? 2
                 : 1;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: width >= 1180
-              ? 2.25
-              : width >= 760
-                  ? 2.1
-                  : 2.7,
-          children: tiles,
+        final tileWidth = (width - (spacing * (columns - 1))) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final tile in tiles)
+              SizedBox(
+                width: tileWidth,
+                child: tile,
+              ),
+          ],
         );
       },
     );

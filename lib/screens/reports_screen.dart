@@ -6,6 +6,8 @@ import '../services/reports_pdf_export_service.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 import '../widgets/status_chip.dart';
 
 // ─── Colour tokens ────────────────────────────────────────────────────────────
@@ -78,8 +80,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final text = value.trim();
     if (text.isEmpty) return null;
     const knownCodes = {
-      'DED', 'DCP', 'DCB', 'DGS', 'DPP', 'DEK', 'DGM',
-      'SMK', 'ITW', 'SLR', 'SMI', 'IMF', 'SMM', 'DMM',
+      'DED',
+      'DCP',
+      'DCB',
+      'DGS',
+      'DPP',
+      'DEK',
+      'DGM',
+      'SMK',
+      'ITW',
+      'SLR',
+      'SMI',
+      'IMF',
+      'SMM',
+      'DMM',
     };
     final firstToken = text.split(RegExp(r'\s+')).first.toUpperCase();
     if (knownCodes.contains(firstToken)) return firstToken;
@@ -135,18 +149,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final groupKeys = students.map(_groupKey).toSet().toList()
       ..sort((a, b) => _groupLabel(a).compareTo(_groupLabel(b)));
     final availableGroups = [_allGroupsKey, ...groupKeys];
-    final selectedGroup =
-        availableGroups.contains(_selectedGroup) ? _selectedGroup : _allGroupsKey;
+    final selectedGroup = availableGroups.contains(_selectedGroup)
+        ? _selectedGroup
+        : _allGroupsKey;
 
     final groupFiltered = students
-        .where((s) => selectedGroup == _allGroupsKey || _groupKey(s) == selectedGroup)
+        .where((s) =>
+            selectedGroup == _allGroupsKey || _groupKey(s) == selectedGroup)
         .toList();
 
     final filteredStudents = groupFiltered.where((s) {
       if (_search.isNotEmpty) {
         final q = _search.toLowerCase();
         if (!s.name.toLowerCase().contains(q) &&
-            !s.id.toLowerCase().contains(q)) return false;
+            !s.id.toLowerCase().contains(q)) {
+          return false;
+        }
       }
       if (_selectedThresholdFilter != null) {
         final summary = state.attendanceSummaryForStudentWeek(s, _selectedWeek);
@@ -155,7 +173,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
             : summary.percentage < _selectedThresholdFilter!;
         if (!pass) return false;
       }
-      final dr = state.disciplineReports.where((r) => r.studentId == s.id).toList();
+      final dr =
+          state.disciplineReports.where((r) => r.studentId == s.id).toList();
       if (_selectedDisciplineFilter == _hasDisciplineKey) return dr.isNotEmpty;
       if (_selectedDisciplineFilter == _noDisciplineKey) return dr.isEmpty;
       return true;
@@ -180,6 +199,71 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _ => state.reportFrequency,
     };
 
+    Future<void> exportCurrentView() async {
+      final critical = filteredStudents.where((s) {
+        final sum = state.attendanceSummaryForStudentWeek(s, _selectedWeek);
+        return sum.percentage < state.attendanceThreshold;
+      }).toList();
+      await _exportPdf(
+        context: context,
+        state: state,
+        user: user,
+        students: filteredStudents,
+        criticalStudents: critical,
+        averageAttendance: avg,
+        completedSessions: completed,
+      );
+    }
+
+    if (context.isMobile) {
+      return _MobileReportsContent(
+        totalStudents: filteredStudents.length,
+        belowThreshold: belowThreshold,
+        threshold: state.attendanceThreshold,
+        averageAttendance: avg,
+        completedSessions: completed,
+        frequencyLabel: frequencyLabel,
+        students: filteredStudents,
+        summaries: summaries,
+        state: state,
+        selectedWeek: _selectedWeek,
+        programCodeForStudent: _programCodeForStudent,
+        filterSection: _FilterSection(
+          search: _search,
+          selectedThreshold: _selectedThresholdFilter,
+          selectedGroup: selectedGroup,
+          selectedWeek: _selectedWeek,
+          selectedDiscipline: _selectedDisciplineFilter,
+          availableGroups: availableGroups,
+          groupLabel: _groupLabel,
+          allDisciplineKey: _allDisciplineKey,
+          hasDisciplineKey: _hasDisciplineKey,
+          noDisciplineKey: _noDisciplineKey,
+          hasActiveFilter: _hasActiveFilter,
+          onSearchChanged: (v) => setState(() => _search = v),
+          onThresholdChanged: (v) =>
+              setState(() => _selectedThresholdFilter = v),
+          onGroupChanged: (v) => setState(() => _selectedGroup = v),
+          onWeekChanged: (v) => setState(() => _selectedWeek = v),
+          onDisciplineChanged: (v) =>
+              setState(() => _selectedDisciplineFilter = v),
+          onClear: _clearFilters,
+        ),
+        onExport: exportCurrentView,
+        onExportStudent: (student, summary) async {
+          await _exportPdf(
+            context: context,
+            state: state,
+            user: user,
+            students: [student],
+            criticalStudents: [student],
+            averageAttendance: summary.percentage,
+            completedSessions: completed,
+          );
+        },
+      );
+    }
+
     return ColoredBox(
       color: _kBg,
       child: Column(
@@ -191,22 +275,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             belowThreshold: belowThreshold,
             threshold: state.attendanceThreshold,
             averageAttendance: avg,
-            onExport: () async {
-              final critical = filteredStudents.where((s) {
-                final sum =
-                    state.attendanceSummaryForStudentWeek(s, _selectedWeek);
-                return sum.percentage < state.attendanceThreshold;
-              }).toList();
-              await _exportPdf(
-                context: context,
-                state: state,
-                user: user,
-                students: filteredStudents,
-                criticalStudents: critical,
-                averageAttendance: avg,
-                completedSessions: completed,
-              );
-            },
+            onExport: exportCurrentView,
           ),
           // ── Filters ─────────────────────────────────────────────────────────
           Padding(
@@ -346,7 +415,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         .firstOrNull;
     final programIds = state.scopedPrograms.map((p) => p.id).join('/');
     final label = departmentName ?? user.departmentId ?? 'Jabatan';
-    return programIds.isEmpty ? 'Ketua Jabatan - $label' : '$label ($programIds)';
+    return programIds.isEmpty
+        ? 'Ketua Jabatan - $label'
+        : '$label ($programIds)';
   }
 
   String _programScopeLabel(AppState state, AppUser user) {
@@ -359,6 +430,367 @@ class _ReportsScreenState extends State<ReportsScreen> {
 }
 
 // ─── Page banner ──────────────────────────────────────────────────────────────
+
+class _MobileReportsContent extends StatelessWidget {
+  const _MobileReportsContent({
+    required this.totalStudents,
+    required this.belowThreshold,
+    required this.threshold,
+    required this.averageAttendance,
+    required this.completedSessions,
+    required this.frequencyLabel,
+    required this.students,
+    required this.summaries,
+    required this.state,
+    required this.selectedWeek,
+    required this.programCodeForStudent,
+    required this.filterSection,
+    required this.onExport,
+    required this.onExportStudent,
+  });
+
+  final int totalStudents;
+  final int belowThreshold;
+  final int threshold;
+  final int averageAttendance;
+  final int completedSessions;
+  final String frequencyLabel;
+  final List<Student> students;
+  final List<AttendanceSummary> summaries;
+  final AppState state;
+  final int selectedWeek;
+  final String Function(Student) programCodeForStudent;
+  final Widget filterSection;
+  final VoidCallback onExport;
+  final Future<void> Function(Student, AttendanceSummary) onExportStudent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: _kBg,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MobileReportsHeader(
+              totalStudents: totalStudents,
+              frequencyLabel: frequencyLabel,
+              onExport: onExport,
+            ),
+            const SizedBox(height: 12),
+            filterSection,
+            const SizedBox(height: 12),
+            _MobileReportStats(
+              totalStudents: totalStudents,
+              belowThreshold: belowThreshold,
+              threshold: threshold,
+              averageAttendance: averageAttendance,
+              completedSessions: completedSessions,
+            ),
+            const SizedBox(height: 12),
+            MobileSection(
+              title: 'Senarai Pelajar',
+              subtitle:
+                  'Minggu $selectedWeek - paparan kad dioptimumkan untuk telefon.',
+              child: _MobileReportsList(
+                students: students,
+                summaries: summaries,
+                state: state,
+                selectedWeek: selectedWeek,
+                programCodeForStudent: programCodeForStudent,
+                onExportStudent: onExportStudent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileReportsHeader extends StatelessWidget {
+  const _MobileReportsHeader({
+    required this.totalStudents,
+    required this.frequencyLabel,
+    required this.onExport,
+  });
+
+  final int totalStudents;
+  final String frequencyLabel;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return MobileHeroCard(
+      icon: Icons.assessment_outlined,
+      title: 'Laporan',
+      subtitle: 'Semakan kehadiran dan risiko pelajar dalam skop anda.',
+      chips: [StatusChip('$frequencyLabel - $totalStudents pelajar')],
+      primaryAction: FilledButton.icon(
+        onPressed: onExport,
+        icon: const Icon(Icons.download, size: 16),
+        label: const Text('Eksport PDF'),
+        style: FilledButton.styleFrom(
+          backgroundColor: _kTeal,
+          minimumSize: const Size(0, 44),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileReportStats extends StatelessWidget {
+  const _MobileReportStats({
+    required this.totalStudents,
+    required this.belowThreshold,
+    required this.threshold,
+    required this.averageAttendance,
+    required this.completedSessions,
+  });
+
+  final int totalStudents;
+  final int belowThreshold;
+  final int threshold;
+  final int averageAttendance;
+  final int completedSessions;
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = [
+      _MobileMetricData(
+        icon: Icons.people_outline,
+        label: 'Pelajar',
+        value: '$totalStudents',
+        color: _kTeal,
+      ),
+      _MobileMetricData(
+        icon: Icons.percent_rounded,
+        label: 'Purata Kehadiran',
+        value: '$averageAttendance%',
+        color: averageAttendance >= threshold ? _kGreen : _kRed,
+      ),
+      _MobileMetricData(
+        icon: Icons.warning_amber_rounded,
+        label: 'Bawah $threshold%',
+        value: '$belowThreshold',
+        color: belowThreshold > 0 ? _kAmber : _kGreen,
+      ),
+      _MobileMetricData(
+        icon: Icons.check_circle_outline,
+        label: 'Sesi Selesai',
+        value: '$completedSessions',
+        color: _kGreen,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final columns = constraints.maxWidth >= 380 ? 2 : 1;
+        final width =
+            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final card in cards)
+              SizedBox(
+                width: width,
+                child: _MobileMetricCard(data: card),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MobileMetricData {
+  const _MobileMetricData({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _MobileMetricCard extends StatelessWidget {
+  const _MobileMetricCard({required this.data});
+
+  final _MobileMetricData data;
+
+  @override
+  Widget build(BuildContext context) {
+    return MobileStatCard(
+      icon: data.icon,
+      value: data.value,
+      label: data.label,
+      color: data.color,
+    );
+  }
+}
+
+class _MobileReportsList extends StatelessWidget {
+  const _MobileReportsList({
+    required this.students,
+    required this.summaries,
+    required this.state,
+    required this.selectedWeek,
+    required this.programCodeForStudent,
+    required this.onExportStudent,
+  });
+
+  final List<Student> students;
+  final List<AttendanceSummary> summaries;
+  final AppState state;
+  final int selectedWeek;
+  final String Function(Student) programCodeForStudent;
+  final Future<void> Function(Student, AttendanceSummary) onExportStudent;
+
+  @override
+  Widget build(BuildContext context) {
+    if (students.isEmpty) {
+      return const _EmptyState();
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < students.length; i++) ...[
+          _MobileReportCard(
+            student: students[i],
+            summary: summaries[i],
+            state: state,
+            selectedWeek: selectedWeek,
+            programCode: programCodeForStudent(students[i]),
+            onExport: () => onExportStudent(students[i], summaries[i]),
+          ),
+          if (i != students.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _MobileReportCard extends StatelessWidget {
+  const _MobileReportCard({
+    required this.student,
+    required this.summary,
+    required this.state,
+    required this.selectedWeek,
+    required this.programCode,
+    required this.onExport,
+  });
+
+  final Student student;
+  final AttendanceSummary summary;
+  final AppState state;
+  final int selectedWeek;
+  final String programCode;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final risk = _ReportsScreenState.weeklyRisk(
+      summary.percentage,
+      state.attendanceThreshold,
+    );
+    final color = _ReportsScreenState.riskColor(risk);
+    final disciplineCount = state.disciplineReports
+        .where((report) => report.studentId == student.id)
+        .length;
+
+    return MobileInfoCard(
+      leadingIcon: Icons.person_outline,
+      title: student.name,
+      subtitle: '${student.id} - $programCode - ${student.section}',
+      chips: [StatusChip(risk)],
+      metadata: [
+        _MobileCountPill(label: 'P', value: summary.present),
+        _MobileCountPill(label: 'L', value: summary.late),
+        _MobileCountPill(label: 'A', value: summary.absent),
+        _MobileCountPill(label: 'MC', value: summary.mc),
+        _MobileCountPill(label: 'CK', value: summary.ck),
+        _MobileCountPill(
+          label: 'Disiplin',
+          value: disciplineCount,
+          highlight: disciplineCount > 0,
+        ),
+      ],
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => _StudentDetailDialog(
+          student: student,
+          state: state,
+          selectedWeek: selectedWeek,
+          onExport: onExport,
+        ),
+      ),
+      actions: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${summary.percentage}% Kehadiran',
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: summary.percentage / 100,
+              minHeight: 7,
+              backgroundColor: color.withValues(alpha: .14),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileCountPill extends StatelessWidget {
+  const _MobileCountPill({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final String label;
+  final int value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? _kAmber : _kMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .20)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
 
 class _PageBanner extends StatelessWidget {
   const _PageBanner({
@@ -567,21 +999,42 @@ class _FilterSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Row 1: search + clear button
-          Row(
-            children: [
-              Expanded(child: _ReportsSearchField(onChanged: onSearchChanged)),
-              if (hasActiveFilter) ...[
-                const SizedBox(width: 10),
-                TextButton.icon(
-                  onPressed: onClear,
-                  icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
-                  label: const Text('Padam Penapis',
-                      style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(foregroundColor: _kMuted),
-                ),
+          if (context.isMobile)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ReportsSearchField(onChanged: onSearchChanged),
+                if (hasActiveFilter) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
+                    label: const Text('Padam Penapis'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _kMuted,
+                      side: const BorderSide(color: _kBorder),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                    child: _ReportsSearchField(onChanged: onSearchChanged)),
+                if (hasActiveFilter) ...[
+                  const SizedBox(width: 10),
+                  TextButton.icon(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
+                    label: const Text('Padam Penapis',
+                        style: TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(foregroundColor: _kMuted),
+                  ),
+                ],
+              ],
+            ),
           const SizedBox(height: 12),
           // Row 2: threshold chips
           Wrap(
@@ -632,6 +1085,16 @@ class _FilterSection extends StatelessWidget {
                 onChanged: onDisciplineChanged,
               ),
             ];
+            if (context.isMobile) {
+              return Column(
+                children: [
+                  for (final dropdown in drops) ...[
+                    dropdown,
+                    if (dropdown != drops.last) const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            }
             if (isWide) {
               return Row(
                 children: drops
@@ -673,9 +1136,7 @@ class _ThresholdChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: selected
-              ? _kTeal.withValues(alpha: 0.10)
-              : Colors.transparent,
+          color: selected ? _kTeal.withValues(alpha: 0.10) : Colors.transparent,
           borderRadius: BorderRadius.circular(7),
           border: Border.all(
             color: selected ? _kTeal.withValues(alpha: 0.50) : _kBorder,
@@ -759,8 +1220,7 @@ class _ReportsSearchField extends StatelessWidget {
         style: const TextStyle(fontSize: 13, color: _kText),
         decoration: InputDecoration(
           hintText: 'Cari nama atau ID pelajar...',
-          hintStyle:
-              const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
+          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
           prefixIcon:
               const Icon(Icons.search_rounded, size: 17, color: _kMuted),
           contentPadding: EdgeInsets.zero,
@@ -800,9 +1260,11 @@ class _ReportsTable extends StatelessWidget {
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
 
   Widget _disciplineChip(List<DisciplineReport> reports) {
-    if (reports.isEmpty) return const Text('-', style: TextStyle(color: _kMuted));
-    final latest = reports.reduce(
-        (a, b) => a.date.compareTo(b.date) >= 0 ? a : b);
+    if (reports.isEmpty) {
+      return const Text('-', style: TextStyle(color: _kMuted));
+    }
+    final latest =
+        reports.reduce((a, b) => a.date.compareTo(b.date) >= 0 ? a : b);
     final sev = _ReportsScreenState.translateSeverity(latest.severity);
     final bg = switch (latest.severity.toLowerCase()) {
       'high' => _kRed.withValues(alpha: .10),
@@ -843,7 +1305,8 @@ class _ReportsTable extends StatelessWidget {
         final student = students[i];
         final summary = summaries[i];
         final pct = summary.percentage;
-        final risk = _ReportsScreenState.weeklyRisk(pct, state.attendanceThreshold);
+        final risk =
+            _ReportsScreenState.weeklyRisk(pct, state.attendanceThreshold);
         final colour = _ReportsScreenState.riskColor(risk);
         final studentReports = state.disciplineReports
             .where((r) => r.studentId == student.id)
@@ -894,8 +1357,7 @@ class _ReportsTable extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: colour)),
                     Text('${summary.attended}/${summary.denominator}',
-                        style:
-                            const TextStyle(fontSize: 10, color: _kMuted)),
+                        style: const TextStyle(fontSize: 10, color: _kMuted)),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -989,9 +1451,7 @@ class _LihatButiranButton extends StatelessWidget {
             SizedBox(width: 5),
             Text('Lihat Butiran',
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _kTeal)),
+                    fontSize: 11, fontWeight: FontWeight.w700, color: _kTeal)),
           ],
         ),
       ),
@@ -1042,8 +1502,7 @@ class _StudentDetailDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding:
-          const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 780, maxHeight: 720),
         child: Container(
@@ -1092,23 +1551,23 @@ class _StudentDetailDialog extends StatelessWidget {
                       const SizedBox(height: 20),
                       _SectionTitle(
                         icon: Icons.gavel_rounded,
-                        label:
-                            'Log Disiplin (${disciplineLogs.length})',
+                        label: 'Log Disiplin (${disciplineLogs.length})',
                       ),
                       const SizedBox(height: 10),
                       if (disciplineLogs.isEmpty)
                         const _EmptyInSection(
                             message: 'Tiada rekod disiplin dijumpai.')
                       else
-                        ...disciplineLogs.map((r) => _DisciplineTile(report: r)),
+                        ...disciplineLogs
+                            .map((r) => _DisciplineTile(report: r)),
                     ],
                   ),
                 ),
               ),
               // Footer
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: _kBorder)),
                 ),
@@ -1117,8 +1576,7 @@ class _StudentDetailDialog extends StatelessWidget {
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style:
-                          TextButton.styleFrom(foregroundColor: _kMuted),
+                      style: TextButton.styleFrom(foregroundColor: _kMuted),
                       child: const Text('Tutup'),
                     ),
                     const SizedBox(width: 8),
@@ -1127,8 +1585,7 @@ class _StudentDetailDialog extends StatelessWidget {
                         Navigator.of(context).pop();
                         onExport();
                       },
-                      style: FilledButton.styleFrom(
-                          backgroundColor: _kTeal),
+                      style: FilledButton.styleFrom(backgroundColor: _kTeal),
                       icon: const Icon(Icons.download, size: 16),
                       label: const Text('Eksport PDF'),
                     ),
@@ -1167,11 +1624,9 @@ class _DialogHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       decoration: BoxDecoration(
         color: riskColour.withValues(alpha: 0.05),
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         border: Border(
-            bottom:
-                BorderSide(color: riskColour.withValues(alpha: 0.2))),
+            bottom: BorderSide(color: riskColour.withValues(alpha: 0.2))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1188,9 +1643,7 @@ class _DialogHeader extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                student.name.isNotEmpty
-                    ? student.name[0].toUpperCase()
-                    : '?',
+                student.name.isNotEmpty ? student.name[0].toUpperCase() : '?',
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -1223,10 +1676,10 @@ class _DialogHeader extends StatelessWidget {
                     _InfoPill(Icons.badge_outlined, student.id),
                     _InfoPill(Icons.school_outlined, student.program),
                     _InfoPill(Icons.groups_outlined, student.section),
-                    _InfoPill(Icons.layers_outlined,
-                        'Semester ${student.semester}'),
-                    _InfoPill(Icons.calendar_today_outlined,
-                        'Minggu $selectedWeek'),
+                    _InfoPill(
+                        Icons.layers_outlined, 'Semester ${student.semester}'),
+                    _InfoPill(
+                        Icons.calendar_today_outlined, 'Minggu $selectedWeek'),
                   ],
                 ),
               ],
@@ -1244,8 +1697,7 @@ class _DialogHeader extends StatelessWidget {
               const Text('Kehadiran',
                   style: TextStyle(fontSize: 11, color: _kMuted)),
               Text('M$selectedWeek',
-                  style:
-                      const TextStyle(fontSize: 10, color: _kMuted)),
+                  style: const TextStyle(fontSize: 10, color: _kMuted)),
             ],
           ),
         ],
@@ -1297,8 +1749,7 @@ class _WeeklyGrid extends StatelessWidget {
               border: Border.all(
                 color: isHighlighted
                     ? colour
-                    : colour.withValues(
-                        alpha: hasData ? 0.4 : 0.3),
+                    : colour.withValues(alpha: hasData ? 0.4 : 0.3),
                 width: isHighlighted ? 2 : 1,
               ),
             ),
@@ -1352,8 +1803,7 @@ class _WarningBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: _kRed.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
@@ -1361,15 +1811,12 @@ class _WarningBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 16, color: _kRed),
+          const Icon(Icons.warning_amber_rounded, size: 16, color: _kRed),
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _kRed)),
+                    fontSize: 12, fontWeight: FontWeight.w600, color: _kRed)),
           ),
         ],
       ),
@@ -1390,9 +1837,7 @@ class _SectionTitle extends StatelessWidget {
         const SizedBox(width: 7),
         Text(label,
             style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: _kText)),
+                fontSize: 13, fontWeight: FontWeight.w700, color: _kText)),
       ],
     );
   }
@@ -1414,11 +1859,9 @@ class _EmptyInSection extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.inbox_outlined,
-              size: 28, color: Color(0xFF94A3B8)),
+          const Icon(Icons.inbox_outlined, size: 28, color: Color(0xFF94A3B8)),
           const SizedBox(height: 6),
-          Text(message,
-              style: const TextStyle(fontSize: 12, color: _kMuted)),
+          Text(message, style: const TextStyle(fontSize: 12, color: _kMuted)),
         ],
       ),
     );
@@ -1449,8 +1892,7 @@ class _DisciplineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = _sevColour;
-    final sevMalay =
-        _ReportsScreenState.translateSeverity(report.severity);
+    final sevMalay = _ReportsScreenState.translateSeverity(report.severity);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1493,22 +1935,18 @@ class _DisciplineTile extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 2,
                   children: [
-                    _InfoPill(
-                        Icons.calendar_today_outlined, report.date),
+                    _InfoPill(Icons.calendar_today_outlined, report.date),
                     _InfoPill(Icons.subject_outlined,
                         report.subjectCode ?? report.subject),
-                    _InfoPill(
-                        Icons.flag_outlined, sevMalay),
+                    _InfoPill(Icons.flag_outlined, sevMalay),
                     if (report.lecturer.isNotEmpty)
-                      _InfoPill(
-                          Icons.person_outline, report.lecturer),
+                      _InfoPill(Icons.person_outline, report.lecturer),
                   ],
                 ),
                 if (report.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(report.description,
-                      style:
-                          const TextStyle(fontSize: 12, color: _kMuted),
+                      style: const TextStyle(fontSize: 12, color: _kMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],

@@ -4,6 +4,8 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 import '../widgets/status_chip.dart';
 
 class DisiplinScreen extends StatefulWidget {
@@ -65,6 +67,103 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
         ? const ['Lapor Disiplin Baharu', 'Semua Laporan Saya']
         : const ['Tindakan Diperlukan', 'Semua Laporan'];
     if (_selectedTab >= tabLabels.length) _selectedTab = 0;
+
+    if (context.isMobile) {
+      final reviewedCount = visibleReports
+          .where((report) =>
+              _normalizeDisciplineStatus(report.status) == 'reviewed' ||
+              _normalizeDisciplineStatus(report.status) == 'action_taken' ||
+              _normalizeDisciplineStatus(report.status) == 'closed')
+          .length;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MobileHeroCard(
+            icon: Icons.report_problem_outlined,
+            title: isPensyarah ? 'Laporan Disiplin Saya' : 'Laporan Disiplin',
+            subtitle: isPensyarah
+                ? 'Hantar dan semak laporan disiplin pelajar anda.'
+                : 'Semak kes disiplin dan rekod tindakan mengikut skop.',
+            chips: [
+              StatusChip('${actionRequiredReports.length} Menunggu'),
+              StatusChip('$reviewedCount Disemak'),
+              StatusChip('${visibleReports.length} Laporan'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          MobileSegmentedControl(
+            labels: tabLabels,
+            selectedIndex: _selectedTab,
+            onChanged: (index) => setState(() => _selectedTab = index),
+          ),
+          const SizedBox(height: 14),
+          if (isPensyarah && _selectedTab == 0)
+            _NewDisciplineReportPanel(
+              slots: slots,
+              studentsList: studentsList,
+              selectedSlot: selectedSlot,
+              selectedStudentId: selectedStudentId,
+              issueType: issueType,
+              severity: severity,
+              descriptionController: _descCtrl,
+              submitting: _submitting,
+              onSlotChanged: (value) => setState(() {
+                selectedSlotId = value;
+                selectedStudentId = null;
+              }),
+              onStudentChanged: (value) =>
+                  setState(() => selectedStudentId = value),
+              onIssueTypeChanged: (value) =>
+                  setState(() => issueType = value ?? issueType),
+              onSeverityChanged: (value) =>
+                  setState(() => severity = value ?? severity),
+              onSubmit: () => _submitReport(
+                state: state,
+                user: user,
+                studentsList: studentsList,
+                selectedSlot: selectedSlot,
+              ),
+            )
+          else if (isPensyarah)
+            _DisciplineReportListPanel(
+              title: 'Semua Laporan Saya',
+              subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
+              reports: visibleReports,
+              canReview: false,
+              emptyText: 'Tiada laporan disiplin ditemui.',
+              onViewDetails: (report) => _showReportDetails(report),
+              onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onReject: (report) => _showRejectDialog(state, report),
+              onClose: (report) => _showCloseDialog(state, report),
+            )
+          else if (_selectedTab == 0)
+            _DisciplineReportListPanel(
+              title: 'Tindakan Diperlukan',
+              subtitle: 'Laporan baharu atau menunggu semakan dalam skop anda.',
+              reports: actionRequiredReports,
+              canReview: canReviewDiscipline,
+              emptyText: 'Tiada laporan yang memerlukan tindakan.',
+              onViewDetails: (report) => _showReportDetails(report),
+              onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onReject: (report) => _showRejectDialog(state, report),
+              onClose: (report) => _showCloseDialog(state, report),
+            )
+          else
+            _DisciplineReportListPanel(
+              title: 'Semua Laporan',
+              subtitle:
+                  'Semua laporan disiplin dalam skop peranan dan program anda.',
+              reports: visibleReports,
+              canReview: canReviewDiscipline,
+              emptyText: 'Tiada laporan disiplin ditemui.',
+              onViewDetails: (report) => _showReportDetails(report),
+              onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onReject: (report) => _showRejectDialog(state, report),
+              onClose: (report) => _showCloseDialog(state, report),
+            ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,6 +303,23 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
   }
 
   Future<void> _showReportDetails(DisciplineReport report) {
+    if (context.isMobile) {
+      return showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => MobileBottomSheet(
+          title: 'Butiran Laporan Disiplin',
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(sheetContext).height * .72,
+            ),
+            child: SingleChildScrollView(
+              child: _DisciplineDetailContent(report: report),
+            ),
+          ),
+        ),
+      );
+    }
     return showDialog<void>(
       context: context,
       builder: (context) => _DisciplineDetailDialog(report: report),
@@ -604,6 +720,33 @@ class _DisciplineReportListPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return MobileSection(
+        title: title,
+        subtitle: subtitle,
+        child: reports.isEmpty
+            ? MobileEmptyState(
+                icon: Icons.inbox_outlined,
+                title: emptyText,
+                subtitle: 'Tiada rekod untuk paparan semasa.',
+              )
+            : Column(
+                children: [
+                  for (final report in reports)
+                    _DisciplineReportItem(
+                      report: report,
+                      status: _normalizeDisciplineStatus(report.status),
+                      canApprove: canReview,
+                      onViewDetails: () => onViewDetails(report),
+                      onTakeAction: () => onTakeAction(report),
+                      onReject: () => onReject(report),
+                      onClose: () => onClose(report),
+                    ),
+                ],
+              ),
+      );
+    }
+
     return AppPanel(
       title: title,
       subtitle: subtitle,
@@ -822,6 +965,63 @@ class _DisciplineReportItem extends StatelessWidget {
         : report.assignedReviewerRoles.join(', ');
     final severityTone = _severityTone(report.severity);
     final statusTone = _statusTone(status);
+    if (context.isMobile) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: MobileInfoCard(
+          leadingIcon: Icons.report_problem_outlined,
+          title: report.studentName,
+          subtitle:
+              '${report.studentId} - ${report.section} - ${report.issueType}',
+          chips: [
+            _DisciplineToneChip(
+              label: _statusLabel(status),
+              tone: statusTone,
+            ),
+            _DisciplineToneChip(
+              label: _severityLabel(report.severity),
+              tone: severityTone,
+              icon: Icons.priority_high_rounded,
+            ),
+          ],
+          metadata: [
+            MobileMetaPill(
+              icon: Icons.school_outlined,
+              label: report.programId ?? report.programName ?? '-',
+            ),
+            MobileMetaPill(
+              icon: Icons.calendar_today_outlined,
+              label: report.createdAt ?? report.date,
+            ),
+            MobileMetaPill(
+              icon: Icons.person_outline,
+              label: report.createdByName ?? report.lecturer,
+            ),
+          ],
+          actions: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                report.description.isEmpty ? '-' : report.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+              ),
+              const SizedBox(height: 10),
+              _DisciplineCardActions(
+                status: status,
+                canReview: canApprove,
+                onViewDetails: onViewDetails,
+                onTakeAction: onTakeAction,
+                onReject: onReject,
+                onClose: onClose,
+              ),
+            ],
+          ),
+          onTap: onViewDetails,
+        ),
+      );
+    }
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
@@ -1197,60 +1397,70 @@ class _DisciplineDetailDialog extends StatelessWidget {
       content: SizedBox(
         width: 720,
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DetailSection(
-                title: 'Maklumat Laporan',
-                rows: [
-                  ('ID Laporan', report.id),
-                  ('Status', _statusLabel(report.status)),
-                  ('Tahap', report.severity),
-                  ('Jenis Isu', report.issueType),
-                  ('Tarikh Laporan', report.createdAt ?? report.date),
-                  ('Catatan', report.description),
-                ],
-              ),
-              _DetailSection(
-                title: 'Maklumat Pelajar',
-                rows: [
-                  ('Nama Pelajar', report.studentName),
-                  ('ID Pelajar', report.studentId),
-                  ('Kelas / Seksyen', report.section),
-                  ('Program', report.programName ?? report.programId ?? '-'),
-                ],
-              ),
-              _DetailSection(
-                title: 'Maklumat Kelas / Subjek',
-                rows: [
-                  ('Kod Subjek', report.subjectCode ?? '-'),
-                  ('Nama Subjek', report.subjectName ?? report.subject),
-                  ('Dilapor Oleh', report.createdByName ?? report.lecturer),
-                ],
-              ),
-              _DetailSection(
-                title: 'Maklumat Semakan',
-                rows: [
-                  ('Disemak Oleh', report.reviewedByName ?? '-'),
-                  ('Peranan Penyemak', report.reviewerRole ?? '-'),
-                  ('Tarikh Semakan', report.reviewedAt ?? '-'),
-                  ('Catatan Semakan', report.reviewerNotes ?? '-'),
-                  (
-                    'Tindakan Diambil',
-                    report.actionTaken ?? report.actionTakenNote ?? '-'
-                  ),
-                  ('Sebab Penolakan', report.rejectionReason ?? '-'),
-                  ('Tarikh Ditutup', report.closedAt ?? '-'),
-                ],
-              ),
-            ],
-          ),
-        ),
+            child: _DisciplineDetailContent(report: report)),
       ),
       actions: [
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Tutup'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DisciplineDetailContent extends StatelessWidget {
+  const _DisciplineDetailContent({required this.report});
+
+  final DisciplineReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DetailSection(
+          title: 'Maklumat Laporan',
+          rows: [
+            ('ID Laporan', report.id),
+            ('Status', _statusLabel(report.status)),
+            ('Tahap', report.severity),
+            ('Jenis Isu', report.issueType),
+            ('Tarikh Laporan', report.createdAt ?? report.date),
+            ('Catatan', report.description),
+          ],
+        ),
+        _DetailSection(
+          title: 'Maklumat Pelajar',
+          rows: [
+            ('Nama Pelajar', report.studentName),
+            ('ID Pelajar', report.studentId),
+            ('Kelas / Seksyen', report.section),
+            ('Program', report.programName ?? report.programId ?? '-'),
+          ],
+        ),
+        _DetailSection(
+          title: 'Maklumat Kelas / Subjek',
+          rows: [
+            ('Kod Subjek', report.subjectCode ?? '-'),
+            ('Nama Subjek', report.subjectName ?? report.subject),
+            ('Dilapor Oleh', report.createdByName ?? report.lecturer),
+          ],
+        ),
+        _DetailSection(
+          title: 'Maklumat Semakan',
+          rows: [
+            ('Disemak Oleh', report.reviewedByName ?? '-'),
+            ('Peranan Penyemak', report.reviewerRole ?? '-'),
+            ('Tarikh Semakan', report.reviewedAt ?? '-'),
+            ('Catatan Semakan', report.reviewerNotes ?? '-'),
+            (
+              'Tindakan Diambil',
+              report.actionTaken ?? report.actionTakenNote ?? '-'
+            ),
+            ('Sebab Penolakan', report.rejectionReason ?? '-'),
+            ('Tarikh Ditutup', report.closedAt ?? '-'),
+          ],
         ),
       ],
     );

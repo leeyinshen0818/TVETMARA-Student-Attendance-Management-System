@@ -4,6 +4,8 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 import '../widgets/status_chip.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -54,6 +56,48 @@ class _TempahanScreenState extends State<TempahanScreen>
     final visibleBookings = state.scopedBookings;
     final pendingCount =
         visibleBookings.where((b) => b.status == 'Pending').length;
+
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MobileHeroCard(
+            icon: Icons.meeting_room_outlined,
+            title: isPensyarah ? 'Tempahan Bilik' : 'Kelulusan Tempahan Bilik',
+            subtitle: isPensyarah
+                ? 'Mohon bilik kelas ganti dan semak status permohonan anda.'
+                : 'Semak permohonan kelas ganti dan ambil tindakan mengikut skop.',
+            chips: [
+              StatusChip('$pendingCount Menunggu'),
+              StatusChip('${visibleBookings.length} Permohonan'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          MobileSegmentedControl(
+            labels: [
+              isPensyarah ? 'Permohonan Baharu' : 'Tindakan Diperlukan',
+              'Semua Permohonan',
+            ],
+            selectedIndex: _tabCtrl.index,
+            onChanged: (index) => setState(() => _tabCtrl.index = index),
+          ),
+          const SizedBox(height: 14),
+          if (_tabCtrl.index == 0)
+            isPensyarah
+                ? _NewRequestTab(onSubmitted: () => _tabCtrl.animateTo(1))
+                : _ApproverActionTab(
+                    filterStatus: _filterStatus,
+                    onFilterChanged: (v) => setState(() => _filterStatus = v),
+                  )
+          else
+            _AllBookingsTab(
+              filterStatus: _filterStatus,
+              onFilterChanged: (v) => setState(() => _filterStatus = v),
+              isApprover: isApprover,
+            ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,6 +675,24 @@ class _ApproverActionTab extends StatelessWidget {
     final pending =
         state.scopedBookings.where((b) => b.status == 'Pending').toList();
 
+    if (context.isMobile) {
+      if (pending.isEmpty) {
+        return const MobileEmptyState(
+          icon: Icons.check_circle_outline,
+          title: 'Tiada tindakan diperlukan',
+          subtitle: 'Semua permohonan dalam skop anda telah disemak.',
+        );
+      }
+      return MobileSection(
+        title: 'Tindakan Diperlukan',
+        subtitle: '${pending.length} permohonan memerlukan keputusan.',
+        child: Column(
+          children:
+              pending.map((b) => _BookingApprovalCard(booking: b)).toList(),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -683,6 +745,53 @@ class _AllBookingsTab extends StatelessWidget {
     final filtered = filterStatus == 'Semua'
         ? all
         : all.where((b) => b.status == filterStatus).toList();
+
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MobileFilterCard(
+            title: 'Status Permohonan',
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(_filterValues.length, (i) {
+                  final val = _filterValues[i];
+                  final label = _filterLabels[i];
+                  final active = filterStatus == val;
+                  return ChoiceChip(
+                    label: Text(label),
+                    selected: active,
+                    onSelected: (_) => onFilterChanged(val),
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (filtered.isEmpty)
+            const MobileEmptyState(
+              icon: Icons.inbox_outlined,
+              title: 'Tiada rekod ditemui',
+              subtitle: 'Cuba pilih status lain untuk melihat permohonan.',
+            )
+          else
+            MobileSection(
+              title: 'Senarai Permohonan',
+              subtitle: '${filtered.length} rekod ditemui.',
+              child: Column(
+                children: filtered
+                    .map((b) => _BookingApprovalCard(
+                          booking: b,
+                          showActions: isApprover && b.status == 'Pending',
+                        ))
+                    .toList(),
+              ),
+            ),
+        ],
+      );
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -758,6 +867,58 @@ class _BookingApprovalCard extends StatelessWidget {
       _ => booking.status,
     };
 
+    if (context.isMobile) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: MobileInfoCard(
+          leadingIcon: Icons.meeting_room_outlined,
+          title: booking.subject,
+          subtitle: '${booking.section} - ${booking.lecturerName}',
+          chips: [StatusChip(statusLabel)],
+          metadata: [
+            MobileMetaPill(
+              icon: Icons.event_outlined,
+              label: '${booking.originalDate} ${booking.originalTime}',
+            ),
+            MobileMetaPill(
+              icon: Icons.swap_horiz,
+              label:
+                  '${booking.replacementDate} ${booking.replacementStart}-${booking.replacementEnd}',
+            ),
+            MobileMetaPill(
+              icon: Icons.door_front_door_outlined,
+              label: booking.room,
+            ),
+            MobileMetaPill(
+              icon: Icons.circle_outlined,
+              label: avail ? 'Tersedia' : 'Tidak tersedia',
+              color: avail ? AppColors.success : AppColors.warning,
+            ),
+            MobileMetaPill(icon: Icons.info_outline, label: booking.reason),
+          ],
+          actions: showActions || !avail
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!avail) const _BookingConflictNote(),
+                    if (showActions) ...[
+                      if (!avail) const SizedBox(height: 8),
+                      _ApproveRejectButtons(bookingId: booking.id),
+                    ],
+                  ],
+                )
+              : null,
+          onTap: () => _showMobileBookingDetails(
+            context,
+            booking,
+            statusLabel,
+            avail,
+            showActions,
+          ),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -831,21 +992,7 @@ class _BookingApprovalCard extends StatelessWidget {
                     value: booking.remarks),
             ],
           ),
-          if (!avail)
-            const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: AppColors.warning, size: 16),
-                  SizedBox(width: 6),
-                  Text(
-                    'Bilik telah ditempah pada masa ini.',
-                    style: TextStyle(color: AppColors.warning, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
+          if (!avail) const _BookingConflictNote(),
           if (showActions) ...[
             const SizedBox(height: 12),
             _ApproveRejectButtons(bookingId: booking.id),
@@ -854,11 +1001,101 @@ class _BookingApprovalCard extends StatelessWidget {
       ),
     );
   }
+
+  void _showMobileBookingDetails(
+    BuildContext context,
+    BookingRequest booking,
+    String statusLabel,
+    bool available,
+    bool allowActions,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => MobileBottomSheet(
+        title: 'Butiran Permohonan',
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .72,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                MobileInfoCard(
+                  leadingIcon: Icons.meeting_room_outlined,
+                  title: booking.subject,
+                  subtitle: '${booking.section} - ${booking.lecturerName}',
+                  chips: [StatusChip(statusLabel)],
+                  metadata: [
+                    MobileMetaPill(
+                      icon: Icons.event_outlined,
+                      label:
+                          'Asal: ${booking.originalDate} ${booking.originalTime}',
+                    ),
+                    MobileMetaPill(
+                      icon: Icons.swap_horiz,
+                      label:
+                          'Ganti: ${booking.replacementDate} ${booking.replacementStart}-${booking.replacementEnd}',
+                    ),
+                    MobileMetaPill(
+                      icon: Icons.door_front_door_outlined,
+                      label: booking.room,
+                    ),
+                    MobileMetaPill(
+                      icon: Icons.info_outline,
+                      label: booking.reason,
+                    ),
+                    MobileMetaPill(
+                      icon: Icons.circle_outlined,
+                      label: available ? 'Bilik tersedia' : 'Tidak tersedia',
+                      color: available ? AppColors.success : AppColors.warning,
+                    ),
+                  ],
+                  actions: booking.remarks.isEmpty
+                      ? null
+                      : Text(
+                          booking.remarks,
+                          style: const TextStyle(color: AppColors.muted),
+                        ),
+                ),
+                const SizedBox(height: 12),
+                if (allowActions) _ApproveRejectButtons(bookingId: booking.id),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Approve / Reject button pair
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _BookingConflictNote extends StatelessWidget {
+  const _BookingConflictNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
+          SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Bilik telah ditempah pada masa ini.',
+              style: TextStyle(color: AppColors.warning, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ApproveRejectButtons extends StatelessWidget {
   const _ApproveRejectButtons({required this.bookingId});

@@ -4,6 +4,8 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_theme.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 import 'admin/register_user_screen.dart';
 import 'attendance_screen.dart';
 import 'tempahan_screen.dart';
@@ -151,7 +153,19 @@ class _HomeShellState extends State<HomeShell> {
     if (index >= items.length) index = 0;
     final activeItem = items[index];
     _requestDataFor(activeItem, state);
+    final mobile = context.isMobile;
     final compact = MediaQuery.sizeOf(context).width < 780;
+    if (mobile) {
+      return _MobileHomeShell(
+        user: user,
+        items: items,
+        activeIndex: index,
+        activeItem: activeItem,
+        state: state,
+        isWaiting: _isWaitingForInitialScreenData(activeItem, state),
+        onSelectIndex: (value) => setState(() => index = value),
+      );
+    }
 
     return Scaffold(
       body: Row(
@@ -398,6 +412,324 @@ class _TopBar extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _MobileHomeShell extends StatelessWidget {
+  const _MobileHomeShell({
+    required this.user,
+    required this.items,
+    required this.activeIndex,
+    required this.activeItem,
+    required this.state,
+    required this.isWaiting,
+    required this.onSelectIndex,
+  });
+
+  final AppUser user;
+  final List<_NavItem> items;
+  final int activeIndex;
+  final _NavItem activeItem;
+  final AppState state;
+  final bool isWaiting;
+  final ValueChanged<int> onSelectIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryItems = _mobilePrimaryItems(user, items);
+    final primaryIndexes = primaryItems
+        .map((item) => items.indexOf(item))
+        .where((index) => index >= 0)
+        .toList();
+    final moreItems =
+        items.where((item) => !primaryItems.contains(item)).toList();
+    final selectedPrimaryIndex = primaryIndexes.indexOf(activeIndex);
+    final navIndex =
+        selectedPrimaryIndex == -1 ? primaryItems.length : selectedPrimaryIndex;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _MobileTopBar(
+              user: user,
+              title: activeItem.label,
+              onLogout: state.logout,
+            ),
+            Expanded(
+              child: ColoredBox(
+                color: AppColors.background,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.zero,
+                  child: state.error != null
+                      ? MobilePageContainer(
+                          child: _MobileErrorState(message: '${state.error}'),
+                        )
+                      : isWaiting
+                          ? const MobilePageContainer(
+                              child: Padding(
+                                padding: EdgeInsets.all(28),
+                                child:
+                                    Center(child: CircularProgressIndicator()),
+                              ),
+                            )
+                          : MobilePageContainer(child: activeItem.screen),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: const Border(top: BorderSide(color: AppColors.border)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(alpha: .08),
+                blurRadius: 22,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
+          child: NavigationBar(
+            height: 72,
+            selectedIndex: navIndex,
+            backgroundColor: AppColors.surface,
+            indicatorColor: AppColors.primary.withValues(alpha: .12),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (value) {
+              if (value < primaryIndexes.length) {
+                onSelectIndex(primaryIndexes[value]);
+                return;
+              }
+              _showMobileMoreSheet(context, moreItems);
+            },
+            destinations: [
+              for (final item in primaryItems)
+                NavigationDestination(
+                  icon: Icon(item.icon),
+                  selectedIcon: Icon(item.icon),
+                  label: _mobileNavLabel(item.label),
+                ),
+              const NavigationDestination(
+                icon: Icon(Icons.grid_view_outlined),
+                selectedIcon: Icon(Icons.grid_view_rounded),
+                label: 'Menu',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<_NavItem> _mobilePrimaryItems(AppUser user, List<_NavItem> allItems) {
+    final labels = switch (user.role) {
+      UserRole.pensyarah => [
+          'Papan Pemuka',
+          'Jadual Saya',
+          'Kehadiran',
+          'Tempahan Bilik',
+        ],
+      UserRole.ketua_jabatan => [
+          'Papan Pemuka',
+          'Pengurusan Jadual',
+          'Laporan',
+          'Tempahan Bilik',
+        ],
+      UserRole.ketua_program => [
+          'Papan Pemuka',
+          'Pengurusan Jadual',
+          'Jadual Program',
+          'Laporan',
+          'Rekod Pelajar',
+        ],
+      UserRole.pentadbir => [
+          'Papan Pemuka',
+          'Pengurusan Pengguna',
+          'Tetapan Sistem',
+        ],
+    };
+
+    final result = <_NavItem>[];
+    for (final label in labels) {
+      final match = allItems.where((item) => item.label == label).firstOrNull;
+      if (match != null && !result.contains(match)) {
+        result.add(match);
+      }
+      if (result.length == 4) break;
+    }
+    if (result.isEmpty && allItems.isNotEmpty) result.add(allItems.first);
+    return result;
+  }
+
+  String _mobileNavLabel(String label) {
+    return switch (label) {
+      'Papan Pemuka' => 'Home',
+      'Pengurusan Jadual' => 'Jadual',
+      'Jadual Program' => 'Jadual',
+      'Jadual Saya' => 'Jadual',
+      'Tempahan Bilik' => 'Tempahan',
+      'Pengurusan Pengguna' => 'Pengguna',
+      'Tetapan Sistem' => 'Tetapan',
+      'Rekod Pelajar' => 'Rekod',
+      _ => label,
+    };
+  }
+
+  void _showMobileMoreSheet(BuildContext context, List<_NavItem> moreItems) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return MobileBottomSheet(
+          title: 'Menu',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final item in moreItems)
+                MobileListTile(
+                  icon: item.icon,
+                  title: item.label,
+                  onTap: () {
+                    Navigator.pop(context);
+                    final target = items.indexOf(item);
+                    if (target != -1) onSelectIndex(target);
+                  },
+                ),
+              MobileListTile(
+                icon: Icons.logout,
+                title: 'Log Keluar',
+                iconColor: AppColors.danger,
+                onTap: () {
+                  Navigator.pop(context);
+                  state.logout();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MobileTopBar extends StatelessWidget {
+  const _MobileTopBar({
+    required this.user,
+    required this.title,
+    required this.onLogout,
+  });
+
+  final AppUser user;
+  final String title;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: const Border(bottom: BorderSide(color: AppColors.border)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.school_outlined, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TVETMARA',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_roleLabel(user.role)} • $title',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Log Keluar',
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout_outlined),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _roleLabel(UserRole role) {
+    return switch (role) {
+      UserRole.pentadbir => 'Pentadbir',
+      UserRole.ketua_jabatan => 'Ketua Jabatan',
+      UserRole.ketua_program => 'Ketua Program',
+      UserRole.pensyarah => 'Pensyarah',
+    };
+  }
+}
+
+class _MobileErrorState extends StatelessWidget {
+  const _MobileErrorState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withValues(alpha: .08),
+        border: Border.all(color: AppColors.danger.withValues(alpha: .22)),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        'Ralat memuat turun data: $message',
+        style: const TextStyle(
+          color: AppColors.danger,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
