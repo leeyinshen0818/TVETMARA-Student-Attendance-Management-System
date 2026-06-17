@@ -1,9 +1,20 @@
+// lib/screens/lecturer_timetable_grid_screen.dart
+//
+// Module 5 – Timetable Slot Display  |  Lecturer (Pensyarah) View
+// Author : Farra
+//
+// FIX: Removed nested Scaffold that caused unbounded-height layout crash.
+// The screen is now a plain widget that can be embedded inside the app's
+// home shell (which already owns the Scaffold/AppBar).
+//
+// READ-ONLY — no writes, no attendance forms, no upload code.
+// Placeholder hook: onSlotSelected(slotId, week) → Yee Wen's module.
+
 import 'package:flutter/material.dart';
 
 import '../state/lecturer_timetable_controller.dart';
 import '../services/lecturer_timetable_service.dart';
-import '../services/timetable_file_io.dart';
-import '../services/timetable_view_export_service.dart';
+import '../services/lecturer_export_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
@@ -181,14 +192,7 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _PageHeader(
-                week: week,
-                controller: widget.controller,
-                lecturerName: widget.lecturerName,
-                onExport: filtered.isEmpty
-                    ? null
-                    : () => _exportLecturerTimetable(filtered),
-              ),
+              _PageHeader(week: week, controller: widget.controller),
               _StatCardRow(
                 totalSlots: allSlots.length,
                 sections: uniqueSections,
@@ -214,6 +218,7 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
                             slots: filtered,
                             week: week,
                             lecturerName: widget.lecturerName,
+                            lecturerEmail: widget.lecturerEmail,
                             programId: widget.programId,
                             onSlotSelected: widget.onSlotSelected,
                             onNavigateToAttendance:
@@ -228,108 +233,32 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
       ),
     );
   }
-
-  void _exportLecturerTimetable(List<LecturerSlot> slots) {
-    final filenameName = widget.lecturerName
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
-    final rows = <List<String>>[
-      ['JADUAL WAKTU PENSYARAH'],
-      ['Pensyarah', widget.lecturerName],
-      ['Sesi Akademik', 'JAN_JUN_2026'],
-      ['Dijana Pada', DateTime.now().toIso8601String()],
-      [],
-      [
-        'Hari',
-        'Masa',
-        'Kod Kursus',
-        'Nama Kursus',
-        'Kelas',
-        'Program',
-        'Bilik',
-        'Jenis Kelas',
-      ],
-      ...slots.map((slot) => [
-            _normalDay(slot.day),
-            '${slot.startTime}-${slot.endTime}',
-            slot.subjectCode,
-            slot.subjectName,
-            slot.section,
-            slot.programId,
-            slot.roomId,
-            slot.classType,
-          ]),
-    ];
-    downloadTextFile(
-      filename: 'jadual_pensyarah_${filenameName}_JAN_JUN_2026.csv',
-      content: rowsToCsv(rows),
-    );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page header  (title + week selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-String _normalDay(String value) {
-  final upper = value.trim().toUpperCase();
-  return switch (upper) {
-    'MONDAY' || 'ISNIN' => 'Isnin',
-    'TUESDAY' || 'SELASA' => 'Selasa',
-    'WEDNESDAY' || 'RABU' => 'Rabu',
-    'THURSDAY' || 'KHAMIS' => 'Khamis',
-    'FRIDAY' || 'JUMAAT' => 'Jumaat',
-    'SATURDAY' || 'SABTU' => 'Sabtu',
-    'SUNDAY' || 'AHAD' => 'Ahad',
-    _ => value,
-  };
-}
-
 class _PageHeader extends StatelessWidget {
-  const _PageHeader({
-    required this.week,
-    required this.controller,
-    required this.lecturerName,
-    required this.onExport,
-  });
+  const _PageHeader({required this.week, required this.controller});
   final String week;
   final LecturerTimetableController controller;
-  final String lecturerName;
-  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: _kCardBg,
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-      child: Row(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Jadual Waktu Pensyarah',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: _kText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Paparan jadual rasmi yang ditugaskan kepada $lecturerName sahaja.',
-                  style: const TextStyle(color: _kMuted),
-                ),
-              ],
+          Text(
+            'Jadual Waktu Pensyarah',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: _kText,
             ),
-          ),
-          OutlinedButton.icon(
-            onPressed: onExport,
-            icon: const Icon(Icons.ios_share_outlined),
-            label: const Text('Eksport Jadual Saya'),
           ),
         ],
       ),
@@ -596,11 +525,12 @@ class _SearchField extends StatelessWidget {
 // Official Timetable Table  (outer card)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _OfficialTable extends StatelessWidget {
+class _OfficialTable extends StatefulWidget {
   const _OfficialTable({
     required this.slots,
     required this.week,
     required this.lecturerName,
+    required this.lecturerEmail,
     required this.programId,
     required this.onSlotSelected,
     this.onNavigateToAttendance,
@@ -610,10 +540,43 @@ class _OfficialTable extends StatelessWidget {
   final List<LecturerSlot> slots;
   final String week;
   final String lecturerName;
+  final String lecturerEmail;
   final String programId;
   final void Function(String slotId, String week)? onSlotSelected;
   final VoidCallback? onNavigateToAttendance;
   final VoidCallback? onNavigateToTempahan;
+
+  @override
+  State<_OfficialTable> createState() => _OfficialTableState();
+}
+
+class _OfficialTableState extends State<_OfficialTable> {
+  bool _exportingPdf = false;
+
+  LecturerExportMeta get _meta => LecturerExportMeta(
+        lecturerName: widget.lecturerName,
+        lecturerEmail: widget.lecturerEmail,
+        academicSession: 'JAN – JUN 2026',
+        generatedAt: DateTime.now(),
+      );
+
+  Future<void> _onExportPdf() async {
+    if (_exportingPdf) return;
+    setState(() => _exportingPdf = true);
+    try {
+      await exportLecturerTimetableAsPdf(
+          slots: widget.slots, meta: _meta);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Eksport PDF gagal: $e'),
+          backgroundColor: Colors.red.shade700,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _exportingPdf = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -633,6 +596,7 @@ class _OfficialTable extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ── Card header row ──────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
@@ -645,54 +609,139 @@ class _OfficialTable extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                         color: _kText)),
                 const Spacer(),
-                Text('${slots.length} record(s)',
+                Text('${widget.slots.length} rekod',
                     style: const TextStyle(fontSize: 12, color: _kMuted)),
+                const SizedBox(width: 12),
+                // ── Export button (only when there are slots) ──
+                if (widget.slots.isNotEmpty) ...[
+                  _ExportButton(
+                    icon: Icons.picture_as_pdf_outlined,
+                    label: 'Eksport PDF',
+                    loading: _exportingPdf,
+                    color: const Color(0xFFDC2626),
+                    onTap: _onExportPdf,
+                    tooltip:
+                        'Muat turun jadual waktu rasmi sebagai PDF secara terus',
+                  ),
+                ],
               ],
             ),
           ),
           const Divider(height: 1, color: _kBorder),
-          Container(
-            width: double.infinity,
-            color: const Color(0xFF0D1B2A),
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: const Text(
-              'JADUAL WAKTU SEMESTER SESI 2025/2026',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 0.4),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            color: const Color(0xFF16293D),
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: const Text(
-              'PAPARAN SLOT JADUAL',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Color(0xFF7BA7BC),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                  letterSpacing: 0.5),
-            ),
-          ),
-          if (slots.isEmpty)
-            _EmptyState(lecturerName: lecturerName, programId: programId)
+
+          if (widget.slots.isEmpty)
+            _EmptyState(
+                lecturerName: widget.lecturerName,
+                programId: widget.programId)
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: _DataTable(
-                slots: slots,
-                week: week,
-                onSlotSelected: onSlotSelected,
-                onNavigateToAttendance: onNavigateToAttendance,
-                onNavigateToTempahan: onNavigateToTempahan,
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Dark-blue title banner — stretches to table width
+                    Container(
+                      color: const Color(0xFF0D1B2A),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: const Text(
+                        'JADUAL WAKTU SEMESTER SESI 2025/2026',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            letterSpacing: 0.4),
+                      ),
+                    ),
+                    // Sub-banner
+                    Container(
+                      color: const Color(0xFF16293D),
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: const Text(
+                        'PAPARAN SLOT JADUAL',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: Color(0xFF7BA7BC),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            letterSpacing: 0.5),
+                      ),
+                    ),
+                    _DataTable(
+                      slots: widget.slots,
+                      week: widget.week,
+                      onSlotSelected: widget.onSlotSelected,
+                      onNavigateToAttendance: widget.onNavigateToAttendance,
+                      onNavigateToTempahan: widget.onNavigateToTempahan,
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export button widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({
+    required this.icon,
+    required this.label,
+    required this.loading,
+    required this.color,
+    required this.onTap,
+    this.tooltip = '',
+  });
+
+  final IconData icon;
+  final String label;
+  final bool loading;
+  final Color color;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: loading ? null : onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(7),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              loading
+                  ? SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(icon, size: 13, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: color),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -925,8 +974,9 @@ class _ActionButtonsState extends State<_ActionButtons>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: 6,
+      runSpacing: 5,
       children: [
         ScaleTransition(
           scale: _scale,
@@ -937,7 +987,6 @@ class _ActionButtonsState extends State<_ActionButtons>
             onTap: _onTake,
           ),
         ),
-        const SizedBox(width: 6),
         _OutlineBtn(
           icon: Icons.swap_horiz_rounded,
           label: 'Ganti Kelas',
