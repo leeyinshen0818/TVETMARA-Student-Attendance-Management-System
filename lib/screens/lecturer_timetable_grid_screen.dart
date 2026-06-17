@@ -21,6 +21,8 @@ import '../services/lecturer_export_service.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
+import '../widgets/mobile_components.dart';
+import '../widgets/responsive.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
@@ -231,6 +233,17 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
     ];
     final uniqueSections = {...allSlots.map((s) => s.section)}.length;
 
+    final filterBar = _FilterBar(
+      course: _filterCourse,
+      section: _filterSection,
+      searchQuery: _searchQuery,
+      courseOptions: courses,
+      sectionOptions: sections,
+      onCourseChanged: (v) => setState(() => _filterCourse = v),
+      onSectionChanged: (v) => setState(() => _filterSection = v),
+      onSearchChanged: (v) => setState(() => _searchQuery = v),
+    );
+
     return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -241,39 +254,51 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
             subtitle: 'Paparan jadual waktu rasmi.',
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: AppStatCard(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Kelas',
-                  value: '${allSlots.length}',
-                  color: AppColors.primary,
+          if (context.isMobile) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: AppStatCard(
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Kelas',
+                    value: '${allSlots.length}',
+                    color: AppColors.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppStatCard(
-                  icon: Icons.people_outline,
-                  label: 'Seksyen',
-                  value: '$uniqueSections',
-                  color: AppColors.primary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppStatCard(
+                    icon: Icons.people_outline,
+                    label: 'Seksyen',
+                    value: '$uniqueSections',
+                    color: AppColors.primary,
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            filterBar,
+            const SizedBox(height: 16),
+          ] else ...[
+            // Web uses a compact summary strip right above the table
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  _CompactStat(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Kelas',
+                      value: '${allSlots.length}'),
+                  const SizedBox(width: 24),
+                  _CompactStat(
+                      icon: Icons.people_outline,
+                      label: 'Seksyen',
+                      value: '$uniqueSections'),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _FilterBar(
-            course: _filterCourse,
-            section: _filterSection,
-            searchQuery: _searchQuery,
-            courseOptions: courses,
-            sectionOptions: sections,
-            onCourseChanged: (v) => setState(() => _filterCourse = v),
-            onSectionChanged: (v) => setState(() => _filterSection = v),
-            onSearchChanged: (v) => setState(() => _searchQuery = v),
-          ),
-          const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: loading
@@ -287,6 +312,7 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
                     onSlotSelected: widget.onSlotSelected,
                     onNavigateToAttendance: widget.onNavigateToAttendance,
                     onNavigateToTempahan: widget.onNavigateToTempahan,
+                    filterBar: context.isMobile ? null : filterBar,
                   ),
           ),
           const SizedBox(height: 36),
@@ -327,67 +353,147 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeFilters = [
+      if (course != 'Semua Kursus') course,
+      if (section != 'Semua Seksyen') section,
+    ].length;
+
+    if (context.isMobile) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: TextField(
+                  onChanged: onSearchChanged,
+                  style: const TextStyle(fontSize: 14, color: _kText),
+                  decoration: InputDecoration(
+                    hintText: 'Cari jadual...',
+                    hintStyle:
+                        const TextStyle(fontSize: 14, color: Color(0xFFBDD0DA)),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        size: 20, color: _kMuted),
+                    contentPadding: EdgeInsets.zero,
+                    filled: true,
+                    fillColor: _kCardBg,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: _kBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: const BorderSide(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 44,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (sheetContext) => MobileBottomSheet(
+                      title: 'Tapis Jadual',
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _FilterDropdown(
+                            label: 'Kursus',
+                            value: course,
+                            options: courseOptions,
+                            onChanged: (v) {
+                              onCourseChanged(v);
+                              Navigator.pop(sheetContext);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _FilterDropdown(
+                            label: 'Seksyen',
+                            value: section,
+                            options: sectionOptions,
+                            onChanged: (v) {
+                              onSectionChanged(v);
+                              Navigator.pop(sheetContext);
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              onCourseChanged('Semua Kursus');
+                              onSectionChanged('Semua Seksyen');
+                              Navigator.pop(sheetContext);
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reset Penapis'),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.tune_outlined, size: 18),
+                label: Text(
+                    activeFilters > 0 ? 'Tapis ($activeFilters)' : 'Tapis'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: _kBorder)),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        final isWide = c.maxWidth > 560;
+        final widgets = [
+          _FilterDropdown(
+            label: 'Kursus',
+            value: course,
+            options: courseOptions,
+            onChanged: onCourseChanged,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-          LayoutBuilder(builder: (context, c) {
-            final isWide = c.maxWidth > 560;
-            final widgets = [
-              _FilterDropdown(
-                label: 'Kursus',
-                value: course,
-                options: courseOptions,
-                onChanged: onCourseChanged,
-              ),
-              _FilterDropdown(
-                label: 'Seksyen',
-                value: section,
-                options: sectionOptions,
-                onChanged: onSectionChanged,
-              ),
-              _SearchField(
-                hint: 'Kod, subjek, bilik',
-                onChanged: onSearchChanged,
-              ),
-            ];
-            if (isWide) {
-              return Row(
-                children: widgets
-                    .map((w) => Expanded(
-                          child: Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: w),
-                        ))
-                    .toList(),
-              );
-            }
-            return Column(
-              children: widgets
-                  .map((w) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: w,
-                      ))
-                  .toList(),
-            );
-          }),
-        ],
-      ),
+          _FilterDropdown(
+            label: 'Seksyen',
+            value: section,
+            options: sectionOptions,
+            onChanged: onSectionChanged,
+          ),
+          _SearchField(
+            hint: 'Kod, subjek, bilik',
+            onChanged: onSearchChanged,
+          ),
+        ];
+        if (isWide) {
+          return Row(
+            children: widgets
+                .map((w) => Expanded(
+                      child: Padding(
+                          padding: const EdgeInsets.only(right: 10), child: w),
+                    ))
+                .toList(),
+          );
+        }
+        return Column(
+          children: widgets
+              .map((w) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: w,
+                  ))
+              .toList(),
+        );
+      }),
     );
   }
 }
@@ -499,6 +605,7 @@ class _OfficialTable extends StatefulWidget {
     required this.onSlotSelected,
     this.onNavigateToAttendance,
     this.onNavigateToTempahan,
+    this.filterBar,
   });
 
   final List<LecturerSlot> slots;
@@ -509,6 +616,7 @@ class _OfficialTable extends StatefulWidget {
   final void Function(String slotId, String week)? onSlotSelected;
   final VoidCallback? onNavigateToAttendance;
   final VoidCallback? onNavigateToTempahan;
+  final Widget? filterBar;
 
   @override
   State<_OfficialTable> createState() => _OfficialTableState();
@@ -606,6 +714,7 @@ class _OfficialTableState extends State<_OfficialTable> {
               ],
             ),
           ),
+          if (widget.filterBar != null) widget.filterBar!,
           const Divider(height: 1, color: _kBorder),
 
           if (widget.slots.isEmpty)
@@ -618,34 +727,6 @@ class _OfficialTableState extends State<_OfficialTable> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Dark-blue title banner — stretches to table width
-                    Container(
-                      color: const Color(0xFF0D1B2A),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: const Text(
-                        'JADUAL WAKTU SEMESTER SESI 2025/2026',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            letterSpacing: 0.4),
-                      ),
-                    ),
-                    // Sub-banner
-                    Container(
-                      color: const Color(0xFF16293D),
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: const Text(
-                        'PAPARAN SLOT JADUAL',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Color(0xFF7BA7BC),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                            letterSpacing: 0.5),
-                      ),
-                    ),
                     _DataTable(
                       slots: widget.slots,
                       week: widget.week,
@@ -759,51 +840,19 @@ class _MobileOfficialTable extends StatelessWidget {
           if (slots.isEmpty)
             _EmptyState(lecturerName: lecturerName, programId: programId)
           else
-            // ── Title banners + horizontally scrollable data table ─────
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Dark navy title banner
-                    Container(
-                      color: const Color(0xFF0D1B2A),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: const Text(
-                        'JADUAL WAKTU SEMESTER SESI 2025/2026',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            letterSpacing: 0.4),
-                      ),
-                    ),
-                    // Sub-banner
-                    Container(
-                      color: const Color(0xFF16293D),
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: const Text(
-                        'PAPARAN SLOT JADUAL',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: Color(0xFF7BA7BC),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                            letterSpacing: 0.5),
-                      ),
-                    ),
-                    // Shared _DataTable — identical to web rendering
-                    _DataTable(
-                      slots: slots,
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  for (final slot in slots)
+                    _MobileSlotCard(
+                      slot: slot,
                       week: week,
                       onSlotSelected: onSlotSelected,
                       onNavigateToAttendance: onNavigateToAttendance,
                       onNavigateToTempahan: onNavigateToTempahan,
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
         ],
@@ -911,14 +960,13 @@ class _DataTable extends StatelessWidget {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       columnWidths: const {
         0: FixedColumnWidth(44), // NO.
-        1: FixedColumnWidth(76), // CODE
-        2: FixedColumnWidth(200), // NAMA KURSUS
-        3: FixedColumnWidth(110), // SEKSYEN
-        4: FixedColumnWidth(150), // PROGRAM
-        5: FixedColumnWidth(80), // CAPACITY
-        6: FixedColumnWidth(152), // HARI/MASA LOKASI
-        7: FixedColumnWidth(120), // JENIS
-        8: FixedColumnWidth(250), // TINDAKAN
+        1: FixedColumnWidth(95), // CODE
+        2: FixedColumnWidth(240), // NAMA KURSUS
+        3: FixedColumnWidth(100), // SEKSYEN
+        4: FixedColumnWidth(100), // PROGRAM
+        5: FixedColumnWidth(152), // HARI/MASA LOKASI
+        6: FixedColumnWidth(110), // STATUS
+        7: FixedColumnWidth(250), // TINDAKAN
       },
       children: [
         TableRow(
@@ -929,9 +977,8 @@ class _DataTable extends StatelessWidget {
             _th('NAMA KURSUS'),
             _th('SEKSYEN'),
             _th('PROGRAM'),
-            _th('KAPASITI'),
             _th('HARI/MASA LOKASI'),
-            _th('JENIS'),
+            _th('STATUS'),
             _th('TINDAKAN'),
           ],
         ),
@@ -964,8 +1011,8 @@ class _DataTable extends StatelessWidget {
         _td(Text(slot.subjectName,
             style: _cellStyle, maxLines: 2, overflow: TextOverflow.ellipsis)),
         _td(Text(slot.section, style: _cellStyle)),
-        _td(Text(slot.programId, style: _cellStyle)),
-        _td(Text('-', style: _cellStyle.copyWith(color: _kMuted))),
+        _td(Text(slot.programId.split(' ').first.split('-').first.trim(),
+            style: _cellStyle)),
         _td(Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1102,9 +1149,8 @@ class _ActionButtonsState extends State<_ActionButtons>
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 5,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ScaleTransition(
           scale: _scale,
@@ -1115,6 +1161,7 @@ class _ActionButtonsState extends State<_ActionButtons>
             onTap: _onTake,
           ),
         ),
+        const SizedBox(width: 6),
         _OutlineBtn(
           icon: Icons.swap_horiz_rounded,
           label: 'Ganti Kelas',
@@ -1230,6 +1277,168 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MobileSlotCard extends StatelessWidget {
+  const _MobileSlotCard({
+    required this.slot,
+    required this.week,
+    this.onSlotSelected,
+    this.onNavigateToAttendance,
+    this.onNavigateToTempahan,
+  });
+
+  final LecturerSlot slot;
+  final String week;
+  final void Function(String slotId, String week)? onSlotSelected;
+  final VoidCallback? onNavigateToAttendance;
+  final VoidCallback? onNavigateToTempahan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${slot.subjectCode} · ${slot.subjectName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primaryDark,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${slot.section} · ${slot.day} ${slot.startTime}–${slot.endTime}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${slot.roomId} · $week',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    foregroundColor: AppColors.primary,
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    onSlotSelected?.call(slot.slotId, week);
+                    onNavigateToAttendance?.call();
+                  },
+                  icon:
+                      const Icon(Icons.check_circle_outline_rounded, size: 16),
+                  label: const Text('Ambil Kehadiran',
+                      style: TextStyle(fontSize: 12)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor:
+                        const Color(0xFFE67E22).withValues(alpha: 0.1),
+                    foregroundColor: const Color(0xFFE67E22),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    onNavigateToTempahan?.call();
+                  },
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 16),
+                  label:
+                      const Text('Ganti Kelas', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactStat extends StatelessWidget {
+  const _CompactStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 16, color: AppColors.primary),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: _kMuted, fontWeight: FontWeight.w600)),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 14, color: _kText, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ],
     );
   }
 }

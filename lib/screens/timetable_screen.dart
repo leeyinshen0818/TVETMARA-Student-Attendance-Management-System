@@ -107,20 +107,75 @@ class _TimetableScreenState extends State<TimetableScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (context.isMobile)
+          if (context.isMobile) ...[
             MobileHeroCard(
               icon: Icons.calendar_month_outlined,
-              title: user.role == UserRole.ketua_program
-                  ? 'Pengurusan Jadual Program'
-                  : 'Pengurusan Jadual Jabatan',
-              subtitle:
-                  'Urus jadual rasmi, muat naik CSV dan semak import mengikut skop anda.',
+              title: 'Pengurusan Jadual',
+              subtitle: '${sessionTimetable.length} rekod · $selectedSession',
               chips: [
-                StatusChip('${sessionTimetable.length} Rekod Jadual'),
-                StatusChip(selectedSession),
+                StatusChip(user.role == UserRole.ketua_program ? 'Program' : 'Jabatan'),
               ],
-            )
-          else
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: selectedSession,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Sesi',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: sessionOptions
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        _updateFilters(() {
+                          state.updateAcademicSession(value);
+                          _academicSessionFilter = value;
+                          _dayFilter = null;
+                          _statusFilter = null;
+                          _programFilter = null;
+                          _classFilter = null;
+                          _lecturerFilter = null;
+                          _roomFilter = null;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: () => _showMobileActionsBottomSheet(
+                      state: state,
+                      filteredTimetable: filteredTimetable,
+                      selectedSession: selectedSession,
+                      generatorPrograms: generatorPrograms,
+                    ),
+                    icon: const Icon(Icons.touch_app_outlined, size: 18),
+                    label: const Text('Tindakan'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _SectionTabs(
+              selectedIndex: _selectedSection,
+              onChanged: (index) => setState(() => _selectedSection = index),
+            ),
+            const SizedBox(height: 12),
+          ] else ...[
             AppPageHeader(
               title: user.role == UserRole.ketua_program
                   ? 'Pengurusan Jadual Program'
@@ -129,54 +184,55 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   'Urus jadual rasmi, muat naik jadual CSV, dan semak rekod import mengikut skop pengguna.',
               trailing: StatusChip('${sessionTimetable.length} Rekod Jadual'),
             ),
-          _ScopeSummary(
-            state: state,
-            slotCount: sessionTimetable.length,
-            selectedAcademicSession: selectedSession,
-            academicSessionOptions: sessionOptions,
-            onAcademicSessionChanged: (value) {
-              if (value == null) return;
-              _updateFilters(() {
-                state.updateAcademicSession(value);
-                _academicSessionFilter = value;
-                _dayFilter = null;
-                _statusFilter = null;
-                _programFilter = null;
-                _classFilter = null;
-                _lecturerFilter = null;
-                _roomFilter = null;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          _HeaderActionBar(
-            hasTimetable: filteredTimetable.isNotEmpty,
-            onUpload: () => setState(() => _selectedSection = 1),
-            onExport: () => _exportTimetable(filteredTimetable),
-            onAddManual: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AddTimetableScreen(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          _ClassTimetableSecondaryAction(
-            enabled: generatorPrograms.isNotEmpty,
-            onOpen: () => _showClassTimetableGeneratorDialog(
+            _ScopeSummary(
               state: state,
-              selectedSession: selectedSession,
-              programOptions: generatorPrograms,
+              slotCount: sessionTimetable.length,
+              selectedAcademicSession: selectedSession,
+              academicSessionOptions: sessionOptions,
+              onAcademicSessionChanged: (value) {
+                if (value == null) return;
+                _updateFilters(() {
+                  state.updateAcademicSession(value);
+                  _academicSessionFilter = value;
+                  _dayFilter = null;
+                  _statusFilter = null;
+                  _programFilter = null;
+                  _classFilter = null;
+                  _lecturerFilter = null;
+                  _roomFilter = null;
+                });
+              },
             ),
-          ),
-          const SizedBox(height: 20),
-          _SectionTabs(
-            selectedIndex: _selectedSection,
-            onChanged: (index) => setState(() => _selectedSection = index),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            _HeaderActionBar(
+              hasTimetable: filteredTimetable.isNotEmpty,
+              onUpload: () => setState(() => _selectedSection = 1),
+              onExport: () => _exportTimetable(filteredTimetable),
+              onAddManual: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AddTimetableScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _ClassTimetableSecondaryAction(
+              enabled: generatorPrograms.isNotEmpty,
+              onOpen: () => _showClassTimetableGeneratorDialog(
+                state: state,
+                selectedSession: selectedSession,
+                programOptions: generatorPrograms,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _SectionTabs(
+              selectedIndex: _selectedSection,
+              onChanged: (index) => setState(() => _selectedSection = index),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (_selectedSection == 0)
             _OfficialTimetableSection(
               state: state,
@@ -368,6 +424,84 @@ class _TimetableScreenState extends State<TimetableScreen> {
         .toSet()
         .toList()
       ..sort();
+  }
+
+  void _showMobileActionsBottomSheet({
+    required AppState state,
+    required List<TimetableSlot> filteredTimetable,
+    required String selectedSession,
+    required List<String> generatorPrograms,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: false,
+      builder: (sheetContext) => MobileBottomSheet(
+        title: 'Tindakan Jadual',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MobileListTile(
+              icon: Icons.upload_file_outlined,
+              title: 'Muat Naik Jadual',
+              subtitle: 'Import jadual dari fail CSV',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                setState(() => _selectedSection = 1);
+              },
+            ),
+            const SizedBox(height: 8),
+            MobileListTile(
+              icon: Icons.ios_share,
+              title: 'Eksport Paparan Semasa',
+              subtitle: 'Muat turun senarai jadual semasa',
+              onTap: () {
+                if (filteredTimetable.isEmpty) return;
+                Navigator.pop(sheetContext);
+                _exportTimetable(filteredTimetable);
+              },
+            ),
+            const SizedBox(height: 8),
+            MobileListTile(
+              icon: Icons.add,
+              title: 'Tambah Slot Manual',
+              subtitle: 'Cipta slot jadual baharu',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddTimetableScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            MobileListTile(
+              icon: Icons.view_week_outlined,
+              title: 'Jana Jadual Kelas',
+              subtitle: 'Eksport jadual kelas khusus',
+              onTap: () {
+                if (generatorPrograms.isEmpty) return;
+                Navigator.pop(sheetContext);
+                _showClassTimetableGeneratorDialog(
+                  state: state,
+                  selectedSession: selectedSession,
+                  programOptions: generatorPrograms,
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            MobileListTile(
+              icon: Icons.history_outlined,
+              title: 'Sejarah Import',
+              subtitle: 'Lihat rekod import lepas',
+              onTap: () {
+                Navigator.pop(sheetContext);
+                setState(() => _selectedSection = 2);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _showClassTimetableGeneratorDialog({
@@ -2617,72 +2751,64 @@ class _MobileOfficialTimetableSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        MobileSection(
-          title: 'Ringkasan',
-          subtitle: 'Semakan ringkas jadual dalam skop dan sesi dipilih.',
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _MobileMiniStat(
-                icon: Icons.event_note_outlined,
-                value: '${slots.length}',
-                label: 'Slot',
-                color: AppColors.primary,
-              ),
-              _MobileMiniStat(
-                icon: Icons.groups_outlined,
-                value: '${_countDistinct(slots.map(_slotClassValue))}',
-                label: 'Kelas',
-                color: AppColors.success,
-              ),
-              _MobileMiniStat(
-                icon: Icons.person_outline,
-                value: '${_countDistinct(slots.map((s) => s.lecturerName))}',
-                label: 'Pensyarah',
-                color: AppColors.warning,
-              ),
-              _MobileMiniStat(
-                icon: Icons.warning_amber_outlined,
-                value: '${conflicts.length}',
-                label: 'Konflik',
+              _CompactStat(icon: Icons.event_note_outlined, value: '${slots.length} Slot'),
+              _CompactStat(icon: Icons.groups_outlined, value: '${_countDistinct(slots.map(_slotClassValue))} Kelas'),
+              _CompactStat(icon: Icons.person_outline, value: '${_countDistinct(slots.map((s) => s.lecturerName))} Org'),
+              _CompactStat(
+                icon: Icons.warning_amber_outlined, 
+                value: '${conflicts.length} Konflik',
                 color: conflicts.isEmpty ? AppColors.success : AppColors.danger,
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        MobileFilterCard(
-          subtitle: 'Carian dan penapis disusun menegak untuk paparan telefon.',
-          onReset: onResetFilters,
-          children: [
-            _TimetableFilters(
-              slots: allSlots,
-              searchCtrl: searchCtrl,
-              dayFilter: dayFilter,
-              statusFilter: statusFilter,
-              programFilter: programFilter,
-              classFilter: classFilter,
-              lecturerFilter: lecturerFilter,
-              roomFilter: roomFilter,
-              onSearchChanged: onSearchChanged,
-              onDayChanged: onDayChanged,
-              onStatusChanged: onStatusChanged,
-              onProgramChanged: onProgramChanged,
-              onClassChanged: onClassChanged,
-              onLecturerChanged: onLecturerChanged,
-              onRoomChanged: onRoomChanged,
-              onResetFilters: onResetFilters,
-            ),
-          ],
+        _TimetableFilters(
+          slots: allSlots,
+          searchCtrl: searchCtrl,
+          dayFilter: dayFilter,
+          statusFilter: statusFilter,
+          programFilter: programFilter,
+          classFilter: classFilter,
+          lecturerFilter: lecturerFilter,
+          roomFilter: roomFilter,
+          onSearchChanged: onSearchChanged,
+          onDayChanged: onDayChanged,
+          onStatusChanged: onStatusChanged,
+          onProgramChanged: onProgramChanged,
+          onClassChanged: onClassChanged,
+          onLecturerChanged: onLecturerChanged,
+          onRoomChanged: onRoomChanged,
+          onResetFilters: onResetFilters,
         ),
         const SizedBox(height: 14),
-        MobileSection(
-          title: 'Mod Paparan',
-          subtitle: 'Pilih cara semakan jadual.',
-          child: _TimetableViewSelector(
-            selectedMode: selectedViewMode,
-            onChanged: onViewModeChanged,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: MobileSegmentedControl(
+            selectedIndex: selectedViewMode == _TimetableViewMode.list
+                ? 0
+                : selectedViewMode == _TimetableViewMode.weekly
+                    ? 1
+                    : selectedViewMode == _TimetableViewMode.room
+                        ? 2
+                        : 3,
+            onChanged: (index) {
+              final mode = index == 0
+                  ? _TimetableViewMode.list
+                  : index == 1
+                      ? _TimetableViewMode.weekly
+                      : index == 2
+                          ? _TimetableViewMode.room
+                          : _TimetableViewMode.lecturer;
+              onViewModeChanged(mode);
+            },
+            labels: const ['Senarai', 'Mingguan', 'Bilik', 'Pensyarah'],
           ),
         ),
         const SizedBox(height: 14),
@@ -2728,29 +2854,33 @@ class _MobileOfficialTimetableSection extends StatelessWidget {
   }
 }
 
-class _MobileMiniStat extends StatelessWidget {
-  const _MobileMiniStat({
+class _CompactStat extends StatelessWidget {
+  const _CompactStat({
     required this.icon,
     required this.value,
-    required this.label,
-    required this.color,
+    this.color = AppColors.muted,
   });
 
   final IconData icon;
   final String value;
-  final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 132,
-      child: MobileStatCard(
-        icon: icon,
-        value: value,
-        label: label,
-        color: color,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: color == AppColors.muted ? AppColors.primaryDark : color,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2785,52 +2915,94 @@ class _MobileTimetableSlotList extends StatelessWidget {
     return Column(
       children: [
         for (final slot in slots) ...[
-          MobileInfoCard(
-            leadingIcon: Icons.schedule_outlined,
-            title: '${slot.subjectCode} - ${slot.subjectName}',
-            subtitle:
-                '${_slotClassValue(slot)} - ${slot.day} ${slot.startTime}-${slot.endTime}',
-            chips: [
-              StatusChip(_statusLabel(slot.status)),
-              if (_isDraftSlot(slot)) const StatusChip('Draf'),
-              if (slot.hasConflict) const StatusChip('Konflik'),
-            ],
-            metadata: [
-              MobileMetaPill(
-                icon: Icons.school_outlined,
-                label: _slotProgramValue(slot),
-              ),
-              MobileMetaPill(
-                icon: Icons.person_outline,
-                label: slot.lecturerName,
-              ),
-              MobileMetaPill(
-                icon: Icons.meeting_room_outlined,
-                label: _slotRoomValue(slot),
-              ),
-              MobileMetaPill(
-                icon: Icons.calendar_view_week_outlined,
-                label: _weekText(slot),
-              ),
-            ],
-            actions: Row(
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => onDetails(slot),
-                    icon: const Icon(Icons.info_outline, size: 18),
-                    label: const Text('Butiran'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${slot.subjectCode} · ${slot.subjectName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (slot.hasConflict)
+                      const StatusChip('Konflik')
+                    else if (_isDraftSlot(slot))
+                      const StatusChip('Draf')
+                    else
+                      StatusChip(_statusLabel(slot.status)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${_slotClassValue(slot)} · ${slot.day} ${slot.startTime}–${slot.endTime}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  tooltip: 'Tindakan slot',
-                  onPressed: () => _showMobileSlotActions(context, slot),
-                  icon: const Icon(Icons.more_horiz),
+                const SizedBox(height: 2),
+                Text(
+                  '${_slotRoomValue(slot)} · ${_weekText(slot)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  slot.lecturerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => onDetails(slot),
+                      child: const Text('Butiran', style: TextStyle(fontSize: 12)),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showMobileSlotActions(context, slot),
+                      icon: const Icon(Icons.more_horiz, size: 20),
+                    ),
+                  ],
                 ),
               ],
             ),
-            onTap: () => onDetails(slot),
           ),
           const SizedBox(height: 10),
         ],
@@ -3296,6 +3468,138 @@ class _TimetableFilters extends StatelessWidget {
         _distinct(lecturerContext.map((slot) => slot.lecturerName));
     final rooms = _distinct(roomContext.map(_slotRoomValue));
 
+    if (context.isMobile) {
+      final activeFilters = [
+        dayFilter,
+        statusFilter,
+        programFilter,
+        classFilter,
+        lecturerFilter,
+        roomFilter
+      ].where((f) => f != null).length;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: searchCtrl,
+                onChanged: onSearchChanged,
+                decoration: InputDecoration(
+                  hintText: 'Cari jadual',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
+              onPressed: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (sheetContext) => MobileBottomSheet(
+                    title: 'Tapis Jadual',
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _FilterDropdown(
+                          label: 'Program',
+                          value: programFilter,
+                          values: programs,
+                          width: double.infinity,
+                          labelForValue: _shortProgramLabel,
+                          onChanged: (v) {
+                            onProgramChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _FilterDropdown(
+                          label: 'Kelas',
+                          value: classFilter,
+                          values: classes,
+                          width: double.infinity,
+                          onChanged: (v) {
+                            onClassChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _FilterDropdown(
+                          label: 'Pensyarah',
+                          value: lecturerFilter,
+                          values: lecturers,
+                          width: double.infinity,
+                          onChanged: (v) {
+                            onLecturerChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _FilterDropdown(
+                          label: 'Bilik',
+                          value: roomFilter,
+                          values: rooms,
+                          width: double.infinity,
+                          onChanged: (v) {
+                            onRoomChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _FilterDropdown(
+                          label: 'Hari',
+                          value: dayFilter,
+                          values: days,
+                          width: double.infinity,
+                          onChanged: (v) {
+                            onDayChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _FilterDropdown(
+                          label: 'Status',
+                          value: statusFilter,
+                          values: statuses,
+                          width: double.infinity,
+                          labelForValue: _statusLabel,
+                          onChanged: (v) {
+                            onStatusChanged(v);
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            onResetFilters();
+                            Navigator.pop(sheetContext);
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reset Penapis'),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.tune_outlined, size: 18),
+              label: Text(activeFilters > 0 ? 'Tapis ($activeFilters)' : 'Tapis'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final available = constraints.maxWidth - 24;
@@ -3398,6 +3702,7 @@ class _TimetableFilters extends StatelessWidget {
       },
     );
   }
+
 
   List<String> _distinct(Iterable<String> values) {
     final result = values

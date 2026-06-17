@@ -1278,22 +1278,47 @@ class _ReportsTable extends StatelessWidget {
 
   Widget _disciplineChip(List<DisciplineReport> reports) {
     if (reports.isEmpty) {
-      return const Text('-', style: TextStyle(color: _kMuted));
+      return const SizedBox(
+        width: 44,
+        child: Center(child: Text('-', style: TextStyle(color: _kMuted))),
+      );
     }
     final latest =
         reports.reduce((a, b) => a.date.compareTo(b.date) >= 0 ? a : b);
     final sev = _ReportsScreenState.translateSeverity(latest.severity);
     final bg = switch (latest.severity.toLowerCase()) {
-      'high' => _kRed.withValues(alpha: .10),
-      'medium' => _kAmber.withValues(alpha: .12),
-      'low' => _kGreen.withValues(alpha: .10),
+      'high' => _kRed.withValues(alpha: .15),
+      'medium' => _kAmber.withValues(alpha: .15),
+      'low' => _kGreen.withValues(alpha: .15),
       _ => _kBorder,
     };
-    return Chip(
-      label: Text('${reports.length} • $sev'),
-      backgroundColor: bg,
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+    final fg = switch (latest.severity.toLowerCase()) {
+      'high' => _kRed,
+      'medium' => _kAmber,
+      'low' => _kGreen,
+      _ => _kText,
+    };
+    return Tooltip(
+      message: '${reports.length} Laporan (Terbaru: $sev)',
+      child: SizedBox(
+        width: 44,
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            constraints: const BoxConstraints(minWidth: 24),
+            alignment: Alignment.center,
+            child: Text(
+              '${reports.length}',
+              maxLines: 1,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: fg),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1310,14 +1335,19 @@ class _ReportsTable extends StatelessWidget {
         const DataColumn(label: Text('Program')),
         const DataColumn(label: Text('Kelas')),
         const DataColumn(label: Text('Disiplin')),
-        const DataColumn(label: Text('P')),
-        const DataColumn(label: Text('L')),
-        const DataColumn(label: Text('A')),
-        const DataColumn(label: Text('MC')),
-        const DataColumn(label: Text('CK')),
+        const DataColumn(
+            label: SizedBox(width: 30, child: Center(child: Text('P')))),
+        const DataColumn(
+            label: SizedBox(width: 30, child: Center(child: Text('L')))),
+        const DataColumn(
+            label: SizedBox(width: 30, child: Center(child: Text('A')))),
+        const DataColumn(
+            label: SizedBox(width: 30, child: Center(child: Text('MC')))),
+        const DataColumn(
+            label: SizedBox(width: 30, child: Center(child: Text('CK')))),
         const DataColumn(label: Text('Kehadiran')),
         const DataColumn(label: Text('Status')),
-        if (isAllWeeks) const DataColumn(label: Text('Naik Semester')),
+        if (isAllWeeks) const DataColumn(label: Text('Naik Sem.')),
         const DataColumn(label: Text('Tindakan')),
       ],
       rows: List<DataRow>.generate(students.length, (i) {
@@ -1415,8 +1445,9 @@ class _ReportsTable extends StatelessWidget {
   }
 
   Widget _numCell(int v) => SizedBox(
-        width: 34,
-        child: Text('$v', textAlign: TextAlign.center),
+        width: 30,
+        child: Text('$v',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
       );
 }
 
