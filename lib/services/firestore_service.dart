@@ -375,7 +375,33 @@ class FirestoreService {
       sessionDate: sessionDate,
       weekNo: weekNo,
     );
-    return getAttendanceSessionById(sessionId);
+    final byId = await getAttendanceSessionById(sessionId);
+    if (byId != null) return byId;
+
+    final duplicateKey = attendanceDuplicateKey(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    final byDuplicateKey = await _attendanceSessionsCol
+        .where('duplicateKey', isEqualTo: duplicateKey)
+        .limit(1)
+        .get();
+    if (byDuplicateKey.docs.isNotEmpty) {
+      return _docToAttendanceSession(byDuplicateKey.docs.first);
+    }
+
+    final bySlot = await _attendanceSessionsCol
+        .where('slotId', isEqualTo: slotId)
+        .get();
+    for (final doc in bySlot.docs) {
+      final session = _docToAttendanceSession(doc);
+      if (session.sessionDate == sessionDate && session.weekNo == weekNo) {
+        return session;
+      }
+    }
+
+    return null;
   }
 
   Future<void> saveAttendanceSessionWithRecords({

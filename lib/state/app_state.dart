@@ -20,6 +20,12 @@ class AttendanceDemoSeedResult {
   final int classesSkipped;
 }
 
+class AttendanceSessionAlreadyExistsException implements Exception {
+  const AttendanceSessionAlreadyExistsException(this.session);
+
+  final AttendanceSession session;
+}
+
 class AppState extends ChangeNotifier {
   AppUser? currentUser;
   List<AppUser> users = [];
@@ -418,6 +424,74 @@ class AppState extends ChangeNotifier {
           ..addAll(sessionAttendanceMap);
       });
 
+  String attendanceSessionIdFor({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+  }) {
+    return _fs.attendanceSessionIdFor(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+  }
+
+  AttendanceSession? attendanceSessionForSlotDateWeek({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+  }) {
+    final sessionId = _fs.attendanceSessionIdFor(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    final duplicateKey = _fs.attendanceDuplicateKey(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    return attendanceSessions
+        .where((session) =>
+            session.id == sessionId ||
+            session.duplicateKey == duplicateKey ||
+            (session.slotId == slotId &&
+                session.sessionDate == sessionDate &&
+                session.weekNo == weekNo))
+        .firstOrNull;
+  }
+
+  Future<AttendanceSession?> loadAttendanceSessionForSlotDateWeek({
+    required String slotId,
+    required String sessionDate,
+    required int weekNo,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = attendanceSessionForSlotDateWeek(
+        slotId: slotId,
+        sessionDate: sessionDate,
+        weekNo: weekNo,
+      );
+      if (cached != null && sessionAttendance.containsKey(cached.id)) {
+        return cached;
+      }
+    }
+
+    final session = await _fs.getAttendanceSessionForSlotDateWeek(
+      slotId: slotId,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    if (session == null) return null;
+
+    final records = await _fs.getAttendanceRecordsForSession(session.id);
+    _upsertAttendanceSession(session, records);
+    _loadedCollections.addAll(['attendanceSessions', 'sessionAttendance']);
+    notifyListeners();
+    return session;
+  }
+
   Future<void> _loadCollection(
     String key,
     Future<void> Function() loader, {
@@ -734,11 +808,23 @@ class AppState extends ChangeNotifier {
     final slot = index == -1 ? null : timetable[index];
 
     if (slot != null) {
+      final resolvedSessionDate = sessionDate ?? slot.date;
+      final resolvedWeekNo = weekNo ?? _weekNoForSlot(slot);
+      final existingSession = await loadAttendanceSessionForSlotDateWeek(
+        slotId: slot.id,
+        sessionDate: resolvedSessionDate,
+        weekNo: resolvedWeekNo,
+        forceRefresh: true,
+      );
+      if (existingSession != null) {
+        throw AttendanceSessionAlreadyExistsException(existingSession);
+      }
+
       final session = _buildAttendanceSession(
         slot,
         records,
-        sessionDate: sessionDate,
-        weekNo: weekNo,
+        sessionDate: resolvedSessionDate,
+        weekNo: resolvedWeekNo,
       );
       final enrichedRecords = records
           .map((record) => _buildAttendanceRecord(
@@ -748,11 +834,28 @@ class AppState extends ChangeNotifier {
               ))
           .toList();
 
-      await _fs.saveAttendanceSessionWithRecords(
-        session: session,
-        records: enrichedRecords,
-        preventOverwrite: true,
-      );
+      try {
+        await _fs.saveAttendanceSessionWithRecords(
+          session: session,
+          records: enrichedRecords,
+          preventOverwrite: true,
+        );
+      } catch (error) {
+        if (!_isAttendanceDuplicateError(error)) {
+          rethrow;
+        }
+        final submittedSession = await loadAttendanceSessionForSlotDateWeek(
+          slotId: slot.id,
+          sessionDate: resolvedSessionDate,
+          weekNo: resolvedWeekNo,
+          forceRefresh: true,
+        );
+        if (submittedSession != null) {
+          throw AttendanceSessionAlreadyExistsException(submittedSession);
+        }
+        _upsertAttendanceSession(session, enrichedRecords);
+        throw AttendanceSessionAlreadyExistsException(session);
+      }
       _upsertAttendanceSession(session, enrichedRecords);
     }
 
@@ -766,6 +869,35 @@ class AppState extends ChangeNotifier {
           timetable[index].copyWith(status: 'Attendance Completed');
     }
     notifyListeners();
+  }
+
+  AttendanceSession markAttendanceSessionSubmittedLocally(
+    String slotId,
+    List<AttendanceRecord> records, {
+    required String sessionDate,
+    required int weekNo,
+  }) {
+    final index = timetable.indexWhere((slot) => slot.id == slotId);
+    if (index == -1) {
+      throw StateError('Timetable slot not found.');
+    }
+    final slot = timetable[index];
+    final session = _buildAttendanceSession(
+      slot,
+      records,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+    final enrichedRecords = records
+        .map((record) => _buildAttendanceRecord(
+              record: record,
+              slot: slot,
+              session: session,
+            ))
+        .toList();
+    _upsertAttendanceSession(session, enrichedRecords);
+    notifyListeners();
+    return session;
   }
 
   Future<void> editAttendance(
@@ -790,16 +922,25 @@ class AppState extends ChangeNotifier {
       sessionDate: sessionDate,
       weekNo: weekNo,
     );
-    final existingSession = attendanceSessions
+    var existingSession = attendanceSessions
         .where((session) => session.id == sessionId)
         .firstOrNull;
+    existingSession ??= await _fs.getAttendanceSessionForSlotDateWeek(
+      slotId: slot.id,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
     if (existingSession == null) {
       throw StateError('Attendance session must be submitted before editing.');
     }
+    final submittedSession = existingSession;
 
-    final previousRecords = sessionAttendance[sessionId] ??
-        attendance[slot.id] ??
-        const <AttendanceRecord>[];
+    final cachedPreviousRecords = sessionAttendance[sessionId];
+    var previousRecords = cachedPreviousRecords ??
+        await _fs.getAttendanceRecordsForSession(sessionId);
+    if (previousRecords.isEmpty) {
+      previousRecords = attendance[slot.id] ?? const <AttendanceRecord>[];
+    }
     final previousByStudent = {
       for (final record in previousRecords) record.studentId: record,
     };
@@ -832,20 +973,20 @@ class AppState extends ChangeNotifier {
     final editedAt = DateTime.now().toIso8601String();
     final editEntry = AttendanceEditEntry(
       editedAt: editedAt,
-      editedBy: user?.uid ?? existingSession.lecturerId,
-      editedByName: user?.name ?? existingSession.lecturerName,
+      editedBy: user?.uid ?? submittedSession.lecturerId,
+      editedByName: user?.name ?? submittedSession.lecturerName,
       reason: reason,
       changes: changes,
     );
     final session = rebuilt.copyWith(
-      createdBy: existingSession.createdBy,
-      createdAt: existingSession.createdAt,
-      submittedAt: existingSession.submittedAt,
+      createdBy: submittedSession.createdBy,
+      createdAt: submittedSession.createdAt,
+      submittedAt: submittedSession.submittedAt,
       updatedAt: editedAt,
-      updatedBy: user?.uid ?? existingSession.lecturerId,
-      updatedByName: user?.name ?? existingSession.lecturerName,
+      updatedBy: user?.uid ?? submittedSession.lecturerId,
+      updatedByName: user?.name ?? submittedSession.lecturerName,
       editReason: reason,
-      editHistory: [...existingSession.editHistory, editEntry],
+      editHistory: [...submittedSession.editHistory, editEntry],
     );
     final enrichedRecords = records.map((record) {
       final previous = previousByStudent[record.studentId];
@@ -853,8 +994,8 @@ class AppState extends ChangeNotifier {
       final auditedRecord = changed
           ? record.copyWith(
               updatedAt: editedAt,
-              updatedBy: user?.uid ?? existingSession.lecturerId,
-              updatedByName: user?.name ?? existingSession.lecturerName,
+              updatedBy: user?.uid ?? submittedSession.lecturerId,
+              updatedByName: user?.name ?? submittedSession.lecturerName,
               editReason: reason,
               originalStatus: previous.status,
               newStatus: record.status,
@@ -1693,6 +1834,13 @@ class AppState extends ChangeNotifier {
       attendanceSessions[index] = session;
     }
     sessionAttendance[session.id] = records;
+  }
+
+  bool _isAttendanceDuplicateError(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('attendance session already exists') ||
+        text.contains('already exists for this slot') ||
+        text.contains('sudah wujud');
   }
 
   AttendanceSummary _summaryForRecords(List<AttendanceRecord> records) {

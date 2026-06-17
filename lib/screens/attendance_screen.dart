@@ -20,6 +20,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int weekNo = 1;
   var records = <AttendanceRecord>[];
   String? loadedSessionKey;
+  String? _requestedExistingSessionKey;
+  String? _checkedMissingSessionKey;
+  AttendanceSession? _loadedExistingSession;
   bool _saving = false;
   bool _manualSlotOverride = false;
   String? _autoSelectionReason;
@@ -43,6 +46,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       weekNo = selection?.weekNo ?? weekNo;
       _autoSelectionReason = selection?.reason;
       loadedSessionKey = null;
+      _requestedExistingSessionKey = null;
+      _checkedMissingSessionKey = null;
+      _loadedExistingSession = null;
     } else {
       sessionDate ??= selection?.sessionDate;
       weekNo = selection?.weekNo ?? _weekNoForDate(state, sessionDate);
@@ -65,13 +71,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (slot == null) return const Text('Tiada slot jadual ditetapkan.');
     final resolvedSessionDate = sessionDate ?? slot.date;
     sessionDate = resolvedSessionDate;
-    final existingSession = _existingSessionFor(
+    final sessionId = state.attendanceSessionIdFor(
+      slotId: slot.id,
+      sessionDate: resolvedSessionDate,
+      weekNo: weekNo,
+    );
+    final cachedExistingSession = _existingSessionFor(
       state,
       slot,
       resolvedSessionDate,
       weekNo,
     );
-    final sessionKey = '${slot.id}|$resolvedSessionDate|$weekNo';
+    final loadedExistingSession =
+        _loadedExistingSession?.id == sessionId ? _loadedExistingSession : null;
+    final existingSession = cachedExistingSession ?? loadedExistingSession;
+    final sessionKey = sessionId;
+    final isCheckingSelectedSession =
+        existingSession == null && _requestedExistingSessionKey == sessionKey;
+    if (_shouldLoadExistingSession(sessionKey, existingSession)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _loadExistingSessionIfNeeded(
+          state: state,
+          slot: slot,
+          sessionDate: resolvedSessionDate,
+          weekNo: weekNo,
+          sessionKey: sessionKey,
+          existingSession: existingSession,
+        );
+      });
+    }
     if (loadedSessionKey != sessionKey) {
       records = List.of(existingSession == null
           ? state.attendance[slot.id] ?? _defaultRecords(slot, state)
@@ -83,7 +112,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final students = state.students
         .where((student) => student.section == slot.section)
         .toList();
-    final summary = _summaryFor(records);
+    final currentRecords = _recordsForStudents(slot, students);
+    final summary = _summaryFor(currentRecords);
     final isEditingSubmitted = existingSession != null;
     final selectionReason =
         isEditingSubmitted ? 'Kehadiran telah dihantar' : _autoSelectionReason;
@@ -99,14 +129,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }).toList();
     final mobile = MediaQuery.sizeOf(context).width < 600;
     final submitButton = FilledButton.icon(
-      onPressed: _saving
+      onPressed: _saving || isCheckingSelectedSession
           ? null
           : () => _saveAttendance(
                 state: state,
                 slot: slot,
                 isEditingSubmitted: isEditingSubmitted,
               ),
-      icon: _saving
+      icon: _saving || isCheckingSelectedSession
           ? const SizedBox(
               width: 18,
               height: 18,
@@ -115,9 +145,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           : Icon(isEditingSubmitted ? Icons.edit_note : Icons.send),
       label: Text(_saving
           ? 'Menyimpan...'
-          : isEditingSubmitted
-              ? 'Simpan Pembetulan'
-              : 'Hantar'),
+          : isCheckingSelectedSession
+              ? 'Menyemak...'
+              : isEditingSubmitted
+                  ? 'Simpan Pembetulan'
+                  : 'Hantar'),
     );
 
     return Column(
@@ -200,14 +232,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          _setAllStatus(slot, AttendanceStatus.present),
+                      onPressed: () => _setAllStatus(
+                        slot,
+                        students,
+                        AttendanceStatus.present,
+                      ),
                       icon: const Icon(Icons.done_all),
                       label: const Text('Semua Hadir'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          _setAllStatus(slot, AttendanceStatus.absent),
+                      onPressed: () => _setAllStatus(
+                        slot,
+                        students,
+                        AttendanceStatus.absent,
+                      ),
                       icon: const Icon(Icons.block),
                       label: const Text('Semua Tidak Hadir'),
                     ),
@@ -222,14 +260,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   runSpacing: 8,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          _setAllStatus(slot, AttendanceStatus.present),
+                      onPressed: () => _setAllStatus(
+                        slot,
+                        students,
+                        AttendanceStatus.present,
+                      ),
                       icon: const Icon(Icons.done_all),
                       label: const Text('Semua Hadir'),
                     ),
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          _setAllStatus(slot, AttendanceStatus.absent),
+                      onPressed: () => _setAllStatus(
+                        slot,
+                        students,
+                        AttendanceStatus.absent,
+                      ),
                       icon: const Icon(Icons.block),
                       label: const Text('Semua Tidak Hadir'),
                     ),
@@ -315,12 +359,71 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     String sessionDate,
     int weekNo,
   ) {
-    return state.attendanceSessions
-        .where((session) =>
-            session.slotId == slot.id &&
-            session.sessionDate == sessionDate &&
-            session.weekNo == weekNo)
-        .firstOrNull;
+    return state.attendanceSessionForSlotDateWeek(
+      slotId: slot.id,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    );
+  }
+
+  void _loadExistingSessionIfNeeded({
+    required AppState state,
+    required TimetableSlot slot,
+    required String sessionDate,
+    required int weekNo,
+    required String sessionKey,
+    required AttendanceSession? existingSession,
+  }) {
+    final recordsLoaded = existingSession != null &&
+        state.sessionAttendance.containsKey(existingSession.id);
+    if (recordsLoaded ||
+        _requestedExistingSessionKey == sessionKey ||
+        _checkedMissingSessionKey == sessionKey) {
+      return;
+    }
+
+    _requestedExistingSessionKey = sessionKey;
+    state
+        .loadAttendanceSessionForSlotDateWeek(
+          slotId: slot.id,
+          sessionDate: sessionDate,
+          weekNo: weekNo,
+        )
+        .then((session) {
+      if (!mounted) return;
+      if (session == null) {
+        setState(() {
+          if (_requestedExistingSessionKey == sessionKey) {
+            _requestedExistingSessionKey = null;
+          }
+          _checkedMissingSessionKey = sessionKey;
+        });
+        return;
+      }
+      setState(() {
+        _loadedExistingSession = session;
+        _requestedExistingSessionKey = null;
+        loadedSessionKey = null;
+        _autoSelectionReason = 'Kehadiran telah dihantar';
+      });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() {
+        if (_requestedExistingSessionKey == sessionKey) {
+          _requestedExistingSessionKey = null;
+        }
+        _checkedMissingSessionKey = sessionKey;
+      });
+    });
+  }
+
+  bool _shouldLoadExistingSession(
+    String sessionKey,
+    AttendanceSession? existingSession,
+  ) {
+    return existingSession == null &&
+        _requestedExistingSessionKey != sessionKey &&
+        _checkedMissingSessionKey != sessionKey;
   }
 
   Future<void> _showChangeSessionDialog({
@@ -449,6 +552,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       weekNo = result.weekNo;
       _manualSlotOverride = true;
       _autoSelectionReason = 'Pilihan manual';
+      _loadedExistingSession = null;
+      _requestedExistingSessionKey = null;
+      _checkedMissingSessionKey = null;
       loadedSessionKey = null;
     });
   }
@@ -473,6 +579,37 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }) async {
     final resolvedSessionDate = sessionDate ?? slot.date;
     final messenger = ScaffoldMessenger.of(context);
+    if (!isEditingSubmitted) {
+      AttendanceSession? existingSession =
+          _existingSessionFor(state, slot, resolvedSessionDate, weekNo);
+      try {
+        existingSession ??= await state.loadAttendanceSessionForSlotDateWeek(
+          slotId: slot.id,
+          sessionDate: resolvedSessionDate,
+          weekNo: weekNo,
+          forceRefresh: true,
+        );
+      } catch (_) {
+        existingSession = null;
+      }
+      if (existingSession != null) {
+        if (!mounted) return;
+        setState(() {
+          _manualSlotOverride = true;
+          _loadedExistingSession = existingSession;
+          _checkedMissingSessionKey = null;
+          _autoSelectionReason = 'Kehadiran telah dihantar';
+          loadedSessionKey = null;
+        });
+        messenger.showSnackBar(const SnackBar(
+          content: Text(
+            'Sesi kehadiran sedia ada dimuatkan. Anda boleh simpan pembetulan.',
+          ),
+        ));
+        return;
+      }
+    }
+
     String? editReason;
     if (isEditingSubmitted) {
       final changes = _attendanceChangesFor(
@@ -524,6 +661,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ));
     } catch (error) {
       if (!mounted) return;
+      if (error is AttendanceSessionAlreadyExistsException) {
+        _switchToExistingSession(error.session, messenger);
+        return;
+      }
+      if (!isEditingSubmitted) {
+        AttendanceSession? existingSession;
+        try {
+          existingSession = await state.loadAttendanceSessionForSlotDateWeek(
+            slotId: slot.id,
+            sessionDate: resolvedSessionDate,
+            weekNo: weekNo,
+            forceRefresh: true,
+          );
+        } catch (_) {
+          existingSession = null;
+        }
+        if (!mounted) return;
+        if (existingSession != null) {
+          _switchToExistingSession(existingSession, messenger);
+          return;
+        }
+        if (_isDuplicateAttendanceError(error)) {
+          final session = state.markAttendanceSessionSubmittedLocally(
+            slot.id,
+            records,
+            sessionDate: resolvedSessionDate,
+            weekNo: weekNo,
+          );
+          _switchToExistingSession(session, messenger);
+          return;
+        }
+      }
       messenger.showSnackBar(SnackBar(
         content: Text(isEditingSubmitted
             ? error.toString().replaceFirst('Bad state: ', '')
@@ -532,6 +701,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _switchToExistingSession(
+    AttendanceSession session,
+    ScaffoldMessengerState messenger,
+  ) {
+    if (!mounted) return;
+    setState(() {
+      _manualSlotOverride = true;
+      _loadedExistingSession = session;
+      _requestedExistingSessionKey = null;
+      _checkedMissingSessionKey = null;
+      _autoSelectionReason = 'Kehadiran telah dihantar';
+      loadedSessionKey = null;
+    });
+    messenger.showSnackBar(const SnackBar(
+      content: Text(
+        'Sesi kehadiran sedia ada dimuatkan. Anda boleh simpan pembetulan.',
+      ),
+    ));
+  }
+
+  bool _isDuplicateAttendanceError(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('attendance session already exists') ||
+        text.contains('already exists for this slot') ||
+        text.contains('sudah wujud');
   }
 
   List<AttendanceEditChange> _attendanceChangesFor(
@@ -727,10 +923,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     String date,
   ) {
     final week = _weekNoForDate(state, date);
-    return state.attendanceSessions.any((session) =>
-        session.slotId == slot.id &&
-        session.sessionDate == date &&
-        session.weekNo == week);
+    return state.attendanceSessionForSlotDateWeek(
+          slotId: slot.id,
+          sessionDate: date,
+          weekNo: week,
+        ) !=
+        null;
   }
 
   DateTime _slotStartDateTime(TimetableSlot slot) {
@@ -769,10 +967,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return _dateText(now);
   }
 
-  void _setAllStatus(TimetableSlot slot, AttendanceStatus status) {
+  void _setAllStatus(
+    TimetableSlot slot,
+    List<Student> students,
+    AttendanceStatus status,
+  ) {
     setState(() {
-      records = records
-          .map((record) => record.copyWith(
+      records = students
+          .map((student) => _recordForStudent(slot, student).copyWith(
                 status: status,
                 checkIn: _checkInForStatus(slot, status),
               ))
@@ -805,6 +1007,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             status == AttendanceStatus.ck
         ? '-'
         : slot.startTime;
+  }
+
+  List<AttendanceRecord> _recordsForStudents(
+    TimetableSlot slot,
+    List<Student> students,
+  ) {
+    return students
+        .map((student) => _recordForStudent(slot, student))
+        .toList();
   }
 
   AttendanceSummary _summaryFor(List<AttendanceRecord> records) {
