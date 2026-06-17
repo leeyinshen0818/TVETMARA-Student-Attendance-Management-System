@@ -903,39 +903,6 @@ class _SessionSummaryItem extends StatelessWidget {
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  const _MiniChip(this.icon, this.label);
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xffeff6ff),
-        border: Border.all(color: const Color(0xffbfdbfe)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 17, color: const Color(0xff2563eb)),
-          const SizedBox(width: 7),
-          Text(
-            label.isEmpty ? '-' : label,
-            style: const TextStyle(
-              color: Color(0xff1e3a8a),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DisciplineReportItem extends StatelessWidget {
   const _DisciplineReportItem({
     required this.report,

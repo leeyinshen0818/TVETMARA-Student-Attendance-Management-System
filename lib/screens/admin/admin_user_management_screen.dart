@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_models.dart';
 import '../../services/user_timetable_service.dart';
+import '../../state/app_scope.dart';
 import '../../widgets/app_layout.dart';
 import '../../widgets/app_theme.dart';
 import '../../widgets/mobile_components.dart';
@@ -204,102 +205,86 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   Widget _buildMobileSystemUsersTab() {
-    return StreamBuilder<List<AppUser>>(
-      stream: _service.getUsersStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError) {
-          return MobileEmptyState(
-            icon: Icons.error_outline,
-            title: 'Ralat memuat pengguna',
-            subtitle: snapshot.error.toString(),
-          );
-        }
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('users') && state.users.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final allUsers = state.users;
+    final users = allUsers.where((u) {
+      final matchesSearch = _userSearchQuery.isEmpty ||
+          u.name.toLowerCase().contains(_userSearchQuery) ||
+          u.email.toLowerCase().contains(_userSearchQuery) ||
+          (u.departmentId?.toLowerCase().contains(_userSearchQuery) ?? false);
+      final matchesRole =
+          _selectedRoleFilter == null || u.role == _selectedRoleFilter;
+      return matchesSearch && matchesRole;
+    }).toList();
 
-        final allUsers = snapshot.data ?? [];
-        final users = allUsers.where((u) {
-          final matchesSearch = _userSearchQuery.isEmpty ||
-              u.name.toLowerCase().contains(_userSearchQuery) ||
-              u.email.toLowerCase().contains(_userSearchQuery) ||
-              (u.departmentId?.toLowerCase().contains(_userSearchQuery) ??
-                  false);
-          final matchesRole =
-              _selectedRoleFilter == null || u.role == _selectedRoleFilter;
-          return matchesSearch && matchesRole;
-        }).toList();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MobileFilterCard(
+          title: 'Tapis Pengguna',
+          subtitle: '${users.length} akaun dijumpai',
+          onReset: () {
+            _userSearchController.clear();
+            setState(() => _selectedRoleFilter = null);
+          },
           children: [
-            MobileFilterCard(
-              title: 'Tapis Pengguna',
-              subtitle: '${users.length} akaun dijumpai',
-              onReset: () {
-                _userSearchController.clear();
-                setState(() => _selectedRoleFilter = null);
-              },
-              children: [
-                _buildSearchBar(
-                  controller: _userSearchController,
-                  hint: 'Cari nama, emel atau jabatan...',
+            _buildSearchBar(
+              controller: _userSearchController,
+              hint: 'Cari nama, emel atau jabatan...',
+            ),
+            DropdownButtonFormField<UserRole?>(
+              initialValue: _selectedRoleFilter,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Peranan'),
+              items: [
+                const DropdownMenuItem<UserRole?>(
+                  value: null,
+                  child: Text('Semua Peranan'),
                 ),
-                DropdownButtonFormField<UserRole?>(
-                  initialValue: _selectedRoleFilter,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Peranan'),
-                  items: [
-                    const DropdownMenuItem<UserRole?>(
-                      value: null,
-                      child: Text('Semua Peranan'),
-                    ),
-                    ...UserRole.values.map(
-                      (role) => DropdownMenuItem<UserRole?>(
-                        value: role,
-                        child: Text(_roleLabel(role)),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _selectedRoleFilter = value),
+                ...UserRole.values.map(
+                  (role) => DropdownMenuItem<UserRole?>(
+                    value: role,
+                    child: Text(_roleLabel(role)),
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 14),
-            MobileSection(
-              title: 'Pengguna Sistem',
-              subtitle:
-                  'Kad pengguna memaparkan emel, peranan, skop dan tindakan utama.',
-              child: allUsers.isEmpty
-                  ? const MobileEmptyState(
-                      icon: Icons.people_outline,
-                      title: 'Tiada pengguna sistem',
-                      subtitle:
-                          'Akaun yang didaftarkan akan dipaparkan di sini.',
-                    )
-                  : users.isEmpty
-                      ? const MobileEmptyState(
-                          icon: Icons.search_off,
-                          title: 'Tiada hasil carian',
-                          subtitle: 'Cuba ubah carian atau tapis peranan.',
-                        )
-                      : Column(
-                          children: [
-                            for (final user in users) ...[
-                              _buildMobileUserCard(user),
-                              if (user != users.last)
-                                const SizedBox(height: 10),
-                            ],
-                          ],
-                        ),
+              onChanged: (value) => setState(() => _selectedRoleFilter = value),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        MobileSection(
+          title: 'Pengguna Sistem',
+          subtitle:
+              'Kad pengguna memaparkan emel, peranan, skop dan tindakan utama.',
+          child: allUsers.isEmpty
+              ? const MobileEmptyState(
+                  icon: Icons.people_outline,
+                  title: 'Tiada pengguna sistem',
+                  subtitle: 'Akaun yang didaftarkan akan dipaparkan di sini.',
+                )
+              : users.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.search_off,
+                      title: 'Tiada hasil carian',
+                      subtitle: 'Cuba ubah carian atau tapis peranan.',
+                    )
+                  : Column(
+                      children: [
+                        for (final user in users) ...[
+                          _buildMobileUserCard(user),
+                          if (user != users.last) const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+        ),
+      ],
     );
   }
 
@@ -357,132 +342,112 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   Widget _buildMobileStudentsTab() {
-    return StreamBuilder<List<Student>>(
-      stream: _service.getStudentsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError) {
-          return MobileEmptyState(
-            icon: Icons.error_outline,
-            title: 'Ralat memuat pelajar',
-            subtitle: snapshot.error.toString(),
-          );
-        }
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('students') && state.students.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final allStudents = state.students;
+    final programs = allStudents.map((s) => s.program).toSet().toList()..sort();
+    final classes = allStudents
+        .map((s) => s.section)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final semesters =
+        allStudents.map((s) => s.semester.toString()).toSet().toList()..sort();
 
-        final allStudents = snapshot.data ?? [];
-        final programs = allStudents.map((s) => s.program).toSet().toList()
-          ..sort();
-        final classes = allStudents
-            .map((s) => s.section)
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final semesters = allStudents
-            .map((s) => s.semester.toString())
-            .toSet()
-            .toList()
-          ..sort();
+    final students = allStudents.where((s) {
+      final matchesSearch = _studentSearchQuery.isEmpty ||
+          s.name.toLowerCase().contains(_studentSearchQuery) ||
+          s.email.toLowerCase().contains(_studentSearchQuery) ||
+          s.id.toLowerCase().contains(_studentSearchQuery) ||
+          s.section.toLowerCase().contains(_studentSearchQuery);
+      final matchesProgram =
+          _selectedProgramFilter == null || s.program == _selectedProgramFilter;
+      final matchesClass =
+          _selectedClassFilter == null || s.section == _selectedClassFilter;
+      final matchesSemester = _selectedSemesterFilter == null ||
+          s.semester.toString() == _selectedSemesterFilter;
+      return matchesSearch && matchesProgram && matchesClass && matchesSemester;
+    }).toList();
 
-        final students = allStudents.where((s) {
-          final matchesSearch = _studentSearchQuery.isEmpty ||
-              s.name.toLowerCase().contains(_studentSearchQuery) ||
-              s.email.toLowerCase().contains(_studentSearchQuery) ||
-              s.id.toLowerCase().contains(_studentSearchQuery) ||
-              s.section.toLowerCase().contains(_studentSearchQuery);
-          final matchesProgram = _selectedProgramFilter == null ||
-              s.program == _selectedProgramFilter;
-          final matchesClass =
-              _selectedClassFilter == null || s.section == _selectedClassFilter;
-          final matchesSemester = _selectedSemesterFilter == null ||
-              s.semester.toString() == _selectedSemesterFilter;
-          return matchesSearch &&
-              matchesProgram &&
-              matchesClass &&
-              matchesSemester;
-        }).toList();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MobileFilterCard(
+          title: 'Tapis Pelajar',
+          subtitle: '${students.length} pelajar dijumpai',
+          onReset: () {
+            _studentSearchController.clear();
+            setState(() {
+              _selectedProgramFilter = null;
+              _selectedClassFilter = null;
+              _selectedSemesterFilter = null;
+            });
+          },
           children: [
-            MobileFilterCard(
-              title: 'Tapis Pelajar',
-              subtitle: '${students.length} pelajar dijumpai',
-              onReset: () {
-                _studentSearchController.clear();
-                setState(() {
-                  _selectedProgramFilter = null;
-                  _selectedClassFilter = null;
-                  _selectedSemesterFilter = null;
-                });
-              },
-              children: [
-                _buildSearchBar(
-                  controller: _studentSearchController,
-                  hint: 'Nama, ID atau kelas...',
-                ),
-                _mobileStringDropdown(
-                  label: 'Program',
-                  value: _selectedProgramFilter,
-                  allLabel: 'Semua Program',
-                  options: programs,
-                  onChanged: (value) =>
-                      setState(() => _selectedProgramFilter = value),
-                ),
-                _mobileStringDropdown(
-                  label: 'Kelas',
-                  value: _selectedClassFilter,
-                  allLabel: 'Semua Kelas',
-                  options: classes,
-                  onChanged: (value) =>
-                      setState(() => _selectedClassFilter = value),
-                ),
-                _mobileStringDropdown(
-                  label: 'Semester',
-                  value: _selectedSemesterFilter,
-                  allLabel: 'Semua Semester',
-                  options: semesters,
-                  optionLabel: (value) => 'Sem $value',
-                  onChanged: (value) =>
-                      setState(() => _selectedSemesterFilter = value),
-                ),
-              ],
+            _buildSearchBar(
+              controller: _studentSearchController,
+              hint: 'Nama, ID atau kelas...',
             ),
-            const SizedBox(height: 14),
-            MobileSection(
-              title: 'Senarai Pelajar',
-              subtitle: 'Paparan kad ringkas untuk semakan pantas.',
-              child: allStudents.isEmpty
-                  ? const MobileEmptyState(
-                      icon: Icons.school_outlined,
-                      title: 'Tiada pelajar ditemui',
-                      subtitle:
-                          'Rekod pelajar akan dipaparkan selepas dimuatkan.',
-                    )
-                  : students.isEmpty
-                      ? const MobileEmptyState(
-                          icon: Icons.search_off,
-                          title: 'Tiada hasil carian',
-                          subtitle: 'Cuba ubah carian atau tapis pelajar.',
-                        )
-                      : Column(
-                          children: [
-                            for (final student in students) ...[
-                              _buildMobileStudentCard(student),
-                              if (student != students.last)
-                                const SizedBox(height: 10),
-                            ],
-                          ],
-                        ),
+            _mobileStringDropdown(
+              label: 'Program',
+              value: _selectedProgramFilter,
+              allLabel: 'Semua Program',
+              options: programs,
+              onChanged: (value) =>
+                  setState(() => _selectedProgramFilter = value),
+            ),
+            _mobileStringDropdown(
+              label: 'Kelas',
+              value: _selectedClassFilter,
+              allLabel: 'Semua Kelas',
+              options: classes,
+              onChanged: (value) =>
+                  setState(() => _selectedClassFilter = value),
+            ),
+            _mobileStringDropdown(
+              label: 'Semester',
+              value: _selectedSemesterFilter,
+              allLabel: 'Semua Semester',
+              options: semesters,
+              optionLabel: (value) => 'Sem $value',
+              onChanged: (value) =>
+                  setState(() => _selectedSemesterFilter = value),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        MobileSection(
+          title: 'Senarai Pelajar',
+          subtitle: 'Paparan kad ringkas untuk semakan pantas.',
+          child: allStudents.isEmpty
+              ? const MobileEmptyState(
+                  icon: Icons.school_outlined,
+                  title: 'Tiada pelajar ditemui',
+                  subtitle: 'Rekod pelajar akan dipaparkan selepas dimuatkan.',
+                )
+              : students.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.search_off,
+                      title: 'Tiada hasil carian',
+                      subtitle: 'Cuba ubah carian atau tapis pelajar.',
+                    )
+                  : Column(
+                      children: [
+                        for (final student in students) ...[
+                          _buildMobileStudentCard(student),
+                          if (student != students.last)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+        ),
+      ],
     );
   }
 
@@ -515,140 +480,128 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   }
 
   Widget _buildMobileLecturerCoursesTab() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _service.getLecturerCoursesStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError) {
-          return MobileEmptyState(
-            icon: Icons.error_outline,
-            title: 'Ralat memuat tugasan',
-            subtitle: snapshot.error.toString(),
-          );
-        }
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('lecturerCourseAssignments') &&
+        state.lecturerCourseAssignments.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final allAssignments = state.lecturerCourseAssignments;
+    final lecturerRows = _groupLecturerAssignments(allAssignments);
 
-        final allAssignments = snapshot.data ?? [];
-        final lecturerRows = _groupLecturerAssignments(allAssignments);
+    final programs = allAssignments
+        .map((m) => m['programId']?.toString() ?? '')
+        .where((p) => p.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final subjectOptions = allAssignments
+        .map((m) => m['subjectCode']?.toString() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final classOptions = allAssignments
+        .map((m) => m['classId']?.toString() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
 
-        final programs = allAssignments
-            .map((m) => m['programId']?.toString() ?? '')
-            .where((p) => p.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final subjectOptions = allAssignments
-            .map((m) => m['subjectCode']?.toString() ?? '')
-            .where((s) => s.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final classOptions = allAssignments
-            .map((m) => m['classId']?.toString() ?? '')
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+    final assignments = lecturerRows.where((row) {
+      final name = row['lecturerName'].toString().toLowerCase();
+      final email = row['lecturerEmail'].toString().toLowerCase();
+      final subjects =
+          (row['subjects'] as List<String>).join(' ').toLowerCase();
+      final prog = row['programId'].toString();
+      final matchesSearch = _lecturerSearchQuery.isEmpty ||
+          name.contains(_lecturerSearchQuery) ||
+          email.contains(_lecturerSearchQuery) ||
+          subjects.contains(_lecturerSearchQuery);
+      final matchesProg = _selectedDepartmentFilter == null ||
+          prog == _selectedDepartmentFilter;
+      final matchesSubject = _selectedSubjectFilter == null ||
+          (row['subjects'] as List<String>).contains(_selectedSubjectFilter);
+      final matchesClass = _selectedLecturerClassFilter == null ||
+          (row['classes'] as List<String>)
+              .contains(_selectedLecturerClassFilter);
+      return matchesSearch && matchesProg && matchesSubject && matchesClass;
+    }).toList();
 
-        final assignments = lecturerRows.where((row) {
-          final name = row['lecturerName'].toString().toLowerCase();
-          final email = row['lecturerEmail'].toString().toLowerCase();
-          final subjects =
-              (row['subjects'] as List<String>).join(' ').toLowerCase();
-          final prog = row['programId'].toString();
-          final matchesSearch = _lecturerSearchQuery.isEmpty ||
-              name.contains(_lecturerSearchQuery) ||
-              email.contains(_lecturerSearchQuery) ||
-              subjects.contains(_lecturerSearchQuery);
-          final matchesProg = _selectedDepartmentFilter == null ||
-              prog == _selectedDepartmentFilter;
-          final matchesSubject = _selectedSubjectFilter == null ||
-              (row['subjects'] as List<String>)
-                  .contains(_selectedSubjectFilter);
-          final matchesClass = _selectedLecturerClassFilter == null ||
-              (row['classes'] as List<String>)
-                  .contains(_selectedLecturerClassFilter);
-          return matchesSearch && matchesProg && matchesSubject && matchesClass;
-        }).toList();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MobileFilterCard(
+          title: 'Tapis Tugasan',
+          subtitle: '${assignments.length} pensyarah dijumpai',
+          onReset: () {
+            _lecturerSearchController.clear();
+            setState(() {
+              _selectedDepartmentFilter = null;
+              _selectedSubjectFilter = null;
+              _selectedLecturerClassFilter = null;
+            });
+          },
           children: [
-            MobileFilterCard(
-              title: 'Tapis Tugasan',
-              subtitle: '${assignments.length} pensyarah dijumpai',
-              onReset: () {
-                _lecturerSearchController.clear();
-                setState(() {
-                  _selectedDepartmentFilter = null;
-                  _selectedSubjectFilter = null;
-                  _selectedLecturerClassFilter = null;
-                });
-              },
-              children: [
-                _buildSearchBar(
-                  controller: _lecturerSearchController,
-                  hint: 'Nama pensyarah, emel atau subjek...',
-                ),
-                _mobileStringDropdown(
-                  label: 'Program',
-                  value: _selectedDepartmentFilter,
-                  allLabel: 'Semua Program',
-                  options: programs,
-                  onChanged: (value) =>
-                      setState(() => _selectedDepartmentFilter = value),
-                ),
-                _mobileStringDropdown(
-                  label: 'Subjek',
-                  value: _selectedSubjectFilter,
-                  allLabel: 'Semua Subjek',
-                  options: subjectOptions,
-                  onChanged: (value) =>
-                      setState(() => _selectedSubjectFilter = value),
-                ),
-                _mobileStringDropdown(
-                  label: 'Kelas',
-                  value: _selectedLecturerClassFilter,
-                  allLabel: 'Semua Kelas',
-                  options: classOptions,
-                  onChanged: (value) =>
-                      setState(() => _selectedLecturerClassFilter = value),
-                ),
-              ],
+            _buildSearchBar(
+              controller: _lecturerSearchController,
+              hint: 'Nama pensyarah, emel atau subjek...',
             ),
-            const SizedBox(height: 14),
-            MobileSection(
-              title: 'Tugasan Pensyarah',
-              subtitle: 'Setiap kad mewakili seorang pensyarah.',
-              child: allAssignments.isEmpty
-                  ? const MobileEmptyState(
-                      icon: Icons.assignment_ind_outlined,
-                      title: 'Tiada tugasan ditemui',
-                      subtitle: 'Tugasan pensyarah akan dipaparkan di sini.',
-                    )
-                  : assignments.isEmpty
-                      ? const MobileEmptyState(
-                          icon: Icons.search_off,
-                          title: 'Tiada hasil carian',
-                          subtitle: 'Cuba ubah carian atau tapis tugasan.',
-                        )
-                      : Column(
-                          children: [
-                            for (final row in assignments) ...[
-                              _buildMobileLecturerAssignmentCard(row),
-                              if (row != assignments.last)
-                                const SizedBox(height: 10),
-                            ],
-                          ],
-                        ),
+            _mobileStringDropdown(
+              label: 'Program',
+              value: _selectedDepartmentFilter,
+              allLabel: 'Semua Program',
+              options: programs,
+              onChanged: (value) =>
+                  setState(() => _selectedDepartmentFilter = value),
+            ),
+            _mobileStringDropdown(
+              label: 'Subjek',
+              value: _selectedSubjectFilter,
+              allLabel: 'Semua Subjek',
+              options: subjectOptions,
+              onChanged: (value) =>
+                  setState(() => _selectedSubjectFilter = value),
+            ),
+            _mobileStringDropdown(
+              label: 'Kelas',
+              value: _selectedLecturerClassFilter,
+              allLabel: 'Semua Kelas',
+              options: classOptions,
+              onChanged: (value) =>
+                  setState(() => _selectedLecturerClassFilter = value),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        MobileSection(
+          title: 'Tugasan Pensyarah',
+          subtitle: 'Setiap kad mewakili seorang pensyarah.',
+          child: allAssignments.isEmpty
+              ? const MobileEmptyState(
+                  icon: Icons.assignment_ind_outlined,
+                  title: 'Tiada tugasan ditemui',
+                  subtitle: 'Tugasan pensyarah akan dipaparkan di sini.',
+                )
+              : assignments.isEmpty
+                  ? const MobileEmptyState(
+                      icon: Icons.search_off,
+                      title: 'Tiada hasil carian',
+                      subtitle: 'Cuba ubah carian atau tapis tugasan.',
+                    )
+                  : Column(
+                      children: [
+                        for (final row in assignments) ...[
+                          _buildMobileLecturerAssignmentCard(row),
+                          if (row != assignments.last)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+        ),
+      ],
     );
   }
 
@@ -891,207 +844,195 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   // Tab 1: System Users
   // ===========================================================================
   Widget _buildSystemUsersTab() {
-    return StreamBuilder<List<AppUser>>(
-      stream: _service.getUsersStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Ralat memuat data: ${snapshot.error}'));
-        }
-        final allUsers = snapshot.data ?? [];
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('users') && state.users.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final allUsers = state.users;
 
-        final users = allUsers.where((u) {
-          final matchesSearch = _userSearchQuery.isEmpty ||
-              u.name.toLowerCase().contains(_userSearchQuery) ||
-              u.email.toLowerCase().contains(_userSearchQuery) ||
-              (u.departmentId?.toLowerCase().contains(_userSearchQuery) ??
-                  false);
-          final matchesRole =
-              _selectedRoleFilter == null || u.role == _selectedRoleFilter;
-          return matchesSearch && matchesRole;
-        }).toList();
+    final users = allUsers.where((u) {
+      final matchesSearch = _userSearchQuery.isEmpty ||
+          u.name.toLowerCase().contains(_userSearchQuery) ||
+          u.email.toLowerCase().contains(_userSearchQuery) ||
+          (u.departmentId?.toLowerCase().contains(_userSearchQuery) ?? false);
+      final matchesRole =
+          _selectedRoleFilter == null || u.role == _selectedRoleFilter;
+      return matchesSearch && matchesRole;
+    }).toList();
 
-        if (allUsers.isEmpty) {
-          return const Center(
-            child: AppPanel(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('Tiada pengguna sistem ditemui.'),
-              ),
-            ),
-          );
-        }
+    if (allUsers.isEmpty) {
+      return const Center(
+        child: AppPanel(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text('Tiada pengguna sistem ditemui.'),
+          ),
+        ),
+      );
+    }
 
-        return Column(
+    return Column(
+      children: [
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 360,
-                  child: _buildSearchBar(
-                    controller: _userSearchController,
-                    hint: 'Cari nama, emel, atau jabatan...',
-                  ),
-                ),
-                _buildFilterDropdown<UserRole?>(
-                  value: _selectedRoleFilter,
-                  hint: 'Semua Peranan',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Peranan',
-                            style: TextStyle(fontSize: 13))),
-                    ...UserRole.values.map((role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(_roleLabel(role),
-                              style: const TextStyle(fontSize: 13)),
-                        )),
-                  ],
-                  onChanged: (v) => setState(() => _selectedRoleFilter = v),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${users.length} pengguna dijumpai',
-                style: const TextStyle(fontSize: 12, color: Color(0xff94a3b8)),
+            SizedBox(
+              width: 360,
+              child: _buildSearchBar(
+                controller: _userSearchController,
+                hint: 'Cari nama, emel, atau jabatan...',
               ),
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: users.isEmpty
-                  ? const Center(child: Text('Tiada hasil carian.'))
-                  : Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                    minWidth: constraints.maxWidth),
-                                child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                      const Color(0xfff8fafc)),
-                                  headingTextStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Color(0xff475569),
-                                  ),
-                                  dataTextStyle: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xff0f172a),
-                                  ),
-                                  columnSpacing: 20,
-                                  dataRowMinHeight: 56,
-                                  dataRowMaxHeight: 56,
-                                  columns: const [
-                                    DataColumn(label: Text('Nama')),
-                                    DataColumn(label: Text('Emel')),
-                                    DataColumn(label: Text('Peranan')),
-                                    DataColumn(label: Text('Jabatan')),
-                                    DataColumn(label: Text('Status')),
-                                    DataColumn(label: Text('Log Masuk Akhir')),
-                                    DataColumn(label: Text('Tindakan')),
-                                  ],
-                                  rows: users.map((user) {
-                                    final bool isActive =
-                                        _activeOverrides.containsKey(user.uid)
-                                            ? _activeOverrides[user.uid]!
-                                            : user.isActive;
-                                    return DataRow(cells: [
-                                      DataCell(SizedBox(
-                                        width: 160,
-                                        child: Text(
-                                          user.name,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      )),
-                                      DataCell(Text(
-                                        user.email,
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xff64748b)),
-                                      )),
-                                      DataCell(_buildRoleBadge(user.role)),
-                                      DataCell(Text(
-                                        user.departmentId ?? '—',
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xff64748b)),
-                                      )),
-                                      DataCell(_buildStatusBadge(isActive)),
-                                      DataCell(Text(
-                                        user.lastLogin.isNotEmpty
-                                            ? user.lastLogin.substring(0, 16)
-                                            : '—',
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xff94a3b8)),
-                                      )),
-                                      DataCell(Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          _buildActionIcon(
-                                            icon: Icons.edit_outlined,
-                                            tooltip: 'Edit',
-                                            color: const Color(0xff3b82f6),
-                                            onTap: () =>
-                                                _showEditUserDialog(user),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          _buildActionIcon(
-                                            icon: isActive
-                                                ? Icons.toggle_on_outlined
-                                                : Icons.toggle_off_outlined,
-                                            tooltip: isActive
-                                                ? 'Nyahaktifkan'
-                                                : 'Aktifkan',
-                                            color: isActive
-                                                ? Colors.green
-                                                : Colors.grey,
-                                            onTap: () {
-                                              final next = !isActive;
-                                              setState(() =>
-                                                  _activeOverrides[user.uid] =
-                                                      next);
-                                              _handleUserStatusToggle(
-                                                  user.uid, next);
-                                            },
-                                          ),
-                                        ],
-                                      )),
-                                    ]);
-                                  }).toList(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+            _buildFilterDropdown<UserRole?>(
+              value: _selectedRoleFilter,
+              hint: 'Semua Peranan',
+              items: [
+                const DropdownMenuItem(
+                    value: null,
+                    child:
+                        Text('Semua Peranan', style: TextStyle(fontSize: 13))),
+                ...UserRole.values.map((role) => DropdownMenuItem(
+                      value: role,
+                      child: Text(_roleLabel(role),
+                          style: const TextStyle(fontSize: 13)),
+                    )),
+              ],
+              onChanged: (v) => setState(() => _selectedRoleFilter = v),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '${users.length} pengguna dijumpai',
+            style: const TextStyle(fontSize: 12, color: Color(0xff94a3b8)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: users.isEmpty
+              ? const Center(child: Text('Tiada hasil carian.'))
+              : Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minWidth: constraints.maxWidth),
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(
+                                  const Color(0xfff8fafc)),
+                              headingTextStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xff475569),
+                              ),
+                              dataTextStyle: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xff0f172a),
+                              ),
+                              columnSpacing: 20,
+                              dataRowMinHeight: 56,
+                              dataRowMaxHeight: 56,
+                              columns: const [
+                                DataColumn(label: Text('Nama')),
+                                DataColumn(label: Text('Emel')),
+                                DataColumn(label: Text('Peranan')),
+                                DataColumn(label: Text('Jabatan')),
+                                DataColumn(label: Text('Status')),
+                                DataColumn(label: Text('Log Masuk Akhir')),
+                                DataColumn(label: Text('Tindakan')),
+                              ],
+                              rows: users.map((user) {
+                                final bool isActive =
+                                    _activeOverrides.containsKey(user.uid)
+                                        ? _activeOverrides[user.uid]!
+                                        : user.isActive;
+                                return DataRow(cells: [
+                                  DataCell(SizedBox(
+                                    width: 160,
+                                    child: Text(
+                                      user.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )),
+                                  DataCell(Text(
+                                    user.email,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Color(0xff64748b)),
+                                  )),
+                                  DataCell(_buildRoleBadge(user.role)),
+                                  DataCell(Text(
+                                    user.departmentId ?? '—',
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Color(0xff64748b)),
+                                  )),
+                                  DataCell(_buildStatusBadge(isActive)),
+                                  DataCell(Text(
+                                    user.lastLogin.isNotEmpty
+                                        ? user.lastLogin.substring(0, 16)
+                                        : '—',
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Color(0xff94a3b8)),
+                                  )),
+                                  DataCell(Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _buildActionIcon(
+                                        icon: Icons.edit_outlined,
+                                        tooltip: 'Edit',
+                                        color: const Color(0xff3b82f6),
+                                        onTap: () => _showEditUserDialog(user),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _buildActionIcon(
+                                        icon: isActive
+                                            ? Icons.toggle_on_outlined
+                                            : Icons.toggle_off_outlined,
+                                        tooltip: isActive
+                                            ? 'Nyahaktifkan'
+                                            : 'Aktifkan',
+                                        color: isActive
+                                            ? Colors.green
+                                            : Colors.grey,
+                                        onTap: () {
+                                          final next = !isActive;
+                                          setState(() =>
+                                              _activeOverrides[user.uid] =
+                                                  next);
+                                          _handleUserStatusToggle(
+                                              user.uid, next);
+                                        },
+                                      ),
+                                    ],
+                                  )),
+                                ]);
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -1514,304 +1455,278 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   // Tab 2: Students
   // ===========================================================================
   Widget _buildStudentsTab() {
-    return StreamBuilder<List<Student>>(
-      stream: _service.getStudentsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Ralat memuat data: ${snapshot.error}'));
-        }
-        final allStudents = snapshot.data ?? [];
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('students') && state.students.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final allStudents = state.students;
 
-        final programs = allStudents.map((s) => s.program).toSet().toList()
-          ..sort();
-        final classes = allStudents
-            .map((s) => s.section)
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final semesters = allStudents
-            .map((s) => s.semester.toString())
-            .toSet()
-            .toList()
-          ..sort();
+    final programs = allStudents.map((s) => s.program).toSet().toList()..sort();
+    final classes = allStudents
+        .map((s) => s.section)
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final semesters =
+        allStudents.map((s) => s.semester.toString()).toSet().toList()..sort();
 
-        final students = allStudents.where((s) {
-          final matchesSearch = _studentSearchQuery.isEmpty ||
-              s.name.toLowerCase().contains(_studentSearchQuery) ||
-              s.email.toLowerCase().contains(_studentSearchQuery) ||
-              s.id.toLowerCase().contains(_studentSearchQuery) ||
-              s.section.toLowerCase().contains(_studentSearchQuery);
-          final matchesProgram = _selectedProgramFilter == null ||
-              s.program == _selectedProgramFilter;
-          final matchesClass =
-              _selectedClassFilter == null || s.section == _selectedClassFilter;
-          final matchesSemester = _selectedSemesterFilter == null ||
-              s.semester.toString() == _selectedSemesterFilter;
-          return matchesSearch &&
-              matchesProgram &&
-              matchesClass &&
-              matchesSemester;
-        }).toList();
+    final students = allStudents.where((s) {
+      final matchesSearch = _studentSearchQuery.isEmpty ||
+          s.name.toLowerCase().contains(_studentSearchQuery) ||
+          s.email.toLowerCase().contains(_studentSearchQuery) ||
+          s.id.toLowerCase().contains(_studentSearchQuery) ||
+          s.section.toLowerCase().contains(_studentSearchQuery);
+      final matchesProgram =
+          _selectedProgramFilter == null || s.program == _selectedProgramFilter;
+      final matchesClass =
+          _selectedClassFilter == null || s.section == _selectedClassFilter;
+      final matchesSemester = _selectedSemesterFilter == null ||
+          s.semester.toString() == _selectedSemesterFilter;
+      return matchesSearch && matchesProgram && matchesClass && matchesSemester;
+    }).toList();
 
-        if (allStudents.isEmpty) {
-          return const Center(
-            child: AppPanel(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('Tiada pelajar ditemui.'),
-              ),
-            ),
-          );
-        }
+    if (allStudents.isEmpty) {
+      return const Center(
+        child: AppPanel(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text('Tiada pelajar ditemui.'),
+          ),
+        ),
+      );
+    }
 
-        return Column(
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 480;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: isNarrow ? constraints.maxWidth : 320,
-                      child: _buildSearchBar(
-                        controller: _studentSearchController,
-                        hint: 'Nama, ID, kelas...',
-                      ),
-                    ),
-                    _buildFilterDropdown<String?>(
-                      value: _selectedProgramFilter,
-                      hint: 'Semua Kursus',
-                      items: [
-                        const DropdownMenuItem(
-                            value: null,
-                            child: Text('Semua Kursus',
-                                style: TextStyle(fontSize: 13))),
-                        ...programs.map((p) => DropdownMenuItem(
-                            value: p,
-                            child:
-                                Text(p, style: const TextStyle(fontSize: 13)))),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _selectedProgramFilter = v),
-                    ),
-                    _buildFilterDropdown<String?>(
-                      value: _selectedClassFilter,
-                      hint: 'Semua Kelas',
-                      items: [
-                        const DropdownMenuItem(
-                            value: null,
-                            child: Text('Semua Kelas',
-                                style: TextStyle(fontSize: 13))),
-                        ...classes.map((c) => DropdownMenuItem(
-                            value: c,
-                            child:
-                                Text(c, style: const TextStyle(fontSize: 13)))),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _selectedClassFilter = v),
-                    ),
-                    _buildFilterDropdown<String?>(
-                      value: _selectedSemesterFilter,
-                      hint: 'Semua Semester',
-                      items: [
-                        const DropdownMenuItem(
-                            value: null,
-                            child: Text('Semua Semester',
-                                style: TextStyle(fontSize: 13))),
-                        ...semesters.map((s) => DropdownMenuItem(
-                            value: s,
-                            child: Text('Sem $s',
-                                style: const TextStyle(fontSize: 13)))),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _selectedSemesterFilter = v),
-                    ),
+    return Column(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 480;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: isNarrow ? constraints.maxWidth : 320,
+                  child: _buildSearchBar(
+                    controller: _studentSearchController,
+                    hint: 'Nama, ID, kelas...',
+                  ),
+                ),
+                _buildFilterDropdown<String?>(
+                  value: _selectedProgramFilter,
+                  hint: 'Semua Kursus',
+                  items: [
+                    const DropdownMenuItem(
+                        value: null,
+                        child: Text('Semua Kursus',
+                            style: TextStyle(fontSize: 13))),
+                    ...programs.map((p) => DropdownMenuItem(
+                        value: p,
+                        child: Text(p, style: const TextStyle(fontSize: 13)))),
                   ],
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('${students.length} pelajar dijumpai',
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: students.isEmpty
-                  ? const Center(child: Text('Tiada hasil carian.'))
-                  : Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                    minWidth: constraints.maxWidth),
-                                child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                      const Color(0xfff8fafc)),
-                                  headingTextStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Color(0xff475569),
-                                  ),
-                                  dataTextStyle: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xff0f172a),
-                                  ),
-                                  columnSpacing: 16,
-                                  dataRowMinHeight: 56,
-                                  dataRowMaxHeight: 56,
-                                  columns: const [
-                                    DataColumn(label: Text('ID')),
-                                    DataColumn(label: Text('Nama')),
-                                    DataColumn(label: Text('Emel')),
-                                    DataColumn(label: Text('Telefon')),
-                                    DataColumn(label: Text('Program')),
-                                    DataColumn(label: Text('Seksyen')),
-                                    DataColumn(
-                                        label: Text('Sem'), numeric: true),
-                                    DataColumn(label: Text('Status')),
-                                    DataColumn(
-                                        label: Text('Att %'), numeric: true),
-                                    DataColumn(label: Text('Tindakan')),
-                                  ],
-                                  rows: students.map((student) {
-                                    final bool isSafe =
-                                        student.attendance >= 80;
-                                    final Color attColor =
-                                        isSafe ? Colors.green : Colors.red;
-                                    return DataRow(cells: [
-                                      DataCell(Text(
-                                        student.id,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xff64748b),
-                                            fontWeight: FontWeight.w500),
-                                      )),
-                                      DataCell(SizedBox(
-                                        width: 160,
-                                        child: Text(
-                                          student.name,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      )),
-                                      DataCell(SizedBox(
-                                        width: 180,
-                                        child: Text(
-                                          student.email,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xff64748b)),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      )),
-                                      DataCell(Text(
-                                        student.phone,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xff64748b)),
-                                      )),
-                                      DataCell(SizedBox(
-                                        width: 160,
-                                        child: Text(
-                                          student.program,
-                                          style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xff0f172a)),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      )),
-                                      DataCell(Text(
-                                        student.section,
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500),
-                                      )),
-                                      DataCell(Center(
-                                        child: Text(
-                                          '${student.semester}',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      )),
-                                      DataCell(
-                                          _buildStatusBadge(student.active)),
-                                      DataCell(SizedBox(
-                                        width: 80,
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${student.attendance}%',
-                                              style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: attColor),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value:
-                                                    student.attendance / 100.0,
-                                                backgroundColor:
-                                                    const Color(0xffe2e8f0),
-                                                color: attColor,
-                                                minHeight: 6,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )),
-                                      DataCell(
-                                        _buildActionIcon(
-                                          icon: Icons.visibility_outlined,
-                                          tooltip: 'Lihat Profil',
-                                          color: const Color(0xff3b82f6),
-                                          onTap: () =>
-                                              _showStudentDetailDialog(student),
-                                        ),
-                                      ),
-                                    ]);
-                                  }).toList(),
-                                ),
+                  onChanged: (v) => setState(() => _selectedProgramFilter = v),
+                ),
+                _buildFilterDropdown<String?>(
+                  value: _selectedClassFilter,
+                  hint: 'Semua Kelas',
+                  items: [
+                    const DropdownMenuItem(
+                        value: null,
+                        child: Text('Semua Kelas',
+                            style: TextStyle(fontSize: 13))),
+                    ...classes.map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c, style: const TextStyle(fontSize: 13)))),
+                  ],
+                  onChanged: (v) => setState(() => _selectedClassFilter = v),
+                ),
+                _buildFilterDropdown<String?>(
+                  value: _selectedSemesterFilter,
+                  hint: 'Semua Semester',
+                  items: [
+                    const DropdownMenuItem(
+                        value: null,
+                        child: Text('Semua Semester',
+                            style: TextStyle(fontSize: 13))),
+                    ...semesters.map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text('Sem $s',
+                            style: const TextStyle(fontSize: 13)))),
+                  ],
+                  onChanged: (v) => setState(() => _selectedSemesterFilter = v),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('${students.length} pelajar dijumpai',
+              style: const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: students.isEmpty
+              ? const Center(child: Text('Tiada hasil carian.'))
+              : Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints:
+                                BoxConstraints(minWidth: constraints.maxWidth),
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(
+                                  const Color(0xfff8fafc)),
+                              headingTextStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xff475569),
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                              dataTextStyle: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xff0f172a),
+                              ),
+                              columnSpacing: 16,
+                              dataRowMinHeight: 56,
+                              dataRowMaxHeight: 56,
+                              columns: const [
+                                DataColumn(label: Text('ID')),
+                                DataColumn(label: Text('Nama')),
+                                DataColumn(label: Text('Emel')),
+                                DataColumn(label: Text('Telefon')),
+                                DataColumn(label: Text('Program')),
+                                DataColumn(label: Text('Seksyen')),
+                                DataColumn(label: Text('Sem'), numeric: true),
+                                DataColumn(label: Text('Status')),
+                                DataColumn(label: Text('Att %'), numeric: true),
+                                DataColumn(label: Text('Tindakan')),
+                              ],
+                              rows: students.map((student) {
+                                final bool isSafe = student.attendance >= 80;
+                                final Color attColor =
+                                    isSafe ? Colors.green : Colors.red;
+                                return DataRow(cells: [
+                                  DataCell(Text(
+                                    student.id,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xff64748b),
+                                        fontWeight: FontWeight.w500),
+                                  )),
+                                  DataCell(SizedBox(
+                                    width: 160,
+                                    child: Text(
+                                      student.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )),
+                                  DataCell(SizedBox(
+                                    width: 180,
+                                    child: Text(
+                                      student.email,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xff64748b)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )),
+                                  DataCell(Text(
+                                    student.phone,
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Color(0xff64748b)),
+                                  )),
+                                  DataCell(SizedBox(
+                                    width: 160,
+                                    child: Text(
+                                      student.program,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xff0f172a)),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )),
+                                  DataCell(Text(
+                                    student.section,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500),
+                                  )),
+                                  DataCell(Center(
+                                    child: Text(
+                                      '${student.semester}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  )),
+                                  DataCell(_buildStatusBadge(student.active)),
+                                  DataCell(SizedBox(
+                                    width: 80,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${student.attendance}%',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: attColor),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: student.attendance / 100.0,
+                                            backgroundColor:
+                                                const Color(0xffe2e8f0),
+                                            color: attColor,
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                                  DataCell(
+                                    _buildActionIcon(
+                                      icon: Icons.visibility_outlined,
+                                      tooltip: 'Lihat Profil',
+                                      color: const Color(0xff3b82f6),
+                                      onTap: () =>
+                                          _showStudentDetailDialog(student),
+                                    ),
+                                  ),
+                                ]);
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-            ),
-          ],
-        );
-      },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -2109,349 +2024,327 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
   // Tab 3: Lecturer Courses
   // ===========================================================================
   Widget _buildLecturerCoursesTab() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _service.getLecturerCoursesStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Ralat memuat data: ${snapshot.error}'));
-        }
-        final allAssignments = snapshot.data ?? [];
+    final state = AppScope.of(context);
+    if (state.isCollectionLoading('lecturerCourseAssignments') &&
+        state.lecturerCourseAssignments.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final allAssignments = state.lecturerCourseAssignments;
 
-        if (allAssignments.isEmpty) {
-          return const Center(
-            child: AppPanel(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('Tiada penugasan kursus pensyarah ditemui.'),
+    if (allAssignments.isEmpty) {
+      return const Center(
+        child: AppPanel(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text('Tiada penugasan kursus pensyarah ditemui.'),
+          ),
+        ),
+      );
+    }
+
+    // ── Group raw assignment docs by lecturerId ──────────────────────────
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final map in allAssignments) {
+      final lid = map['lecturerId']?.toString() ?? 'unknown';
+      grouped.putIfAbsent(lid, () => []).add(map);
+    }
+
+    final List<Map<String, dynamic>> lecturerRows = grouped.entries.map((e) {
+      final rows = e.value;
+      final first = rows.first;
+      final subjects = rows
+          .map((m) => m['subjectCode']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      final classes = rows
+          .map((m) => m['classId']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+
+      // Extract latest date from the assignment documents
+      final dates = rows
+          .map((m) => m['date']?.toString() ?? m['createdAt']?.toString() ?? '')
+          .where((d) => d.isNotEmpty)
+          .toList()
+        ..sort();
+      final latestDate = dates.isNotEmpty ? dates.last : '';
+
+      return {
+        'lecturerId': first['lecturerId'] ?? '-',
+        'lecturerName': first['lecturerName'] ?? '-',
+        'lecturerEmail': first['lecturerEmail'] ?? '-',
+        'programId': first['programId'] ?? '-',
+        'subjects': subjects,
+        'classes': classes,
+        'classesPerWeek': classes.length,
+        'appUser': first['appUser'],
+        // ✅ NEW: raw assignment id for undo cancel
+        'assignmentId':
+            first['id']?.toString() ?? first['lecturerId']?.toString() ?? '-',
+        // ✅ NEW: date field for display
+        'latestDate': latestDate,
+      };
+    }).toList()
+      ..sort((a, b) =>
+          a['lecturerName'].toString().compareTo(b['lecturerName'].toString()));
+
+    // ── Filter options ───────────────────────────────────────────────────
+    final programs = allAssignments
+        .map((m) => m['programId']?.toString() ?? '')
+        .where((p) => p.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final subjectOptions = allAssignments
+        .map((m) => m['subjectCode']?.toString() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final classOptions = allAssignments
+        .map((m) => m['classId']?.toString() ?? '')
+        .where((c) => c.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+
+    // ── Apply filters + search ───────────────────────────────────────────
+    final assignments = lecturerRows.where((row) {
+      final name = row['lecturerName'].toString().toLowerCase();
+      final email = row['lecturerEmail'].toString().toLowerCase();
+      final subjects =
+          (row['subjects'] as List<String>).join(' ').toLowerCase();
+      final prog = row['programId'].toString();
+      final matchesSearch = _lecturerSearchQuery.isEmpty ||
+          name.contains(_lecturerSearchQuery) ||
+          email.contains(_lecturerSearchQuery) ||
+          subjects.contains(_lecturerSearchQuery);
+      final matchesProg = _selectedDepartmentFilter == null ||
+          prog == _selectedDepartmentFilter;
+      final matchesSubject = _selectedSubjectFilter == null ||
+          (row['subjects'] as List<String>).contains(_selectedSubjectFilter);
+      final matchesClass = _selectedLecturerClassFilter == null ||
+          (row['classes'] as List<String>)
+              .contains(_selectedLecturerClassFilter);
+      return matchesSearch && matchesProg && matchesSubject && matchesClass;
+    }).toList();
+
+    return Column(
+      children: [
+        // ── Filter bar ─────────────────────────────────────────────────
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 340,
+              child: _buildSearchBar(
+                controller: _lecturerSearchController,
+                hint: 'Cari nama pensyarah atau emel...',
               ),
             ),
-          );
-        }
-
-        // ── Group raw assignment docs by lecturerId ──────────────────────────
-        final Map<String, List<Map<String, dynamic>>> grouped = {};
-        for (final map in allAssignments) {
-          final lid = map['lecturerId']?.toString() ?? 'unknown';
-          grouped.putIfAbsent(lid, () => []).add(map);
-        }
-
-        final List<Map<String, dynamic>> lecturerRows = grouped.entries
-            .map((e) {
-          final rows = e.value;
-          final first = rows.first;
-          final subjects = rows
-              .map((m) => m['subjectCode']?.toString() ?? '')
-              .where((s) => s.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-          final classes = rows
-              .map((m) => m['classId']?.toString() ?? '')
-              .where((c) => c.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
-
-          // Extract latest date from the assignment documents
-          final dates = rows
-              .map((m) =>
-                  m['date']?.toString() ?? m['createdAt']?.toString() ?? '')
-              .where((d) => d.isNotEmpty)
-              .toList()
-            ..sort();
-          final latestDate = dates.isNotEmpty ? dates.last : '';
-
-          return {
-            'lecturerId': first['lecturerId'] ?? '-',
-            'lecturerName': first['lecturerName'] ?? '-',
-            'lecturerEmail': first['lecturerEmail'] ?? '-',
-            'programId': first['programId'] ?? '-',
-            'subjects': subjects,
-            'classes': classes,
-            'classesPerWeek': classes.length,
-            'appUser': first['appUser'],
-            // ✅ NEW: raw assignment id for undo cancel
-            'assignmentId': first['id']?.toString() ??
-                first['lecturerId']?.toString() ??
-                '-',
-            // ✅ NEW: date field for display
-            'latestDate': latestDate,
-          };
-        }).toList()
-          ..sort((a, b) => a['lecturerName']
-              .toString()
-              .compareTo(b['lecturerName'].toString()));
-
-        // ── Filter options ───────────────────────────────────────────────────
-        final programs = allAssignments
-            .map((m) => m['programId']?.toString() ?? '')
-            .where((p) => p.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final subjectOptions = allAssignments
-            .map((m) => m['subjectCode']?.toString() ?? '')
-            .where((s) => s.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-        final classOptions = allAssignments
-            .map((m) => m['classId']?.toString() ?? '')
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-
-        // ── Apply filters + search ───────────────────────────────────────────
-        final assignments = lecturerRows.where((row) {
-          final name = row['lecturerName'].toString().toLowerCase();
-          final email = row['lecturerEmail'].toString().toLowerCase();
-          final subjects =
-              (row['subjects'] as List<String>).join(' ').toLowerCase();
-          final prog = row['programId'].toString();
-          final matchesSearch = _lecturerSearchQuery.isEmpty ||
-              name.contains(_lecturerSearchQuery) ||
-              email.contains(_lecturerSearchQuery) ||
-              subjects.contains(_lecturerSearchQuery);
-          final matchesProg = _selectedDepartmentFilter == null ||
-              prog == _selectedDepartmentFilter;
-          final matchesSubject = _selectedSubjectFilter == null ||
-              (row['subjects'] as List<String>)
-                  .contains(_selectedSubjectFilter);
-          final matchesClass = _selectedLecturerClassFilter == null ||
-              (row['classes'] as List<String>)
-                  .contains(_selectedLecturerClassFilter);
-          return matchesSearch && matchesProg && matchesSubject && matchesClass;
-        }).toList();
-
-        return Column(
-          children: [
-            // ── Filter bar ─────────────────────────────────────────────────
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 340,
-                  child: _buildSearchBar(
-                    controller: _lecturerSearchController,
-                    hint: 'Cari nama pensyarah atau emel...',
-                  ),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedDepartmentFilter,
-                  hint: 'Semua Program',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Program',
-                            style: TextStyle(fontSize: 13))),
-                    ...programs.map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(p, style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => _selectedDepartmentFilter = v),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedSubjectFilter,
-                  hint: 'Semua Subjek',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Subjek',
-                            style: TextStyle(fontSize: 13))),
-                    ...subjectOptions.map((s) => DropdownMenuItem(
-                        value: s,
-                        child: Text(s, style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (v) => setState(() => _selectedSubjectFilter = v),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedLecturerClassFilter,
-                  hint: 'Semua Kelas',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Kelas',
-                            style: TextStyle(fontSize: 13))),
-                    ...classOptions.map((c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(c, style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => _selectedLecturerClassFilter = v),
-                ),
+            _buildFilterDropdown<String?>(
+              value: _selectedDepartmentFilter,
+              hint: 'Semua Program',
+              items: [
+                const DropdownMenuItem(
+                    value: null,
+                    child:
+                        Text('Semua Program', style: TextStyle(fontSize: 13))),
+                ...programs.map((p) => DropdownMenuItem(
+                    value: p,
+                    child: Text(p, style: const TextStyle(fontSize: 13)))),
               ],
+              onChanged: (v) => setState(() => _selectedDepartmentFilter = v),
             ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('${assignments.length} pensyarah dijumpai',
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
+            _buildFilterDropdown<String?>(
+              value: _selectedSubjectFilter,
+              hint: 'Semua Subjek',
+              items: [
+                const DropdownMenuItem(
+                    value: null,
+                    child:
+                        Text('Semua Subjek', style: TextStyle(fontSize: 13))),
+                ...subjectOptions.map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(s, style: const TextStyle(fontSize: 13)))),
+              ],
+              onChanged: (v) => setState(() => _selectedSubjectFilter = v),
             ),
-            const SizedBox(height: 8),
-
-            // ── DataTable ──────────────────────────────────────────────────
-            Expanded(
-              child: assignments.isEmpty
-                  ? const Center(child: Text('Tiada hasil carian.'))
-                  : Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: LayoutBuilder(builder: (context, constraints) {
-                        return SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                  minWidth: constraints.maxWidth),
-                              child: DataTable(
-                                horizontalMargin: 16,
-                                headingRowColor: WidgetStateProperty.all(
-                                    const Color(0xfff8fafc)),
-                                headingTextStyle: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: Color(0xff475569)),
-                                dataTextStyle: const TextStyle(
-                                    fontSize: 12, color: Color(0xff0f172a)),
-                                columnSpacing: 16,
-                                dataRowMinHeight: 60,
-                                dataRowMaxHeight: 72,
-                                columns: const [
-                                  DataColumn(label: Text('Nama')),
-                                  DataColumn(label: Text('Emel')),
-                                  DataColumn(label: Text('Jabatan')),
-                                  DataColumn(label: Text('Subjek')),
-                                  DataColumn(label: Text('Seksyen')),
-                                  DataColumn(
-                                      label: Text('Kelas /\nMinggu'),
-                                      numeric: true),
-                                  DataColumn(label: Text('Tindakan')),
-                                ],
-                                rows: assignments.map((row) {
-                                  final subjects =
-                                      (row['subjects'] as List<String>)
-                                          .join(', ');
-                                  final classes =
-                                      (row['classes'] as List<String>)
-                                          .join(', ');
-                                  final lecturerEmail =
-                                      row['lecturerEmail'].toString();
-                                  final lecturerName =
-                                      row['lecturerName'].toString();
-                                  final assignmentId =
-                                      row['assignmentId'].toString();
-
-                                  // ✅ NEW: Check local cancelled state
-                                  final isCancelled = _cancelledAssignments
-                                      .contains(assignmentId);
-
-                                  return DataRow(
-                                    // ✅ NEW: Dim cancelled rows
-                                    color: isCancelled
-                                        ? WidgetStateProperty.all(
-                                            Colors.red.withValues(alpha: 0.04))
-                                        : null,
-                                    cells: [
-                                      // Nama
-                                      DataCell(SizedBox(
-                                          width: 180,
-                                          child: Text(lecturerName,
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
-                                                  // ✅ NEW: Strike-through when cancelled
-                                                  decoration: isCancelled
-                                                      ? TextDecoration
-                                                          .lineThrough
-                                                      : null,
-                                                  color: isCancelled
-                                                      ? const Color(0xff94a3b8)
-                                                      : const Color(
-                                                          0xff0f172a)),
-                                              maxLines: 2,
-                                              overflow:
-                                                  TextOverflow.ellipsis))),
-                                      // Emel
-                                      DataCell(Text(lecturerEmail,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: Color(0xff64748b)))),
-                                      // Jabatan badge
-                                      DataCell(_buildLecturerProgramBadge(
-                                          row['programId'].toString())),
-                                      // Subjek
-                                      DataCell(SizedBox(
-                                          width: 120,
-                                          child: Text(subjects,
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0xff475569))))),
-                                      // Seksyen
-                                      DataCell(SizedBox(
-                                          width: 150,
-                                          child: Text(classes,
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: Color(0xff475569))))),
-                                      // Kelas/Minggu badge
-                                      DataCell(Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xffe0f2fe),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                              '${row['classesPerWeek']}',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                  color: Color(0xff0369a1))),
-                                        ),
-                                      )),
-                                      // ✅ UPDATED: Tindakan — calendar + undo-cancel
-                                      DataCell(Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // Calendar icon → timetable dialog
-                                          _buildActionIcon(
-                                            icon: Icons.calendar_month,
-                                            tooltip: 'Papar Jadual Waktu',
-                                            color: const Color(0xff0b74de),
-                                            onTap: () =>
-                                                _showLecturerTimetableDialog(
-                                                    row),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                      )),
-                                    ],
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
+            _buildFilterDropdown<String?>(
+              value: _selectedLecturerClassFilter,
+              hint: 'Semua Kelas',
+              items: [
+                const DropdownMenuItem(
+                    value: null,
+                    child: Text('Semua Kelas', style: TextStyle(fontSize: 13))),
+                ...classOptions.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c, style: const TextStyle(fontSize: 13)))),
+              ],
+              onChanged: (v) =>
+                  setState(() => _selectedLecturerClassFilter = v),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('${assignments.length} pensyarah dijumpai',
+              style: const TextStyle(fontSize: 12, color: Color(0xff94a3b8))),
+        ),
+        const SizedBox(height: 8),
+
+        // ── DataTable ──────────────────────────────────────────────────
+        Expanded(
+          child: assignments.isEmpty
+              ? const Center(child: Text('Tiada hasil carian.'))
+              : Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints:
+                              BoxConstraints(minWidth: constraints.maxWidth),
+                          child: DataTable(
+                            horizontalMargin: 16,
+                            headingRowColor: WidgetStateProperty.all(
+                                const Color(0xfff8fafc)),
+                            headingTextStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: Color(0xff475569)),
+                            dataTextStyle: const TextStyle(
+                                fontSize: 12, color: Color(0xff0f172a)),
+                            columnSpacing: 16,
+                            dataRowMinHeight: 60,
+                            dataRowMaxHeight: 72,
+                            columns: const [
+                              DataColumn(label: Text('Nama')),
+                              DataColumn(label: Text('Emel')),
+                              DataColumn(label: Text('Jabatan')),
+                              DataColumn(label: Text('Subjek')),
+                              DataColumn(label: Text('Seksyen')),
+                              DataColumn(
+                                  label: Text('Kelas /\nMinggu'),
+                                  numeric: true),
+                              DataColumn(label: Text('Tindakan')),
+                            ],
+                            rows: assignments.map((row) {
+                              final subjects =
+                                  (row['subjects'] as List<String>).join(', ');
+                              final classes =
+                                  (row['classes'] as List<String>).join(', ');
+                              final lecturerEmail =
+                                  row['lecturerEmail'].toString();
+                              final lecturerName =
+                                  row['lecturerName'].toString();
+                              final assignmentId =
+                                  row['assignmentId'].toString();
+
+                              // ✅ NEW: Check local cancelled state
+                              final isCancelled =
+                                  _cancelledAssignments.contains(assignmentId);
+
+                              return DataRow(
+                                // ✅ NEW: Dim cancelled rows
+                                color: isCancelled
+                                    ? WidgetStateProperty.all(
+                                        Colors.red.withValues(alpha: 0.04))
+                                    : null,
+                                cells: [
+                                  // Nama
+                                  DataCell(SizedBox(
+                                      width: 180,
+                                      child: Text(lecturerName,
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                              // ✅ NEW: Strike-through when cancelled
+                                              decoration: isCancelled
+                                                  ? TextDecoration.lineThrough
+                                                  : null,
+                                              color: isCancelled
+                                                  ? const Color(0xff94a3b8)
+                                                  : const Color(0xff0f172a)),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis))),
+                                  // Emel
+                                  DataCell(Text(lecturerEmail,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xff64748b)))),
+                                  // Jabatan badge
+                                  DataCell(_buildLecturerProgramBadge(
+                                      row['programId'].toString())),
+                                  // Subjek
+                                  DataCell(SizedBox(
+                                      width: 120,
+                                      child: Text(subjects,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xff475569))))),
+                                  // Seksyen
+                                  DataCell(SizedBox(
+                                      width: 150,
+                                      child: Text(classes,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xff475569))))),
+                                  // Kelas/Minggu badge
+                                  DataCell(Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xffe0f2fe),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text('${row['classesPerWeek']}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: Color(0xff0369a1))),
+                                    ),
+                                  )),
+                                  // ✅ UPDATED: Tindakan — calendar + undo-cancel
+                                  DataCell(Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Calendar icon → timetable dialog
+                                      _buildActionIcon(
+                                        icon: Icons.calendar_month,
+                                        tooltip: 'Papar Jadual Waktu',
+                                        color: const Color(0xff0b74de),
+                                        onTap: () =>
+                                            _showLecturerTimetableDialog(row),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                  )),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+        ),
+      ],
     );
   }
 
@@ -2624,6 +2517,23 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
     return raw.length > 10 ? raw.substring(0, 10) : raw;
   }
 
+  List<TimetableSlot> _cachedLecturerSlots() {
+    final normalizedEmail = widget.lecturerEmail.trim().toLowerCase();
+    final slots = AppScope.of(context).timetable.where((slot) {
+      if (!slot.isOfficial) return false;
+      final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+      return slot.lecturerId == widget.lecturerId ||
+          (normalizedEmail.isNotEmpty && slotEmail == normalizedEmail);
+    }).toList();
+    slots.sort((a, b) {
+      final dayA = _dayOrder[a.dayOfWeek ?? a.day] ?? 99;
+      final dayB = _dayOrder[b.dayOfWeek ?? b.day] ?? 99;
+      if (dayA != dayB) return dayA.compareTo(dayB);
+      return a.startTime.compareTo(b.startTime);
+    });
+    return slots;
+  }
+
   // ✅ UPDATED: Undo-cancel with SnackBar action instead of confirmation dialog
   void _handleCancelSlot(TimetableSlot slot) {
     // 1. Immediately mark cancelled in local state
@@ -2762,35 +2672,14 @@ class _LecturerTimetableDialogState extends State<_LecturerTimetableDialog> {
 
               // ── Table ─────────────────────────────────────────────────────────
               Expanded(
-                child: StreamBuilder<List<TimetableSlot>>(
-                  stream: widget.service.getFilteredTimetableStream(
-                    AppUser(
-                      uid: widget.lecturerId,
-                      name: widget.lecturerName,
-                      email: widget.lecturerEmail,
-                      role: UserRole.pensyarah,
-                      isActive: true,
-                    ),
-                  ),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                child: Builder(
+                  builder: (context) {
+                    final state = AppScope.of(context);
+                    if (state.isCollectionLoading('timetable') &&
+                        state.timetable.isEmpty) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    if (snapshot.hasError) {
-                      return Center(
-                          child: Text('Ralat: ${snapshot.error}',
-                              style: const TextStyle(color: Colors.red)));
-                    }
-
-                    final allSlots = snapshot.data ?? [];
-
-                    // Sort by day order → start time
-                    final slots = [...allSlots]..sort((a, b) {
-                        final dayA = _dayOrder[a.dayOfWeek ?? a.day] ?? 99;
-                        final dayB = _dayOrder[b.dayOfWeek ?? b.day] ?? 99;
-                        if (dayA != dayB) return dayA.compareTo(dayB);
-                        return a.startTime.compareTo(b.startTime);
-                      });
+                    final slots = _cachedLecturerSlots();
 
                     if (slots.isEmpty) {
                       return const Center(

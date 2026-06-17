@@ -187,6 +187,11 @@ class FirestoreService {
     return snap.docs.map(_docToTimetableUpload).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getLecturerCourseAssignments() async {
+    final snap = await _db.collection('lecturer_course_assignments').get();
+    return snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+  }
+
   Stream<List<TimetableSlot>> timetableStream() {
     return _timetableCol.snapshots().map(
           (snap) => snap.docs.map(_docToSlot).toList(),

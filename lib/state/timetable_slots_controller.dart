@@ -31,6 +31,42 @@ class TimetableSlotsController {
     return service.getFilteredTimetableStream(currentUser);
   }
 
+  List<TimetableSlot> scopedSlots(List<TimetableSlot> slots) {
+    if (currentUser.role == UserRole.pentadbir) {
+      return slots.toList();
+    }
+    if (currentUser.role == UserRole.pensyarah) {
+      final userEmail = currentUser.email.trim().toLowerCase();
+      final userProfileId = currentUser.lecturerProfileId;
+      return slots.where((slot) {
+        if (!slot.isOfficial) return false;
+        final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+        if (slot.lecturerId == currentUser.uid) return true;
+        if (userEmail.isNotEmpty && slotEmail == userEmail) return true;
+        if (userProfileId != null &&
+            userProfileId.isNotEmpty &&
+            slot.lecturerProfileId == userProfileId) {
+          return true;
+        }
+        final hasStableIdentity = slot.lecturerId.isNotEmpty ||
+            (slotEmail != null && slotEmail.isNotEmpty) ||
+            (slot.lecturerProfileId != null &&
+                slot.lecturerProfileId!.isNotEmpty);
+        return !hasStableIdentity && slot.lecturerName == currentUser.name;
+      }).toList();
+    }
+    if (currentUser.role == UserRole.ketua_program) {
+      final program = currentUser.program;
+      if (program == null || program.isEmpty) return const [];
+      return slots
+          .where((slot) => (slot.programId ?? slot.program) == program)
+          .toList();
+    }
+    final department = currentUser.department;
+    if (department == null || department.isEmpty) return const [];
+    return slots.where((slot) => slot.departmentId == department).toList();
+  }
+
   bool get hideLecturerFilter => currentUser.role == UserRole.pensyarah;
   bool get hideProgramFilter =>
       currentUser.role == UserRole.ketua_program ||
@@ -50,8 +86,10 @@ class TimetableSlotsController {
   List<TimetableSlot> filterSlots(List<TimetableSlot> slots) {
     final query = searchQuery.trim().toLowerCase();
     return slots.where((slot) {
-      if (selectedAcademicSession != null && selectedAcademicSession!.isNotEmpty) {
-        final sessionValue = (slot.academicSessionId ?? slot.session).toLowerCase();
+      if (selectedAcademicSession != null &&
+          selectedAcademicSession!.isNotEmpty) {
+        final sessionValue =
+            (slot.academicSessionId ?? slot.session).toLowerCase();
         if (sessionValue != selectedAcademicSession!.toLowerCase()) {
           return false;
         }
@@ -74,7 +112,8 @@ class TimetableSlotsController {
       if (!hideLecturerFilter &&
           selectedLecturerId != null &&
           selectedLecturerId!.isNotEmpty) {
-        if (slot.lecturerId.toLowerCase() != selectedLecturerId!.toLowerCase()) {
+        if (slot.lecturerId.toLowerCase() !=
+            selectedLecturerId!.toLowerCase()) {
           return false;
         }
       }
@@ -96,7 +135,8 @@ class TimetableSlotsController {
       }
 
       if (selectedRoomId != null && selectedRoomId!.isNotEmpty) {
-        final roomId = (slot.roomId ?? slot.roomName ?? slot.room).toLowerCase();
+        final roomId =
+            (slot.roomId ?? slot.roomName ?? slot.room).toLowerCase();
         if (roomId != selectedRoomId!.toLowerCase()) {
           return false;
         }
@@ -148,20 +188,19 @@ class TimetableSlotsController {
 
   List<String> lecturerOptions(List<TimetableSlot> slots) {
     return uniqueValues(slots
-        .map((slot) => slot.lecturerId.isNotEmpty
-            ? '${slot.lecturerId}::${slot.lecturerName}'
-            : null)
-        .where((value) => value != null && value.isNotEmpty)
-        .cast<String>())
-      .map((composite) => composite.split('::').first)
-      .toList();
+            .map((slot) => slot.lecturerId.isNotEmpty
+                ? '${slot.lecturerId}::${slot.lecturerName}'
+                : null)
+            .where((value) => value != null && value.isNotEmpty)
+            .cast<String>())
+        .map((composite) => composite.split('::').first)
+        .toList();
   }
 
   List<String> subjectOptions(List<TimetableSlot> slots) {
     return uniqueValues(slots
-        .map((slot) => slot.subjectCode.isNotEmpty
-            ? slot.subjectCode
-            : slot.subjectName)
+        .map((slot) =>
+            slot.subjectCode.isNotEmpty ? slot.subjectCode : slot.subjectName)
         .where((value) => value.isNotEmpty)
         .cast<String>());
   }
@@ -175,11 +214,11 @@ class TimetableSlotsController {
 
   List<String> dayOfWeekOptions(List<TimetableSlot> slots) {
     return uniqueValues(slots
-        .map((slot) => _canonicalDay(slot.dayOfWeek ?? slot.day))
-        .where((value) => value.isNotEmpty)
-        .cast<String>())
-      .where((value) => _weekdayOrder.contains(value))
-      .toList();
+            .map((slot) => _canonicalDay(slot.dayOfWeek ?? slot.day))
+            .where((value) => value.isNotEmpty)
+            .cast<String>())
+        .where((value) => _weekdayOrder.contains(value))
+        .toList();
   }
 
   List<TimetableSlot> sortByStartTime(List<TimetableSlot> slots) {

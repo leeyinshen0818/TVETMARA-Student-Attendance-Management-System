@@ -542,17 +542,18 @@ void main() {
   });
 
   test('scoped clean CSV files pass for the correct Ketua users', () async {
-    final source = const _MockMasterDataSource();
+    const source = _MockMasterDataSource();
 
     final elektrik =
-        await TimetableMasterValidationService(source).preparePreview(
+        await const TimetableMasterValidationService(source).preparePreview(
       const TimetableImportService().parseAndValidate(
         File('demo_data/clean_no_conflict_timetable_ELEKTRIK_JAN_JUN_2026.csv')
             .readAsStringSync(),
       ),
       uploadScope: TimetableUploadScope.forUser(_kjElektrik, mock.programs),
     );
-    final dgs = await TimetableMasterValidationService(source).preparePreview(
+    final dgs =
+        await const TimetableMasterValidationService(source).preparePreview(
       const TimetableImportService().parseAndValidate(
         File('demo_data/clean_no_conflict_timetable_DGS_JAN_JUN_2026.csv')
             .readAsStringSync(),
@@ -583,8 +584,8 @@ void main() {
   });
 
   test('mixed legacy CSV fails scope validation for KJ Elektrik', () async {
-    final result = await TimetableMasterValidationService(
-      const _MockMasterDataSource(),
+    final result = await const TimetableMasterValidationService(
+      _MockMasterDataSource(),
     ).preparePreview(
       const TimetableImportService().parseAndValidate(
         File('demo_data/clean_no_conflict_timetable_JAN_JUN_2026.csv')

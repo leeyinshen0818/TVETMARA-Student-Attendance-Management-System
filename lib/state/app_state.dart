@@ -31,6 +31,7 @@ class AppState extends ChangeNotifier {
   List<AttendanceSession> attendanceSessions = [];
   List<DisciplineReport> disciplineReports = [];
   List<BookingRequest> bookings = [];
+  List<Map<String, dynamic>> lecturerCourseAssignments = [];
   final attendance = <String, List<AttendanceRecord>>{};
   final sessionAttendance = <String, List<AttendanceRecord>>{};
 
@@ -88,6 +89,12 @@ class AppState extends ChangeNotifier {
 
   bool get isTimetableDataLoaded =>
       _loadedCollections.containsAll(['timetable', 'uploads', 'rooms']);
+
+  bool get isLecturerCourseAssignmentsLoaded =>
+      _loadedCollections.contains('lecturerCourseAssignments');
+
+  bool get isAdminUserManagementDataLoaded => _loadedCollections.containsAll(
+      ['users', 'students', 'lecturerCourseAssignments', 'timetable']);
 
   bool get isBookingDataLoaded =>
       _loadedCollections.containsAll(['bookings', 'rooms', 'timetable']);
@@ -245,6 +252,18 @@ class AppState extends ChangeNotifier {
     ]);
   }
 
+  Future<void> loadAdminUserManagementDataIfNeeded({
+    bool forceRefresh = false,
+  }) async {
+    await loadBootstrapDataIfNeeded();
+    await Future.wait([
+      loadUsersIfNeeded(forceRefresh: forceRefresh),
+      loadStudentsIfNeeded(forceRefresh: forceRefresh),
+      loadLecturerCourseAssignmentsIfNeeded(forceRefresh: forceRefresh),
+      loadTimetableIfNeeded(forceRefresh: forceRefresh),
+    ]);
+  }
+
   Future<void> loadTimetableDataIfNeeded() async {
     await loadBootstrapDataIfNeeded();
     await Future.wait([
@@ -323,29 +342,56 @@ class AppState extends ChangeNotifier {
     await loadBookingsIfNeeded();
   }
 
-  Future<void> loadUsersIfNeeded() =>
-      _loadCollection('users', () async => users = await _fs.getUsers());
+  Future<void> loadUsersIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection('users', () async => users = await _fs.getUsers(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadStudentsIfNeeded() => _loadCollection(
-      'students', () async => students = await _fs.getStudents());
+  Future<void> loadStudentsIfNeeded(
+          {bool forceRefresh = false}) =>
+      _loadCollection(
+          'students', () async => students = await _fs.getStudents(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadLecturersIfNeeded() => _loadCollection(
-      'lecturers', () async => lecturers = await _fs.getLecturers());
+  Future<void> loadLecturersIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection(
+          'lecturers', () async => lecturers = await _fs.getLecturers(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadRoomsIfNeeded() => _loadCollection(
-      'rooms', () async => roomResources = await _fs.getRoomResources());
+  Future<void> loadRoomsIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection(
+          'rooms', () async => roomResources = await _fs.getRoomResources(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadTimetableIfNeeded() => _loadCollection(
-      'timetable', () async => timetable = await _fs.getTimetableSlots());
+  Future<void> loadTimetableIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection(
+          'timetable', () async => timetable = await _fs.getTimetableSlots(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadTimetableUploadsIfNeeded() => _loadCollection('uploads',
-      () async => timetableUploads = await _fs.getTimetableUploads());
+  Future<void> loadTimetableUploadsIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection('uploads',
+          () async => timetableUploads = await _fs.getTimetableUploads(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadDisciplineIfNeeded() => _loadCollection('discipline',
-      () async => disciplineReports = await _fs.getDisciplineReports());
+  Future<void> loadDisciplineIfNeeded({bool forceRefresh = false}) =>
+      _loadCollection('discipline',
+          () async => disciplineReports = await _fs.getDisciplineReports(),
+          forceRefresh: forceRefresh);
 
-  Future<void> loadBookingsIfNeeded() => _loadCollection(
-      'bookings', () async => bookings = await _fs.getBookings());
+  Future<void> loadBookingsIfNeeded(
+          {bool forceRefresh = false}) =>
+      _loadCollection(
+          'bookings', () async => bookings = await _fs.getBookings(),
+          forceRefresh: forceRefresh);
+
+  Future<void> loadLecturerCourseAssignmentsIfNeeded({
+    bool forceRefresh = false,
+  }) =>
+      _loadCollection(
+        'lecturerCourseAssignments',
+        () async => lecturerCourseAssignments =
+            await _fs.getLecturerCourseAssignments(),
+        forceRefresh: forceRefresh,
+      );
 
   Future<void> loadLegacyAttendanceIfNeeded() =>
       _loadCollection('attendance', () async {
@@ -374,8 +420,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> _loadCollection(
     String key,
-    Future<void> Function() loader,
-  ) {
+    Future<void> Function() loader, {
+    bool forceRefresh = false,
+  }) {
+    if (forceRefresh) _loadedCollections.remove(key);
     if (_loadedCollections.contains(key)) return Future.value();
     final pending = _pendingLoads[key];
     if (pending != null) return pending;
@@ -400,6 +448,10 @@ class AppState extends ChangeNotifier {
     return future;
   }
 
+  void markCollectionStale(String key) {
+    _loadedCollections.remove(key);
+  }
+
   void clearDataCache() {
     users = [];
     students = [];
@@ -410,6 +462,7 @@ class AppState extends ChangeNotifier {
     attendanceSessions = [];
     disciplineReports = [];
     bookings = [];
+    lecturerCourseAssignments = [];
     attendance.clear();
     sessionAttendance.clear();
     programs = [];
@@ -1038,7 +1091,9 @@ class AppState extends ChangeNotifier {
                   slot.section == booking.section &&
                   slot.lecturerId == booking.lecturerId)
               .firstOrNull ??
-          timetable.where((slot) => slot.section == booking.section).firstOrNull;
+          timetable
+              .where((slot) => slot.section == booking.section)
+              .firstOrNull;
 
       // Best-effort: fills lecturerEmail / lecturerProfileId from the user
       // record even when no matching source slot was found. Falls back

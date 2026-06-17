@@ -49,37 +49,30 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              PageHeader(
+              const PageHeader(
                 title: 'Papar Slot Jadual',
                 subtitle:
                     'Tapis slot mengikut sesi akademik, program, kelas, pensyarah, subjek dan ruang.',
-                trailing: const StatusChip('M5: Paparan Slot'),
+                trailing: StatusChip('M5: Paparan Slot'),
               ),
-              StreamBuilder<List<TimetableSlot>>(
-                stream: _controller.slotsStream,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 28),
-                      child: Text(
-                        'Ralat memuatkan slot jadual: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    );
-                  }
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+              Builder(
+                builder: (context) {
+                  final state = AppScope.of(context);
+                  if (state.isCollectionLoading('timetable') &&
+                      state.timetable.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.symmetric(vertical: 36),
                       child: Center(child: CircularProgressIndicator()),
                     );
                   }
 
-                  final slots = snapshot.data ?? const [];
-                  
+                  final slots = _controller.scopedSlots(state.timetable);
+
                   // Use the controller mapping operations to load individual item filter parameters
                   final filteredSlots = _controller.filterSlots(slots);
                   final programmeOptions = _controller.programmeOptions(slots);
-                  final sessionOptions = _controller.academicSessionOptions(slots);
+                  final sessionOptions =
+                      _controller.academicSessionOptions(slots);
                   final classOptions = _controller.classOptions(slots);
                   final lecturerOptions = _controller.lecturerOptions(slots);
                   final subjectOptions = _controller.subjectOptions(slots);
@@ -176,33 +169,38 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
                   label: 'Sesi Akademik',
                   value: _controller.selectedAcademicSession,
                   items: sessionOptions,
-                  onChanged: (val) => setState(() => _controller.selectedAcademicSession = val),
+                  onChanged: (val) =>
+                      setState(() => _controller.selectedAcademicSession = val),
                 ),
                 if (!_controller.hideProgramFilter)
                   _buildDropdown<String>(
                     label: 'Program',
                     value: _controller.selectedProgramId,
                     items: programmeOptions,
-                    onChanged: (val) => setState(() => _controller.selectedProgramId = val),
+                    onChanged: (val) =>
+                        setState(() => _controller.selectedProgramId = val),
                   ),
                 _buildDropdown<String>(
                   label: 'Kelas / Seksyen',
                   value: _controller.selectedClassId,
                   items: classOptions,
-                  onChanged: (val) => setState(() => _controller.selectedClassId = val),
+                  onChanged: (val) =>
+                      setState(() => _controller.selectedClassId = val),
                 ),
                 if (!_controller.hideLecturerFilter)
                   _buildDropdown<String>(
                     label: 'Pensyarah',
                     value: _controller.selectedLecturerId,
                     items: lecturerOptions,
-                    onChanged: (val) => setState(() => _controller.selectedLecturerId = val),
+                    onChanged: (val) =>
+                        setState(() => _controller.selectedLecturerId = val),
                   ),
                 _buildDropdown<String>(
                   label: 'Hari',
                   value: _controller.selectedDayOfWeek,
                   items: dayOptions,
-                  onChanged: (val) => setState(() => _controller.selectedDayOfWeek = val),
+                  onChanged: (val) =>
+                      setState(() => _controller.selectedDayOfWeek = val),
                 ),
               ],
             ),
@@ -233,10 +231,11 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<T?>(
-            value: value,
+            initialValue: value,
             isExpanded: true,
             decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             hint: Text('Semua $label'),
             items: [
@@ -353,7 +352,8 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 6),
-                Text('Hari: ${_controller.normalizedDayLabel(slot.day)} | Masa: ${slot.startTime} - ${slot.endTime}'),
+                Text(
+                    'Hari: ${_controller.normalizedDayLabel(slot.day)} | Masa: ${slot.startTime} - ${slot.endTime}'),
                 Text('Kelas: ${slot.section} | Ruang: ${slot.room}'),
                 Text('Pensyarah: ${slot.lecturerName}'),
               ],
@@ -368,7 +368,7 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
 
   Widget _buildWeeklyGridView(BuildContext context, List<TimetableSlot> slots) {
     final days = _controller.uniqueValues(slots.map((s) => s.day));
-    
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -421,7 +421,8 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: const Color(0xffeff6ff),
                                 borderRadius: BorderRadius.circular(4),
@@ -460,24 +461,28 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
                         const Spacer(),
                         Row(
                           children: [
-                            const Icon(Icons.schedule, size: 14, color: Color(0xff64748b)),
+                            const Icon(Icons.schedule,
+                                size: 14, color: Color(0xff64748b)),
                             const SizedBox(width: 4),
                             Text(
                               '${slot.startTime} - ${slot.endTime}',
-                              style: const TextStyle(fontSize: 11, color: Color(0xff64748b)),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xff64748b)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.room, size: 14, color: Color(0xff64748b)),
+                            const Icon(Icons.room,
+                                size: 14, color: Color(0xff64748b)),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 slot.room,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11, color: Color(0xff64748b)),
+                                style: const TextStyle(
+                                    fontSize: 11, color: Color(0xff64748b)),
                               ),
                             ),
                           ],
@@ -499,7 +504,8 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           title: Row(
             children: [
               const Icon(Icons.calendar_today, color: Color(0xff2563eb)),
@@ -517,8 +523,10 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
                 _buildDetailRow('Sesi Akademik', slot.session),
                 _buildDetailRow('Program ID', slot.programId ?? '-'),
                 _buildDetailRow('Kelas / Seksyen', slot.section),
-                _buildDetailRow('Hari Kuliah', _controller.normalizedDayLabel(slot.day)),
-                _buildDetailRow('Masa Slot', '${slot.startTime} - ${slot.endTime}'),
+                _buildDetailRow(
+                    'Hari Kuliah', _controller.normalizedDayLabel(slot.day)),
+                _buildDetailRow(
+                    'Masa Slot', '${slot.startTime} - ${slot.endTime}'),
                 _buildDetailRow('Ruang / Bilik', slot.room),
                 _buildDetailRow('Pensyarah', slot.lecturerName),
               ],

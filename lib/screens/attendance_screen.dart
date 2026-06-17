@@ -323,24 +323,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         .firstOrNull;
   }
 
-  Future<void> _pickSessionDate(AppState state, TimetableSlot slot) async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate:
-          DateTime.tryParse(sessionDate ?? slot.date) ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
-    if (selected == null) return;
-    setState(() {
-      sessionDate = _dateText(selected);
-      weekNo = _weekNoForDate(state, sessionDate);
-      _manualSlotOverride = true;
-      _autoSelectionReason = 'Pilihan manual';
-      loadedSessionKey = null;
-    });
-  }
-
   Future<void> _showChangeSessionDialog({
     required AppState state,
     required List<TimetableSlot> slots,
@@ -490,6 +472,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     required bool isEditingSubmitted,
   }) async {
     final resolvedSessionDate = sessionDate ?? slot.date;
+    final messenger = ScaffoldMessenger.of(context);
     String? editReason;
     if (isEditingSubmitted) {
       final changes = _attendanceChangesFor(
@@ -499,7 +482,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         weekNo,
       );
       if (changes.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        messenger.showSnackBar(const SnackBar(
           content: Text('Tiada perubahan status untuk disimpan.'),
         ));
         return;
@@ -526,7 +509,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           weekNo: weekNo,
         );
       }
-      if (!context.mounted) return;
+      if (!mounted) return;
       setState(() {
         _manualSlotOverride = true;
         _autoSelectionReason = isEditingSubmitted
@@ -534,14 +517,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             : 'Kehadiran telah dihantar';
         loadedSessionKey = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      messenger.showSnackBar(SnackBar(
         content: Text(isEditingSubmitted
             ? 'Pembetulan kehadiran telah disimpan.'
             : 'Kehadiran telah dihantar.'),
       ));
     } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
         content: Text(isEditingSubmitted
             ? error.toString().replaceFirst('Bad state: ', '')
             : 'Kehadiran untuk slot, tarikh dan minggu ini sudah wujud.'),
@@ -1135,7 +1118,6 @@ class _AttendanceStatusSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(value);
     final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
       height: mobile ? 40 : 36,
@@ -1304,7 +1286,6 @@ class _AttendanceSummaryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -1514,62 +1495,6 @@ class _InfoPill extends StatelessWidget {
             style: TextStyle(
               color: tinted ? tone : const Color(0xff1e3a8a),
               fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReadOnlySessionField extends StatelessWidget {
-  const _ReadOnlySessionField({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 190,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xfff8fafc),
-        border: Border.all(color: const Color(0xffcbd5e1)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: const Color(0xff64748b)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xff64748b),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xff0f172a),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
             ),
           ),
         ],

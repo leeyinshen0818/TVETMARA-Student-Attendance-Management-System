@@ -2785,8 +2785,8 @@ class _MobileTimetableSlotList extends StatelessWidget {
                 '${_slotClassValue(slot)} - ${slot.day} ${slot.startTime}-${slot.endTime}',
             chips: [
               StatusChip(_statusLabel(slot.status)),
-              if (_isDraftSlot(slot)) StatusChip('Draf'),
-              if (slot.hasConflict) StatusChip('Konflik'),
+              if (_isDraftSlot(slot)) const StatusChip('Draf'),
+              if (slot.hasConflict) const StatusChip('Konflik'),
             ],
             metadata: [
               MobileMetaPill(
@@ -4009,7 +4009,9 @@ class _MiniTimetableSlotCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: active ? AppColors.surface : AppColors.surfaceTint,
             border: Border.all(
-              color: active ? AppColors.border : AppColors.muted.withValues(alpha: .35),
+              color: active
+                  ? AppColors.border
+                  : AppColors.muted.withValues(alpha: .35),
             ),
             borderRadius: BorderRadius.circular(mobile ? 12 : 8),
           ),

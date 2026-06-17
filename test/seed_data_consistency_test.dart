@@ -136,14 +136,13 @@ void _expectCleanTimetableCsv({
     final draft = row.draft!;
     expect(allowedPrograms, contains(draft.programId), reason: path);
     expect(draft.programId, matches(RegExp(r'^[A-Z]{3}$')),
-        reason: '${path}: ${draft.programId}');
+        reason: '$path: ${draft.programId}');
     expect(lecturerEmails, contains(draft.lecturerEmail),
-        reason: '${path}: ${draft.lecturerEmail}');
-    expect(rooms, contains(draft.roomId), reason: '${path}: ${draft.roomId}');
-    expect(classes, contains(draft.classId),
-        reason: '${path}: ${draft.classId}');
+        reason: '$path: ${draft.lecturerEmail}');
+    expect(rooms, contains(draft.roomId), reason: '$path: ${draft.roomId}');
+    expect(classes, contains(draft.classId), reason: '$path: ${draft.classId}');
     expect(classes[draft.classId]!.programId, draft.programId,
-        reason: '${path}: ${draft.classId}');
+        reason: '$path: ${draft.classId}');
 
     final scheduleKey = [
       draft.academicSessionId,

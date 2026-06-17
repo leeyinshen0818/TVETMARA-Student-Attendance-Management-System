@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
+import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
@@ -178,14 +179,14 @@ class _NewRequestTabState extends State<_NewRequestTab> {
   }
 
   // PATCH 2: fallback to program slots when Pensyarah has no personal slots
-  List<TimetableSlot> _getSlots(dynamic state, dynamic user) {
-    final personal = state.scopedTimetable as List<TimetableSlot>;
+  List<TimetableSlot> _getSlots(AppState state, AppUser user) {
+    final personal = state.scopedTimetable;
     if (personal.isNotEmpty) return personal;
-    final code = user.programId as String?;
+    final code = user.programId;
     if (code == null || code.isEmpty) {
-      return state.timetable as List<TimetableSlot>;
+      return state.timetable;
     }
-    return (state.timetable as List<TimetableSlot>).where((s) {
+    return state.timetable.where((s) {
       if (s.programId == code) return true;
       final prefix = s.section.trim().split(RegExp(r'\s+')).firstOrNull ?? '';
       return prefix == code;
@@ -369,7 +370,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionLabel('Kelas Asal'),
+                  const _SectionLabel('Kelas Asal'),
                   const SizedBox(height: 8),
                   if (slots.isEmpty)
                     const Text(
@@ -378,7 +379,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                     )
                   else
                     DropdownButtonFormField<String>(
-                      value: _selectedSlotId,
+                      initialValue: _selectedSlotId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                           labelText: 'Pilih Kelas / Slot'),
@@ -397,7 +398,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       validator: (v) => v == null ? 'Sila pilih kelas.' : null,
                     ),
                   const SizedBox(height: 20),
-                  _SectionLabel('Tarikh & Masa Ganti'),
+                  const _SectionLabel('Tarikh & Masa Ganti'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
@@ -458,7 +459,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _SectionLabel('Pilihan Bilik'),
+                  const _SectionLabel('Pilihan Bilik'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
@@ -467,7 +468,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       SizedBox(
                         width: 160,
                         child: DropdownButtonFormField<String>(
-                          value: _block,
+                          initialValue: _block,
                           isExpanded: true,
                           decoration: const InputDecoration(labelText: 'Blok'),
                           items: blocks
@@ -484,9 +485,10 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                         SizedBox(
                           width: 300,
                           child: DropdownButtonFormField<String>(
-                            value: filteredRooms.any((r) => r.name == _room)
-                                ? _room
-                                : null,
+                            initialValue:
+                                filteredRooms.any((r) => r.name == _room)
+                                    ? _room
+                                    : null,
                             isExpanded: true,
                             decoration:
                                 const InputDecoration(labelText: 'Bilik'),
@@ -524,10 +526,10 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                     ],
                   ),
                   if (canCheck && !available)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10),
                       child: Row(
-                        children: const [
+                        children: [
                           Icon(Icons.warning_amber_rounded,
                               color: Colors.orange, size: 18),
                           SizedBox(width: 6),
@@ -540,7 +542,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       ),
                     ),
                   const SizedBox(height: 20),
-                  _SectionLabel('Sebab & Catatan'),
+                  const _SectionLabel('Sebab & Catatan'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
@@ -549,7 +551,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                       SizedBox(
                         width: 260,
                         child: DropdownButtonFormField<String>(
-                          value: _reason,
+                          initialValue: _reason,
                           isExpanded: true,
                           decoration: const InputDecoration(labelText: 'Sebab'),
                           items: _reasons
@@ -635,7 +637,7 @@ class _ApproverActionTab extends StatelessWidget {
       child: Column(
         children: [
           if (pending.isEmpty)
-            AppPanel(
+            const AppPanel(
               child: _EmptyState(
                 icon: Icons.check_circle_outline,
                 message: 'Tiada permohonan menunggu kelulusan.',
@@ -708,7 +710,7 @@ class _AllBookingsTab extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (filtered.isEmpty)
-            AppPanel(
+            const AppPanel(
               child: _EmptyState(
                 icon: Icons.inbox_outlined,
                 message: 'Tiada rekod ditemui.',
@@ -882,9 +884,9 @@ class _BookingApprovalCard extends StatelessWidget {
                           const Icon(Icons.verified_user_outlined,
                               size: 13, color: Color(0xff64748b)),
                           const SizedBox(width: 4),
-                          Text(
+                          const Text(
                             'Disemak oleh \${booking.reviewedByName ?? booking.reviewedBy}',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 11, color: Color(0xff64748b)),
                           ),
                           if (booking.rejectionReason != null &&
@@ -892,10 +894,10 @@ class _BookingApprovalCard extends StatelessWidget {
                             const Text('  ·  ',
                                 style: TextStyle(
                                     fontSize: 11, color: Color(0xff64748b))),
-                            Expanded(
+                            const Expanded(
                               child: Text(
                                 'Sebab: \${booking.rejectionReason}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 11, color: AppColors.danger),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -988,8 +990,9 @@ class BookingDetailsDialog extends StatelessWidget {
 
     // Booking conflict helper: collect all overlapping items for this room+date
     // We use isRoomAvailable per-slot to identify conflicts without accessing private methods
-    final allSlotsOnDate = (state.timetable as List<TimetableSlot>)
-        .where((s) => s.room == booking.room && s.date == booking.replacementDate)
+    final allSlotsOnDate = state.timetable
+        .where(
+            (s) => s.room == booking.room && s.date == booking.replacementDate)
         .toList();
     final conflictSlots = allSlotsOnDate.where((s) {
       // A slot conflicts if checking availability without it would still pass,
@@ -1002,19 +1005,17 @@ class BookingDetailsDialog extends StatelessWidget {
       return aS.compareTo(bE) < 0 && bS.compareTo(aE) < 0;
     }).toList();
 
-    final conflictBookings = (state.bookings as List<BookingRequest>)
-        .where((b) {
-          if (b.id == booking.id) return false;
-          if (b.room != booking.room) return false;
-          if (b.replacementDate != booking.replacementDate) return false;
-          if (b.status != 'Approved') return false;
-          final aS = booking.replacementStart;
-          final aE = booking.replacementEnd;
-          final bS = b.replacementStart;
-          final bE = b.replacementEnd;
-          return aS.compareTo(bE) < 0 && bS.compareTo(aE) < 0;
-        })
-        .toList();
+    final conflictBookings = state.bookings.where((b) {
+      if (b.id == booking.id) return false;
+      if (b.room != booking.room) return false;
+      if (b.replacementDate != booking.replacementDate) return false;
+      if (b.status != 'Approved') return false;
+      final aS = booking.replacementStart;
+      final aE = booking.replacementEnd;
+      final bS = b.replacementStart;
+      final bE = b.replacementEnd;
+      return aS.compareTo(bE) < 0 && bS.compareTo(aE) < 0;
+    }).toList();
 
     final statusLabel = switch (booking.status) {
       'Pending' => 'Menunggu Kelulusan',
@@ -1071,8 +1072,7 @@ class BookingDetailsDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Status banner
-                      _StatusBanner(
-                          label: statusLabel, color: statusColor),
+                      _StatusBanner(label: statusLabel, color: statusColor),
                       const SizedBox(height: 16),
 
                       // Section: Pemohon
@@ -1149,15 +1149,15 @@ class BookingDetailsDialog extends StatelessWidget {
                           title: 'Maklumat Semakan',
                           icon: Icons.verified_user_outlined,
                           rows: [
-                            _Row('Disemak Oleh',
+                            _Row(
+                                'Disemak Oleh',
                                 booking.reviewedByName ??
                                     booking.reviewedBy ??
                                     '-'),
                             if (booking.reviewedAt != null)
                               _Row('Tarikh Semakan', booking.reviewedAt!),
                             if (booking.rejectionReason != null)
-                              _Row('Sebab Penolakan',
-                                  booking.rejectionReason!),
+                              _Row('Sebab Penolakan', booking.rejectionReason!),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -1174,7 +1174,8 @@ class BookingDetailsDialog extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   if (showActions) ...[
-                    _ApproveRejectButtons(bookingId: booking.id,
+                    _ApproveRejectButtons(
+                        bookingId: booking.id,
                         onDone: () => Navigator.of(context).pop()),
                     const SizedBox(width: 8),
                   ],
@@ -1449,8 +1450,7 @@ class _ApproveRejectButtons extends StatelessWidget {
             child: const Text('Batal'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.danger),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () {
               if (formKey.currentState?.validate() ?? false) {
                 Navigator.pop(ctx, ctrl.text.trim());

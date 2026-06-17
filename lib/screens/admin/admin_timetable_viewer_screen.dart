@@ -120,9 +120,8 @@ class _AdminTimetableViewerScreenState
     final programLabel = slot.program.isNotEmpty
         ? slot.program
         : slot.programId ?? 'Tidak Diketahui';
-    final classLabel = slot.section.isNotEmpty
-        ? slot.section
-        : slot.classId ?? '—';
+    final classLabel =
+        slot.section.isNotEmpty ? slot.section : slot.classId ?? '—';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -182,7 +181,8 @@ class _AdminTimetableViewerScreenState
                 const SizedBox(width: 6),
                 Text(
                   '${slot.startTime} - ${slot.endTime}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xff475569)),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xff475569)),
                 ),
               ],
             ),
@@ -255,8 +255,7 @@ class _AdminTimetableViewerScreenState
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xffe2e8f0)),
               ),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
               child: const Center(
                 child: Text(
                   'Tiada slot untuk hari ini.',
@@ -315,8 +314,7 @@ class _AdminTimetableViewerScreenState
                   StreamBuilder<List<AppUser>>(
                     stream: _service.getUsersStream(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
                         return Expanded(
                           child: Container(
                             height: 56,
@@ -324,7 +322,8 @@ class _AdminTimetableViewerScreenState
                             decoration: BoxDecoration(
                               color: const Color(0xfff8fafc),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xffd1d5db)),
+                              border:
+                                  Border.all(color: const Color(0xffd1d5db)),
                             ),
                             child: const Text(
                               'Memuatkan nama pengguna...',
@@ -344,9 +343,10 @@ class _AdminTimetableViewerScreenState
 
                       // FIX 2: Safeguard against the value assertion error.
                       // If the selected lecturer is not part of the newly loaded list, reset it to null.
-                      final currentSelectionExists = candidates.any(
-                          (user) => user.uid == _selectedLecturer?.uid);
-                      final validSelection = currentSelectionExists ? _selectedLecturer : null;
+                      final currentSelectionExists = candidates
+                          .any((user) => user.uid == _selectedLecturer?.uid);
+                      final validSelection =
+                          currentSelectionExists ? _selectedLecturer : null;
 
                       return _buildFilterDropdown<AppUser>(
                         value: validSelection,
@@ -373,15 +373,15 @@ class _AdminTimetableViewerScreenState
               Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xffe2e8f0),
-                      borderRadius: BorderRadius.circular(10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: const BoxDecoration(
+                      color: Color(0xffe2e8f0),
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Sesi Akademik: $_academicSessionId',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         color: Color(0xff334155),
                         fontWeight: FontWeight.w600,
@@ -414,10 +414,10 @@ class _AdminTimetableViewerScreenState
               const SizedBox(height: 18),
               Expanded(
                 child: _selectedLecturer == null
-                    ? Center(
+                    ? const Center(
                         child: Text(
                           'Pilih peranan dan nama pengguna untuk memulakan.',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             color: Color(0xff64748b),
                           ),
@@ -459,7 +459,8 @@ class _AdminTimetableViewerScreenState
 
                           final grouped = <String, List<TimetableSlot>>{};
                           for (final slot in slots) {
-                            final day = _normalizeDayLabel(slot.dayOfWeek ?? slot.day);
+                            final day =
+                                _normalizeDayLabel(slot.dayOfWeek ?? slot.day);
                             grouped.putIfAbsent(day, () => []).add(slot);
                           }
 

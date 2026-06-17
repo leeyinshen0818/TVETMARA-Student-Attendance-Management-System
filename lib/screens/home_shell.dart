@@ -87,7 +87,7 @@ class _HomeShellState extends State<HomeShell> {
               });
             },
           ),
-          dataScope: _DataScope.none, // uses its own Firestore stream
+          dataScope: _DataScope.timetable,
         ),
 
       if (isKetuaProgram && !isKetuaProgramWithoutKj)
@@ -142,8 +142,7 @@ class _HomeShellState extends State<HomeShell> {
           'Pengurusan Pengguna',
           Icons.manage_accounts_outlined,
           AdminUserManagementScreen(),
-          dataScope:
-              _DataScope.none, // Since it uses internal Firestore streams
+          dataScope: _DataScope.adminManagement,
         ),
     ];
     if (index >= items.length) index = 0;
@@ -304,6 +303,8 @@ class _HomeShellState extends State<HomeShell> {
           _DataScope.booking => state.loadBookingDataIfNeeded(),
           _DataScope.discipline => state.loadDisciplineDataIfNeeded(),
           _DataScope.records => state.loadStudentRecordDataIfNeeded(),
+          _DataScope.adminManagement =>
+            state.loadAdminUserManagementDataIfNeeded(),
           _DataScope.none => Future<void>.value(),
         }).catchError((_) {});
   }
@@ -322,6 +323,11 @@ class _HomeShellState extends State<HomeShell> {
           state.isCollectionLoading('discipline'),
       _DataScope.records => !state.isStudentRecordDataLoaded &&
           state.isCollectionLoading('students'),
+      _DataScope.adminManagement => !state.isAdminUserManagementDataLoaded &&
+          (state.isCollectionLoading('users') ||
+              state.isCollectionLoading('students') ||
+              state.isCollectionLoading('lecturerCourseAssignments') ||
+              state.isCollectionLoading('timetable')),
       _DataScope.none => false,
     };
   }
@@ -443,9 +449,6 @@ class _MobileHomeShell extends StatelessWidget {
         items.where((item) => !primaryItems.contains(item)).toList();
     final hasMoreMenu = moreItems.isNotEmpty;
     final selectedPrimaryIndex = primaryIndexes.indexOf(activeIndex);
-    final navIndex = selectedPrimaryIndex == -1
-        ? (hasMoreMenu ? primaryItems.length : 0)
-        : selectedPrimaryIndex;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -483,48 +486,21 @@ class _MobileHomeShell extends StatelessWidget {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: const Border(top: BorderSide(color: AppColors.border)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryDark.withValues(alpha: .08),
-                blurRadius: 22,
-                offset: const Offset(0, -8),
-              ),
-            ],
-          ),
-          child: NavigationBar(
-            height: 72,
-            selectedIndex: navIndex,
-            backgroundColor: AppColors.surface,
-            indicatorColor: AppColors.primary.withValues(alpha: .12),
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            onDestinationSelected: (value) {
-              if (value < primaryIndexes.length) {
-                onSelectIndex(primaryIndexes[value]);
-                return;
-              }
-              if (hasMoreMenu) {
-                _showMobileMoreSheet(context, moreItems);
-              }
-            },
-            destinations: [
-              for (final item in primaryItems)
-                NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.icon),
-                  label: _mobileNavLabel(item.label),
-                ),
-              if (hasMoreMenu)
-                const NavigationDestination(
-                  icon: Icon(Icons.grid_view_outlined),
-                  selectedIcon: Icon(Icons.grid_view_rounded),
-                  label: 'Menu',
-                ),
-            ],
-          ),
+        child: _MobileBottomNav(
+          primaryItems: primaryItems,
+          primaryIndexes: primaryIndexes,
+          activeIndex: activeIndex,
+          hasMoreMenu: hasMoreMenu,
+          menuActive: selectedPrimaryIndex == -1 && hasMoreMenu,
+          labelFor: _mobileNavLabel,
+          onSelectIndex: onSelectIndex,
+          onMenuPressed: hasMoreMenu
+              ? () => _showMobileMoreSheet(
+                    context,
+                    moreItems,
+                    activeIndex: activeIndex,
+                  )
+              : null,
         ),
       ),
     );
@@ -590,39 +566,150 @@ class _MobileHomeShell extends StatelessWidget {
     };
   }
 
-  void _showMobileMoreSheet(BuildContext context, List<_NavItem> moreItems) {
+  void _showMobileMoreSheet(
+    BuildContext context,
+    List<_NavItem> moreItems, {
+    required int activeIndex,
+  }) {
+    final visibleItems = moreItems.toSet().toList();
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return MobileBottomSheet(
-          title: 'Menu',
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final item in moreItems)
-                MobileListTile(
-                  icon: item.icon,
-                  title: item.label,
-                  onTap: () {
-                    Navigator.pop(context);
-                    final target = items.indexOf(item);
-                    if (target != -1) onSelectIndex(target);
-                  },
-                ),
-              MobileListTile(
-                icon: Icons.logout,
-                title: 'Log Keluar',
-                iconColor: AppColors.danger,
-                onTap: () {
-                  Navigator.pop(context);
-                  state.logout();
-                },
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(26)),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryDark.withValues(alpha: .18),
+                    blurRadius: 28,
+                    offset: const Offset(0, -8),
+                  ),
+                ],
               ),
-            ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xffcbd5e1),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: .1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.grid_view_rounded,
+                            color: AppColors.primary,
+                            size: 19,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Menu',
+                            style: TextStyle(
+                              color: AppColors.primaryDark,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (visibleItems.isEmpty)
+                      const _MobileMenuEmptyState()
+                    else
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceTint,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < visibleItems.length; i++) ...[
+                              _MobileMenuTile(
+                                item: visibleItems[i],
+                                current: items.indexOf(visibleItems[i]) ==
+                                    activeIndex,
+                                onTap: () {
+                                  final target = items.indexOf(visibleItems[i]);
+                                  if (target == activeIndex) return;
+                                  Navigator.pop(context);
+                                  if (target != -1) onSelectIndex(target);
+                                },
+                              ),
+                              if (i != visibleItems.length - 1)
+                                const Divider(
+                                  height: 1,
+                                  indent: 58,
+                                  color: AppColors.border,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withValues(alpha: .06),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                            color: AppColors.danger.withValues(alpha: .16)),
+                      ),
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        leading: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withValues(alpha: .1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.logout_rounded,
+                              color: AppColors.danger, size: 19),
+                        ),
+                        title: const Text(
+                          'Log Keluar',
+                          style: TextStyle(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          state.logout();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -644,62 +731,115 @@ class _MobileTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 9),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface.withValues(alpha: .98),
         border: const Border(bottom: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryDark.withValues(alpha: .04),
+            color: AppColors.primaryDark.withValues(alpha: .055),
             blurRadius: 18,
-            offset: const Offset(0, 8),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: .1),
-              borderRadius: BorderRadius.circular(14),
+              color: AppColors.primary.withValues(alpha: .11),
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  Border.all(color: AppColors.primary.withValues(alpha: .1)),
             ),
-            child: const Icon(Icons.school_outlined, color: AppColors.primary),
+            child: const Icon(
+              Icons.school_outlined,
+              color: AppColors.primary,
+              size: 20,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'TVETMARA',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.primaryDark,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
+                Row(
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'TVETMARA',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: .08),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color: AppColors.primary.withValues(alpha: .1)),
+                        ),
+                        child: Text(
+                          _roleLabel(user.role),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  '${_roleLabel(user.role)} • $title',
+                  'Sistem Kehadiran • $title',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.muted,
                     fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Log Keluar',
-            onPressed: onLogout,
-            icon: const Icon(Icons.logout_outlined),
+          const SizedBox(width: 8),
+          Tooltip(
+            message: 'Log Keluar',
+            child: InkWell(
+              onTap: onLogout,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceTint,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: const Icon(
+                  Icons.logout_outlined,
+                  color: AppColors.primaryDark,
+                  size: 19,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -713,6 +853,212 @@ class _MobileTopBar extends StatelessWidget {
       UserRole.ketua_program => 'Ketua Program',
       UserRole.pensyarah => 'Pensyarah',
     };
+  }
+}
+
+class _MobileBottomNav extends StatelessWidget {
+  const _MobileBottomNav({
+    required this.primaryItems,
+    required this.primaryIndexes,
+    required this.activeIndex,
+    required this.hasMoreMenu,
+    required this.menuActive,
+    required this.labelFor,
+    required this.onSelectIndex,
+    required this.onMenuPressed,
+  });
+
+  final List<_NavItem> primaryItems;
+  final List<int> primaryIndexes;
+  final int activeIndex;
+  final bool hasMoreMenu;
+  final bool menuActive;
+  final String Function(String label) labelFor;
+  final ValueChanged<int> onSelectIndex;
+  final VoidCallback? onMenuPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final itemCount = primaryItems.length + (hasMoreMenu ? 1 : 0);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: .98),
+        border: const Border(top: BorderSide(color: AppColors.border)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: .09),
+            blurRadius: 24,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
+        child: Row(
+          mainAxisAlignment: itemCount <= 3
+              ? MainAxisAlignment.spaceEvenly
+              : MainAxisAlignment.spaceBetween,
+          children: [
+            for (var i = 0; i < primaryItems.length; i++)
+              _MobileNavItemButton(
+                icon: primaryItems[i].icon,
+                label: labelFor(primaryItems[i].label),
+                active: primaryIndexes[i] == activeIndex,
+                onTap: () => onSelectIndex(primaryIndexes[i]),
+              ),
+            if (hasMoreMenu)
+              _MobileNavItemButton(
+                icon: Icons.grid_view_rounded,
+                label: 'Menu',
+                active: menuActive,
+                onTap: onMenuPressed,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileNavItemButton extends StatelessWidget {
+  const _MobileNavItemButton({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppColors.primary : AppColors.muted;
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+            decoration: BoxDecoration(
+              color: active ? AppColors.primary.withValues(alpha: .1) : null,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: active
+                    ? AppColors.primary.withValues(alpha: .14)
+                    : Colors.transparent,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 21, color: color),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10.5,
+                    fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileMenuTile extends StatelessWidget {
+  const _MobileMenuTile({
+    required this.item,
+    required this.current,
+    required this.onTap,
+  });
+
+  final _NavItem item;
+  final bool current;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = current ? AppColors.primary : AppColors.primaryDark;
+    return ListTile(
+      enabled: !current,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: current
+              ? AppColors.primary.withValues(alpha: .1)
+              : AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Icon(item.icon, color: color, size: 19),
+      ),
+      title: Text(
+        item.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      trailing: current
+          ? const Text(
+              'Semasa',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            )
+          : const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.muted,
+            ),
+      onTap: current ? null : onTap,
+    );
+  }
+}
+
+class _MobileMenuEmptyState extends StatelessWidget {
+  const _MobileMenuEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Text(
+        'Semua halaman utama sudah dipaparkan di bawah.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: AppColors.muted,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 
@@ -799,4 +1145,5 @@ enum _DataScope {
   booking,
   discipline,
   records,
+  adminManagement,
 }

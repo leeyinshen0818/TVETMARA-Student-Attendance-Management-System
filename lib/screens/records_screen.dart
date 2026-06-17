@@ -22,15 +22,15 @@ import '../widgets/status_chip.dart';
 
 // ─── Colour tokens (match existing app palette) ──────────────────────────────
 
-const _kBg     = Color(0xFFF7F9FB);
-const _kCard   = Colors.white;
+const _kBg = Color(0xFFF7F9FB);
+const _kCard = Colors.white;
 const _kBorder = Color(0xFFE2E8EF);
-const _kText   = Color(0xFF1A2E3F);
-const _kMuted  = Color(0xFF5C7A8A);
-const _kTeal   = Color(0xFF1B8CA6);
-const _kGreen  = Color(0xFF16A34A);
-const _kAmber  = Color(0xFFD97706);
-const _kRed    = Color(0xFFDC2626);
+const _kText = Color(0xFF1A2E3F);
+const _kMuted = Color(0xFF5C7A8A);
+const _kTeal = Color(0xFF1B8CA6);
+const _kGreen = Color(0xFF16A34A);
+const _kAmber = Color(0xFFD97706);
+const _kRed = Color(0xFFDC2626);
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
@@ -42,31 +42,36 @@ class RecordsScreen extends StatefulWidget {
 }
 
 class _RecordsScreenState extends State<RecordsScreen> {
-  String _search        = '';
+  String _search = '';
   String _filterProgram = 'Semua Program';
-  String _filterClass   = 'Semua Kelas';
-  String _filterSem     = 'Semua Semester';
-  String _filterStatus  = 'Semua Status';
-  String _filterRisk    = 'Semua Risiko';
+  String _filterClass = 'Semua Kelas';
+  String _filterSem = 'Semua Semester';
+  String _filterStatus = 'Semua Status';
+  String _filterRisk = 'Semua Risiko';
 
   static const _riskDropdownItems = [
-    'Semua Risiko', 'Selamat', 'Amaran', 'Kritikal',
+    'Semua Risiko',
+    'Selamat',
+    'Amaran',
+    'Kritikal',
   ];
 
   static const _riskToInternal = {
-    'Selamat': 'Safe', 'Amaran': 'Warning', 'Kritikal': 'Critical',
+    'Selamat': 'Safe',
+    'Amaran': 'Warning',
+    'Kritikal': 'Critical',
   };
 
   static String _riskLabel(String internal) => switch (internal) {
         'Critical' => 'Kritikal',
-        'Warning'  => 'Amaran',
-        _          => 'Selamat',
+        'Warning' => 'Amaran',
+        _ => 'Selamat',
       };
 
   static Color _riskColour(String internal) => switch (internal) {
         'Critical' => _kRed,
-        'Warning'  => _kAmber,
-        _          => _kGreen,
+        'Warning' => _kAmber,
+        _ => _kGreen,
       };
 
   List<Student> _applyFilters(List<Student> all, AppState state) {
@@ -74,7 +79,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
       if (_search.isNotEmpty) {
         final q = _search.toLowerCase();
         if (!s.name.toLowerCase().contains(q) &&
-            !s.id.toLowerCase().contains(q)) return false;
+            !s.id.toLowerCase().contains(q)) {
+          return false;
+        }
       }
       if (_filterProgram != 'Semua Program' && s.program != _filterProgram) {
         return false;
@@ -83,12 +90,20 @@ class _RecordsScreenState extends State<RecordsScreen> {
         return false;
       }
       if (_filterSem != 'Semua Semester' &&
-          s.semester.toString() != _filterSem) return false;
-      if (_filterStatus == 'Aktif' && !s.active) return false;
-      if (_filterStatus == 'Tidak Aktif' && s.active) return false;
+          s.semester.toString() != _filterSem) {
+        return false;
+      }
+      if (_filterStatus == 'Aktif' && !s.active) {
+        return false;
+      }
+      if (_filterStatus == 'Tidak Aktif' && s.active) {
+        return false;
+      }
       if (_filterRisk != 'Semua Risiko') {
         final internal = _riskToInternal[_filterRisk] ?? _filterRisk;
-        if (state.attendanceRiskForStudent(s) != internal) return false;
+        if (state.attendanceRiskForStudent(s) != internal) {
+          return false;
+        }
       }
       return true;
     }).toList();
@@ -97,26 +112,26 @@ class _RecordsScreenState extends State<RecordsScreen> {
   bool get _hasActiveFilter =>
       _search.isNotEmpty ||
       _filterProgram != 'Semua Program' ||
-      _filterClass   != 'Semua Kelas'   ||
-      _filterSem     != 'Semua Semester' ||
-      _filterStatus  != 'Semua Status'  ||
-      _filterRisk    != 'Semua Risiko';
+      _filterClass != 'Semua Kelas' ||
+      _filterSem != 'Semua Semester' ||
+      _filterStatus != 'Semua Status' ||
+      _filterRisk != 'Semua Risiko';
 
   void _clearFilters() => setState(() {
-        _search = _filterProgram = _filterClass =
-            _filterSem = _filterStatus = _filterRisk = '';
+        _search = _filterProgram =
+            _filterClass = _filterSem = _filterStatus = _filterRisk = '';
         _filterProgram = 'Semua Program';
-        _filterClass   = 'Semua Kelas';
-        _filterSem     = 'Semua Semester';
-        _filterStatus  = 'Semua Status';
-        _filterRisk    = 'Semua Risiko';
-        _search        = '';
+        _filterClass = 'Semua Kelas';
+        _filterSem = 'Semua Semester';
+        _filterStatus = 'Semua Status';
+        _filterRisk = 'Semua Risiko';
+        _search = '';
       });
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final user  = state.currentUser!;
+    final user = state.currentUser!;
     final isAdmin = user.role == UserRole.pentadbir;
     final isManagement = user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program;
@@ -124,29 +139,30 @@ class _RecordsScreenState extends State<RecordsScreen> {
     if (!isAdmin && !isManagement) {
       return const PageHeader(
         title: 'Akses Tidak Dibenarkan',
-        subtitle: 'Hanya Pentadbir, Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
+        subtitle:
+            'Hanya Pentadbir, Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
       );
     }
 
     final allStudents = state.scopedStudents;
-    final filtered    = _applyFilters(allStudents, state);
+    final filtered = _applyFilters(allStudents, state);
 
-    final programSet  = <String>{};
-    final classSet    = <String>{};
-    final semSet      = <String>{};
+    final programSet = <String>{};
+    final classSet = <String>{};
+    final semSet = <String>{};
     for (final s in allStudents) {
       programSet.add(s.program);
       classSet.add(s.section);
       semSet.add(s.semester.toString());
     }
-    final programs  = ['Semua Program',  ...programSet.toList()..sort()];
-    final classes   = ['Semua Kelas',    ...classSet.toList()..sort()];
+    final programs = ['Semua Program', ...programSet.toList()..sort()];
+    final classes = ['Semua Kelas', ...classSet.toList()..sort()];
     final semesters = ['Semua Semester', ...semSet.toList()..sort()];
 
     final scopeLabel = switch (user.role) {
       UserRole.ketua_jabatan => 'Jabatan ${user.departmentId ?? ''}',
       UserRole.ketua_program => 'Program ${user.programId ?? ''}',
-      _                      => 'Semua Program',
+      _ => 'Semua Program',
     };
 
     final criticalCount = allStudents
@@ -167,24 +183,27 @@ class _RecordsScreenState extends State<RecordsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: _FilterBar(
-              search:          _search,
-              filterProgram:   _filterProgram,
-              filterClass:     _filterClass,
-              filterSem:       _filterSem,
-              filterStatus:    _filterStatus,
-              filterRisk:      _filterRisk,
-              programOptions:  programs,
-              classOptions:    classes,
+              search: _search,
+              filterProgram: _filterProgram,
+              filterClass: _filterClass,
+              filterSem: _filterSem,
+              filterStatus: _filterStatus,
+              filterRisk: _filterRisk,
+              programOptions: programs,
+              classOptions: classes,
               semesterOptions: semesters,
-              riskOptions:     _riskDropdownItems,
+              riskOptions: _riskDropdownItems,
               hasActiveFilter: _hasActiveFilter,
-              onSearchChanged:  (v) => setState(() => _search        = v),
-              onProgramChanged: (v) => setState(() { _filterProgram = v; _filterClass = 'Semua Kelas'; }),
-              onClassChanged:   (v) => setState(() => _filterClass   = v),
-              onSemChanged:     (v) => setState(() => _filterSem     = v),
-              onStatusChanged:  (v) => setState(() => _filterStatus  = v),
-              onRiskChanged:    (v) => setState(() => _filterRisk    = v),
-              onClear:          _clearFilters,
+              onSearchChanged: (v) => setState(() => _search = v),
+              onProgramChanged: (v) => setState(() {
+                _filterProgram = v;
+                _filterClass = 'Semua Kelas';
+              }),
+              onClassChanged: (v) => setState(() => _filterClass = v),
+              onSemChanged: (v) => setState(() => _filterSem = v),
+              onStatusChanged: (v) => setState(() => _filterStatus = v),
+              onRiskChanged: (v) => setState(() => _filterRisk = v),
+              onClear: _clearFilters,
             ),
           ),
           Padding(
@@ -193,7 +212,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
               title: 'Rekod Pelajar',
               subtitle: 'Had kehadiran: ${state.attendanceThreshold}% · '
                   'Menunjukkan ${filtered.length} daripada ${allStudents.length} pelajar ($scopeLabel)',
-              trailing: filtered.isEmpty ? null : StatusChip('${filtered.length} pelajar'),
+              trailing: filtered.isEmpty
+                  ? null
+                  : StatusChip('${filtered.length} pelajar'),
               child: _StudentTable(
                 students: filtered,
                 state: state,
@@ -293,9 +314,9 @@ class _StatCard extends StatelessWidget {
     required this.color,
   });
   final IconData icon;
-  final String   label;
-  final String   value;
-  final Color    color;
+  final String label;
+  final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +392,7 @@ class _FilterBar extends StatelessWidget {
   final List<String> classOptions;
   final List<String> semesterOptions;
   final List<String> riskOptions;
-  final bool         hasActiveFilter;
+  final bool hasActiveFilter;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onProgramChanged;
   final ValueChanged<String> onClassChanged;
@@ -418,16 +439,32 @@ class _FilterBar extends StatelessWidget {
           LayoutBuilder(builder: (context, c) {
             final isWide = c.maxWidth > 680;
             final drops = [
-              _Dropdown(label: 'Program',  value: filterProgram, options: programOptions,  onChanged: onProgramChanged),
-              _Dropdown(label: 'Kelas',    value: filterClass,   options: classOptions,    onChanged: onClassChanged),
-              _Dropdown(label: 'Semester', value: filterSem,     options: semesterOptions, onChanged: onSemChanged),
+              _Dropdown(
+                  label: 'Program',
+                  value: filterProgram,
+                  options: programOptions,
+                  onChanged: onProgramChanged),
+              _Dropdown(
+                  label: 'Kelas',
+                  value: filterClass,
+                  options: classOptions,
+                  onChanged: onClassChanged),
+              _Dropdown(
+                  label: 'Semester',
+                  value: filterSem,
+                  options: semesterOptions,
+                  onChanged: onSemChanged),
               _Dropdown(
                 label: 'Status',
                 value: filterStatus,
                 options: const ['Semua Status', 'Aktif', 'Tidak Aktif'],
                 onChanged: onStatusChanged,
               ),
-              _Dropdown(label: 'Risiko',   value: filterRisk,    options: riskOptions,     onChanged: onRiskChanged),
+              _Dropdown(
+                  label: 'Risiko',
+                  value: filterRisk,
+                  options: riskOptions,
+                  onChanged: onRiskChanged),
             ];
             if (isWide) {
               return Row(
@@ -443,7 +480,8 @@ class _FilterBar extends StatelessWidget {
             return Wrap(
               spacing: 10,
               runSpacing: 10,
-              children: drops.map((w) => SizedBox(width: 180, child: w)).toList(),
+              children:
+                  drops.map((w) => SizedBox(width: 180, child: w)).toList(),
             );
           }),
         ],
@@ -466,7 +504,8 @@ class _SearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: 'Cari nama atau ID pelajar…',
           hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
-          prefixIcon: const Icon(Icons.search_rounded, size: 17, color: _kMuted),
+          prefixIcon:
+              const Icon(Icons.search_rounded, size: 17, color: _kMuted),
           contentPadding: EdgeInsets.zero,
           filled: true,
           fillColor: _kCard,
@@ -543,10 +582,10 @@ class _StudentTable extends StatelessWidget {
     required this.riskColour,
   });
 
-  final List<Student>            students;
-  final AppState                 state;
-  final String Function(String)  riskLabel;
-  final Color  Function(String)  riskColour;
+  final List<Student> students;
+  final AppState state;
+  final String Function(String) riskLabel;
+  final Color Function(String) riskColour;
 
   @override
   Widget build(BuildContext context) {
@@ -564,16 +603,14 @@ class _StudentTable extends StatelessWidget {
       ],
       rows: students.map((s) {
         final summary = state.attendanceSummaryForStudent(s);
-        final risk    = state.attendanceRiskForStudent(s);
-        final pct     = summary.percentage;
-        final colour  = riskColour(risk);
+        final risk = state.attendanceRiskForStudent(s);
+        final pct = summary.percentage;
+        final colour = riskColour(risk);
 
         return DataRow(cells: [
           DataCell(Text(s.id,
               style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _kMuted))),
+                  fontSize: 11, fontWeight: FontWeight.w600, color: _kMuted))),
           DataCell(Text(s.name,
               style: const TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w600, color: _kText))),
@@ -599,8 +636,7 @@ class _StudentTable extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: colour)),
                     Text('${summary.attended}/${summary.denominator}',
-                        style: const TextStyle(
-                            fontSize: 10, color: _kMuted)),
+                        style: const TextStyle(fontSize: 10, color: _kMuted)),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -629,7 +665,7 @@ class _StudentTable extends StatelessWidget {
 
 class _LihatButiranButton extends StatelessWidget {
   const _LihatButiranButton({required this.student, required this.state});
-  final Student  student;
+  final Student student;
   final AppState state;
 
   @override
@@ -654,9 +690,7 @@ class _LihatButiranButton extends StatelessWidget {
             SizedBox(width: 5),
             Text('Lihat Butiran',
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: _kTeal)),
+                    fontSize: 11, fontWeight: FontWeight.w700, color: _kTeal)),
           ],
         ),
       ),
@@ -668,16 +702,16 @@ class _LihatButiranButton extends StatelessWidget {
 
 class _StudentDetailDialog extends StatelessWidget {
   const _StudentDetailDialog({required this.student, required this.state});
-  final Student  student;
+  final Student student;
   final AppState state;
 
   @override
   Widget build(BuildContext context) {
-    final summary    = state.attendanceSummaryForStudent(student);
-    final risk       = state.attendanceRiskForStudent(student);
-    final weekly     = state.weeklyAttendanceForStudent(student);
+    final summary = state.attendanceSummaryForStudent(student);
+    final risk = state.attendanceRiskForStudent(student);
+    final weekly = state.weeklyAttendanceForStudent(student);
     final riskColour = _RecordsScreenState._riskColour(risk);
-    final riskMalay  = _RecordsScreenState._riskLabel(risk);
+    final riskMalay = _RecordsScreenState._riskLabel(risk);
 
     final disciplineLogs = state.scopedDisciplineReports
         .where((r) => r.studentId == student.id)
@@ -686,13 +720,11 @@ class _StudentDetailDialog extends StatelessWidget {
 
     final warnings = <String>[];
     if (summary.percentage < state.attendanceThreshold) {
-      warnings.add(
-          'Kehadiran ${summary.percentage}% adalah di bawah had '
+      warnings.add('Kehadiran ${summary.percentage}% adalah di bawah had '
           '${state.attendanceThreshold}%. Tindakan segera diperlukan.');
     }
     if (summary.absent >= 3) {
-      warnings.add(
-          'Pelajar telah tidak hadir ${summary.absent} kali.');
+      warnings.add('Pelajar telah tidak hadir ${summary.absent} kali.');
     }
 
     return Dialog(
@@ -715,9 +747,9 @@ class _StudentDetailDialog extends StatelessWidget {
           child: Column(
             children: [
               _DialogHeader(
-                student:    student,
-                summary:    summary,
-                riskMalay:  riskMalay,
+                student: student,
+                summary: summary,
+                riskMalay: riskMalay,
                 riskColour: riskColour,
               ),
               Expanded(
@@ -753,19 +785,17 @@ class _StudentDetailDialog extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
-                  border: Border(
-                      top: BorderSide(color: _kBorder)),
+                  border: Border(top: BorderSide(color: _kBorder)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(
-                          foregroundColor: _kMuted),
+                      style: TextButton.styleFrom(foregroundColor: _kMuted),
                       child: const Text('Tutup'),
                     ),
                   ],
@@ -788,10 +818,10 @@ class _DialogHeader extends StatelessWidget {
     required this.riskMalay,
     required this.riskColour,
   });
-  final Student           student;
+  final Student student;
   final AttendanceSummary summary;
-  final String            riskMalay;
-  final Color             riskColour;
+  final String riskMalay;
+  final Color riskColour;
 
   @override
   Widget build(BuildContext context) {
@@ -800,11 +830,9 @@ class _DialogHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
       decoration: BoxDecoration(
         color: riskColour.withValues(alpha: 0.05),
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
         border: Border(
-            bottom:
-                BorderSide(color: riskColour.withValues(alpha: 0.2))),
+            bottom: BorderSide(color: riskColour.withValues(alpha: 0.2))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,9 +849,7 @@ class _DialogHeader extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                student.name.isNotEmpty
-                    ? student.name[0].toUpperCase()
-                    : '?',
+                student.name.isNotEmpty ? student.name[0].toUpperCase() : '?',
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -858,8 +884,8 @@ class _DialogHeader extends StatelessWidget {
                     _InfoPill(Icons.badge_outlined, student.id),
                     _InfoPill(Icons.school_outlined, student.program),
                     _InfoPill(Icons.groups_outlined, student.section),
-                    _InfoPill(Icons.layers_outlined,
-                        'Semester ${student.semester}'),
+                    _InfoPill(
+                        Icons.layers_outlined, 'Semester ${student.semester}'),
                   ],
                 ),
               ],
@@ -874,13 +900,10 @@ class _DialogHeader extends StatelessWidget {
                       fontSize: 30,
                       fontWeight: FontWeight.w800,
                       color: riskColour)),
-              Text('Kehadiran',
-                  style: const TextStyle(
-                      fontSize: 11, color: _kMuted)),
-              Text(
-                  '${summary.attended}/${summary.denominator} sesi',
-                  style: const TextStyle(
-                      fontSize: 10, color: _kMuted)),
+              const Text('Kehadiran',
+                  style: TextStyle(fontSize: 11, color: _kMuted)),
+              Text('${summary.attended}/${summary.denominator} sesi',
+                  style: const TextStyle(fontSize: 10, color: _kMuted)),
             ],
           ),
         ],
@@ -892,7 +915,7 @@ class _DialogHeader extends StatelessWidget {
 class _InfoPill extends StatelessWidget {
   const _InfoPill(this.icon, this.text);
   final IconData icon;
-  final String   text;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -949,9 +972,7 @@ class _WarningBanner extends StatelessWidget {
           Expanded(
             child: Text(message,
                 style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _kRed)),
+                    fontSize: 12, fontWeight: FontWeight.w600, color: _kRed)),
           ),
         ],
       ),
@@ -964,7 +985,7 @@ class _WarningBanner extends StatelessWidget {
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.icon, required this.label});
   final IconData icon;
-  final String   label;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -974,9 +995,7 @@ class _SectionTitle extends StatelessWidget {
         const SizedBox(width: 7),
         Text(label,
             style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: _kText)),
+                fontSize: 13, fontWeight: FontWeight.w700, color: _kText)),
       ],
     );
   }
@@ -994,10 +1013,10 @@ class _WeeklyGrid extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: List.generate(18, (i) {
-        final w       = weekly[i];
-        final pct     = w.percentage;
+        final w = weekly[i];
+        final pct = w.percentage;
         final hasData = w.denominator > 0;
-        final colour  = !hasData
+        final colour = !hasData
             ? const Color(0xFFE2E8EF)
             : pct >= 80
                 ? _kGreen
@@ -1016,8 +1035,7 @@ class _WeeklyGrid extends StatelessWidget {
               color: colour.withValues(alpha: hasData ? 0.12 : 0.5),
               borderRadius: BorderRadius.circular(7),
               border: Border.all(
-                  color: colour.withValues(
-                      alpha: hasData ? 0.4 : 0.3)),
+                  color: colour.withValues(alpha: hasData ? 0.4 : 0.3)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1061,8 +1079,7 @@ class _EmptyInSection extends StatelessWidget {
         children: [
           const Icon(Icons.inbox_outlined, size: 28, color: Color(0xFF94A3B8)),
           const SizedBox(height: 6),
-          Text(message,
-              style: const TextStyle(fontSize: 12, color: _kMuted)),
+          Text(message, style: const TextStyle(fontSize: 12, color: _kMuted)),
         ],
       ),
     );
@@ -1076,25 +1093,25 @@ class _DisciplineTile extends StatelessWidget {
   final DisciplineReport report;
 
   Color get _sevColour => switch (report.severity.toLowerCase()) {
-        'high' || 'tinggi'      => _kRed,
+        'high' || 'tinggi' => _kRed,
         'medium' || 'sederhana' => _kAmber,
-        _                       => _kTeal,
+        _ => _kTeal,
       };
 
   String get _sevMalay => switch (report.severity.toLowerCase()) {
-        'high'   => 'Tinggi',
+        'high' => 'Tinggi',
         'medium' => 'Sederhana',
-        'low'    => 'Rendah',
-        _        => report.severity,
+        'low' => 'Rendah',
+        _ => report.severity,
       };
 
   String get _statusMalay => switch (report.status.toLowerCase()) {
-        'pending'      => 'Menunggu',
-        'reviewed'     => 'Disemak',
+        'pending' => 'Menunggu',
+        'reviewed' => 'Disemak',
         'action taken' => 'Tindakan Diambil',
-        'closed'       => 'Ditutup',
-        'rejected'     => 'Ditolak',
-        _              => report.status,
+        'closed' => 'Ditutup',
+        'rejected' => 'Ditolak',
+        _ => report.status,
       };
 
   @override
@@ -1153,8 +1170,7 @@ class _DisciplineTile extends StatelessWidget {
                 if (report.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(report.description,
-                      style: const TextStyle(
-                          fontSize: 12, color: _kMuted),
+                      style: const TextStyle(fontSize: 12, color: _kMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],

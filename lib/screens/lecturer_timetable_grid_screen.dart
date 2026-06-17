@@ -12,6 +12,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../models/app_models.dart';
+import '../state/app_scope.dart';
 import '../state/lecturer_timetable_controller.dart';
 import '../services/lecturer_timetable_service.dart';
 import '../services/lecturer_export_service.dart';
@@ -162,74 +164,110 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
     }).toList();
   }
 
+  List<LecturerSlot> _cachedSlots(List<TimetableSlot> timetable) {
+    final normalizedEmail = widget.lecturerEmail.trim().toLowerCase();
+    return timetable.where((slot) {
+      if (!slot.isOfficial) return false;
+      final session = slot.academicSessionId ?? slot.session;
+      if (session.isNotEmpty && session != AppScope.of(context).session) {
+        return false;
+      }
+      final slotEmail = slot.lecturerEmail?.trim().toLowerCase();
+      if (slot.lecturerId == widget.lecturerId) return true;
+      if (normalizedEmail.isNotEmpty && slotEmail == normalizedEmail) {
+        return true;
+      }
+      if (widget.lecturerProfileId != null &&
+          widget.lecturerProfileId!.isNotEmpty &&
+          slot.lecturerProfileId == widget.lecturerProfileId) {
+        return true;
+      }
+      final hasStableIdentity = slot.lecturerId.isNotEmpty ||
+          (slotEmail != null && slotEmail.isNotEmpty) ||
+          (slot.lecturerProfileId != null &&
+              slot.lecturerProfileId!.isNotEmpty);
+      return !hasStableIdentity && slot.lecturerName == widget.lecturerName;
+    }).map((slot) {
+      final room = slot.roomId?.isNotEmpty == true
+          ? slot.roomId!
+          : slot.roomName?.isNotEmpty == true
+              ? slot.roomName!
+              : slot.room;
+      return LecturerSlot(
+        slotId: slot.id,
+        day: (slot.day.isNotEmpty ? slot.day : slot.dayOfWeek ?? '')
+            .toUpperCase()
+            .trim(),
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        subjectCode: slot.subjectCode,
+        subjectName: slot.subjectName,
+        section: slot.section.isNotEmpty ? slot.section : slot.classId ?? '',
+        roomId: room,
+        programId: slot.programId ?? slot.program,
+        lecturerName: slot.lecturerName,
+        classType: slot.classType,
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final week = 'M${widget.controller.selectedWeek}';
+    final state = AppScope.of(context);
+    final loading =
+        state.isCollectionLoading('timetable') && state.timetable.isEmpty;
+    final allSlots = _cachedSlots(state.timetable);
+    final filtered = _applyFilters(allSlots);
+    final courses = [
+      'Semua Kursus',
+      ...{...allSlots.map((s) => s.subjectCode)}
+    ];
+    final sections = [
+      'Semua Seksyen',
+      ...{...allSlots.map((s) => s.section)}
+    ];
+    final uniqueSections = {...allSlots.map((s) => s.section)}.length;
 
     return ColoredBox(
       color: _kPageBg,
-      child: StreamBuilder<List<LecturerSlot>>(
-        stream: widget.controller.slotsStream(
-          lecturerId: widget.lecturerId,
-          lecturerEmail: widget.lecturerEmail,
-          lecturerProfileId: widget.lecturerProfileId,
-        ),
-        builder: (context, snapshot) {
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          final allSlots = snapshot.data ?? [];
-          final filtered = _applyFilters(allSlots);
-          final courses = [
-            'Semua Kursus',
-            ...{...allSlots.map((s) => s.subjectCode)}
-          ];
-          final sections = [
-            'Semua Seksyen',
-            ...{...allSlots.map((s) => s.section)}
-          ];
-          final uniqueSections = {...allSlots.map((s) => s.section)}.length;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _PageHeader(week: week, controller: widget.controller),
-              _StatCardRow(
-                totalSlots: allSlots.length,
-                sections: uniqueSections,
-              ),
-              _FilterBar(
-                course: _filterCourse,
-                section: _filterSection,
-                searchQuery: _searchQuery,
-                courseOptions: courses,
-                sectionOptions: sections,
-                onCourseChanged: (v) => setState(() => _filterCourse = v),
-                onSectionChanged: (v) => setState(() => _filterSection = v),
-                onSearchChanged: (v) => setState(() => _searchQuery = v),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: loading
-                    ? const _LoadingState()
-                    : snapshot.hasError
-                        ? _ErrorState(error: snapshot.error.toString())
-                        : _OfficialTable(
-                            slots: filtered,
-                            week: week,
-                            lecturerName: widget.lecturerName,
-                            lecturerEmail: widget.lecturerEmail,
-                            programId: widget.programId,
-                            onSlotSelected: widget.onSlotSelected,
-                            onNavigateToAttendance:
-                                widget.onNavigateToAttendance,
-                            onNavigateToTempahan: widget.onNavigateToTempahan,
-                          ),
-              ),
-              const SizedBox(height: 36),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PageHeader(week: week, controller: widget.controller),
+          _StatCardRow(
+            totalSlots: allSlots.length,
+            sections: uniqueSections,
+          ),
+          _FilterBar(
+            course: _filterCourse,
+            section: _filterSection,
+            searchQuery: _searchQuery,
+            courseOptions: courses,
+            sectionOptions: sections,
+            onCourseChanged: (v) => setState(() => _filterCourse = v),
+            onSectionChanged: (v) => setState(() => _filterSection = v),
+            onSearchChanged: (v) => setState(() => _searchQuery = v),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: loading
+                ? const _LoadingState()
+                : _OfficialTable(
+                    slots: filtered,
+                    week: week,
+                    lecturerName: widget.lecturerName,
+                    lecturerEmail: widget.lecturerEmail,
+                    programId: widget.programId,
+                    onSlotSelected: widget.onSlotSelected,
+                    onNavigateToAttendance: widget.onNavigateToAttendance,
+                    onNavigateToTempahan: widget.onNavigateToTempahan,
+                  ),
+          ),
+          const SizedBox(height: 36),
+        ],
       ),
     );
   }
@@ -564,8 +602,7 @@ class _OfficialTableState extends State<_OfficialTable> {
     if (_exportingPdf) return;
     setState(() => _exportingPdf = true);
     try {
-      await exportLecturerTimetableAsPdf(
-          slots: widget.slots, meta: _meta);
+      await exportLecturerTimetableAsPdf(slots: widget.slots, meta: _meta);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -646,8 +683,7 @@ class _OfficialTableState extends State<_OfficialTable> {
 
           if (widget.slots.isEmpty)
             _EmptyState(
-                lecturerName: widget.lecturerName,
-                programId: widget.programId)
+                lecturerName: widget.lecturerName, programId: widget.programId)
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -760,8 +796,7 @@ class _MobileOfficialTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                const Icon(Icons.table_chart_outlined,
-                    size: 16, color: _kTeal),
+                const Icon(Icons.table_chart_outlined, size: 16, color: _kTeal),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -773,8 +808,7 @@ class _MobileOfficialTable extends StatelessWidget {
                   ),
                 ),
                 Text('${slots.length} rekod',
-                    style:
-                        const TextStyle(fontSize: 12, color: _kMuted)),
+                    style: const TextStyle(fontSize: 12, color: _kMuted)),
                 // ── PDF export button — same path as web ────────────────
                 if (slots.isNotEmpty) ...[
                   const SizedBox(width: 10),
@@ -807,8 +841,7 @@ class _MobileOfficialTable extends StatelessWidget {
                     // Dark navy title banner
                     Container(
                       color: const Color(0xFF0D1B2A),
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       child: const Text(
                         'JADUAL WAKTU SEMESTER SESI 2025/2026',
                         textAlign: TextAlign.center,
@@ -822,8 +855,7 @@ class _MobileOfficialTable extends StatelessWidget {
                     // Sub-banner
                     Container(
                       color: const Color(0xFF16293D),
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 7),
+                      padding: const EdgeInsets.symmetric(vertical: 7),
                       child: const Text(
                         'PAPARAN SLOT JADUAL',
                         textAlign: TextAlign.center,
@@ -1265,55 +1297,6 @@ class _EmptyState extends StatelessWidget {
                   : 'Tiada rekod dijumpai untuk carian / penapis ini.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: _kMuted, fontSize: 13, height: 1.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.error});
-  final String error;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.wifi_off_rounded,
-                  color: Colors.red, size: 28),
-            ),
-            const SizedBox(height: 14),
-            const Text('Ralat Sambungan',
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700, color: _kText)),
-            const SizedBox(height: 8),
-            Text(error,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: _kMuted, fontSize: 12),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Cuba Semula'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _kTeal,
-                side: const BorderSide(color: _kTeal),
-              ),
             ),
           ],
         ),
