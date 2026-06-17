@@ -7,6 +7,8 @@ import 'package:tvetmara_student_attendance/widgets/status_chip.dart';
 
 void main() {
   testWidgets('shows Malay login screen', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       AppScope(
         state: AppState(),
@@ -16,6 +18,14 @@ void main() {
 
     expect(find.text('Log Masuk'), findsWidgets);
     expect(find.byIcon(Icons.login), findsOneWidget);
+    expect(find.text('Demo Accounts'), findsOneWidget);
+    expect(find.text('KJ Elektrik'), findsNothing);
+
+    final demoPanel = find.byKey(const ValueKey('demo-accounts-expansion'));
+    await tester.ensureVisible(demoPanel);
+    await tester.tap(demoPanel);
+    await tester.pumpAndSettle();
+
     expect(find.text('KJ Elektrik'), findsOneWidget);
     expect(find.text('Skop: DED / DCP / DCB'), findsOneWidget);
     expect(find.text('KP DGS'), findsOneWidget);
@@ -36,6 +46,11 @@ void main() {
         child: const TvetmaraApp(),
       ),
     );
+
+    final demoPanel = find.byKey(const ValueKey('demo-accounts-expansion'));
+    await tester.ensureVisible(demoPanel);
+    await tester.tap(demoPanel);
+    await tester.pumpAndSettle();
 
     final syarifahButton = find
         .byKey(const ValueKey('demo-login-lecturer046@tvetmara.edu.my'))

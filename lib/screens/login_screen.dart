@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../data/seed_firestore.dart';
 import '../state/app_scope.dart';
+import '../widgets/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -98,86 +99,115 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 860;
-          final intro = _LoginIntro(compact: constraints.maxHeight < 580);
-          final form = _LoginForm(
-            email: email,
-            password: password,
-            loggingIn: _loggingIn,
-            seedingDemo: _seedingDemo,
-            obscurePassword: _obscurePassword,
-            onTogglePassword: () {
-              setState(() => _obscurePassword = !_obscurePassword);
-            },
-            onSubmit: _login,
-            onSeedDemo: _seedDemoData,
-            onFillDemo: _fillDemo,
-          );
-
-          if (wide) {
-            return Row(
-              children: [
-                Expanded(child: intro),
-                Expanded(child: form),
-              ],
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 860;
+            final mobile = constraints.maxWidth < 600;
+            final intro = _LoginIntro(
+              compact: mobile || constraints.maxHeight < 620,
+              mobile: mobile,
             );
-          }
+            final form = _LoginForm(
+              email: email,
+              password: password,
+              loggingIn: _loggingIn,
+              seedingDemo: _seedingDemo,
+              obscurePassword: _obscurePassword,
+              mobile: mobile,
+              onTogglePassword: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              },
+              onSubmit: _login,
+              onSeedDemo: _seedDemoData,
+              onFillDemo: _fillDemo,
+            );
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: intro,
+            if (wide) {
+              return Padding(
+                padding: const EdgeInsets.all(28),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 11,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(28),
+                        child: intro,
+                      ),
+                    ),
+                    const SizedBox(width: 28),
+                    Expanded(
+                      flex: 10,
+                      child: form,
+                    ),
+                  ],
                 ),
-                form,
-              ],
-            ),
-          );
-        },
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, mobile ? 14 : 24, 16, 24),
+              child: Column(
+                children: [
+                  SizedBox(width: double.infinity, child: intro),
+                  SizedBox(height: mobile ? 14 : 20),
+                  form,
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 }
 
 class _LoginIntro extends StatelessWidget {
-  const _LoginIntro({required this.compact});
+  const _LoginIntro({required this.compact, required this.mobile});
 
   final bool compact;
+  final bool mobile;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xff0f172a)),
-      padding: EdgeInsets.all(compact ? 24 : 40),
+      decoration: BoxDecoration(
+        color: AppColors.primaryDark,
+        borderRadius: mobile ? BorderRadius.circular(24) : null,
+      ),
+      padding: EdgeInsets.all(mobile ? 20 : (compact ? 28 : 42)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: compact ? 260 : 420),
+        constraints:
+            BoxConstraints(minHeight: mobile ? 180 : (compact ? 320 : 560)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: Color(0xffdbeafe),
-                  foregroundColor: Color(0xff1d4ed8),
-                  child: Icon(Icons.school),
+                Container(
+                  width: mobile ? 42 : 50,
+                  height: mobile ? 42 : 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.school, color: AppColors.primary),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Text(
                   'TVETMARA',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
+                    fontSize: mobile ? 18 : 20,
                   ),
                 ),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 28),
+              padding: EdgeInsets.symmetric(vertical: mobile ? 18 : 34),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -185,16 +215,23 @@ class _LoginIntro extends StatelessWidget {
                     'Sistem Pengurusan Kehadiran Pelajar TVETMARA',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: compact ? 26 : 34,
-                      fontWeight: FontWeight.bold,
+                      fontSize: mobile ? 24 : (compact ? 30 : 40),
+                      fontWeight: FontWeight.w900,
+                      height: 1.08,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
+                  const SizedBox(height: 14),
+                  Text(
                     'Pengurusan berpusat untuk kehadiran, jadual, disiplin dan kelas ganti.',
-                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                    maxLines: mobile ? 2 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .78),
+                      fontSize: mobile ? 13 : 16,
+                      height: 1.38,
+                    ),
                   ),
-                  const SizedBox(height: 22),
+                  SizedBox(height: mobile ? 16 : 24),
                   const Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -208,10 +245,25 @@ class _LoginIntro extends StatelessWidget {
                 ],
               ),
             ),
-            const Text(
-              'Flutter + Firebase',
-              style: TextStyle(color: Colors.white54),
-            ),
+            if (!mobile)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .12),
+                  ),
+                ),
+                child: const Text(
+                  'Flutter + Firebase Cloud',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -226,6 +278,7 @@ class _LoginForm extends StatelessWidget {
     required this.loggingIn,
     required this.seedingDemo,
     required this.obscurePassword,
+    required this.mobile,
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onSeedDemo,
@@ -237,6 +290,7 @@ class _LoginForm extends StatelessWidget {
   final bool loggingIn;
   final bool seedingDemo;
   final bool obscurePassword;
+  final bool mobile;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final VoidCallback onSeedDemo;
@@ -246,12 +300,27 @@ class _LoginForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 0 : 16,
+          vertical: mobile ? 0 : 24,
+        ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Card(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryDark.withValues(alpha: .07),
+                  blurRadius: 32,
+                  offset: const Offset(0, 18),
+                ),
+              ],
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(mobile ? 20 : 30),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -264,129 +333,11 @@ class _LoginForm extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(height: 8),
-                  const Text('Masukkan emel dan kata laluan Firebase anda.'),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Demo sahaja - akses pantas:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Pilih akaun demo mengikut skop ujian. Contoh: gunakan KJ Elektrik untuk jadual DED/DCP/DCB, dan KP DGS untuk jadual DGS.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xff64748b),
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    _DemoLoginSection(
-                      title: 'Pentadbir',
-                      buttons: [
-                        _DemoLoginButton(
-                          label: 'Pentadbir Sistem',
-                          subtitle: 'Daftar akaun dan tetapan',
-                          icon: Icons.admin_panel_settings,
-                          email: 'admin@tvetmara.edu.my',
-                          onPressed: () =>
-                              onFillDemo('admin@tvetmara.edu.my', 'admin123'),
-                        ),
-                      ],
-                    ),
-                    _DemoLoginSection(
-                      title: 'Ketua Jabatan',
-                      buttons: [
-                        _DemoLoginButton(
-                          label: 'KJ Elektrik',
-                          subtitle: 'Skop: DED / DCP / DCB',
-                          icon: Icons.account_balance,
-                          email: 'kj_elektrik@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'kj_elektrik@tvetmara.edu.my', 'password123'),
-                        ),
-                        _DemoLoginButton(
-                          label: 'KJ Mekanikal',
-                          subtitle: 'Skop: ITW / SLR / SMI',
-                          icon: Icons.account_balance,
-                          email: 'kj_mekanikal@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'kj_mekanikal@tvetmara.edu.my', 'password123'),
-                        ),
-                        _DemoLoginButton(
-                          label: 'KJ Automotif',
-                          subtitle: 'Skop: IMF / SMM / DMM',
-                          icon: Icons.account_balance,
-                          email: 'kj_automotif@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'kj_automotif@tvetmara.edu.my', 'password123'),
-                        ),
-                      ],
-                    ),
-                    _DemoLoginSection(
-                      title: 'Ketua Program',
-                      buttons: [
-                        _DemoLoginButton(
-                          label: 'KP DGS',
-                          subtitle: 'Program tanpa KJ: DGS sahaja',
-                          icon: Icons.school,
-                          email: 'kp_dgs@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'kp_dgs@tvetmara.edu.my', 'password123'),
-                        ),
-                        _DemoLoginButton(
-                          label: 'KP DED',
-                          subtitle: 'Program dengan KJ: DED sahaja',
-                          icon: Icons.account_tree,
-                          email: 'kp_ded@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'kp_ded@tvetmara.edu.my', 'password123'),
-                        ),
-                      ],
-                    ),
-                    _DemoLoginSection(
-                      title: 'Pensyarah Real Demo',
-                      buttons: [
-                        _DemoLoginButton(
-                          label: 'SYARIFAH BINTI ABDUL RAHIM',
-                          subtitle: 'Pensyarah Elektrik - akaun sebenar demo',
-                          icon: Icons.menu_book,
-                          email: 'lecturer046@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'lecturer046@tvetmara.edu.my', 'password123'),
-                        ),
-                        _DemoLoginButton(
-                          label: 'Zabhin bin Mohd Arbai',
-                          subtitle: 'Pensyarah DGS - akaun sebenar demo',
-                          icon: Icons.menu_book,
-                          email: 'lecturer001@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'lecturer001@tvetmara.edu.my', 'password123'),
-                        ),
-                      ],
-                    ),
-                    _DemoLoginSection(
-                      title: 'Legacy Demo Pensyarah',
-                      buttons: [
-                        _DemoLoginButton(
-                          label: 'Demo Pensyarah DED',
-                          subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
-                          icon: Icons.person_outline,
-                          email: 'pensyarah_ded@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'pensyarah_ded@tvetmara.edu.my', 'password123'),
-                        ),
-                        _DemoLoginButton(
-                          label: 'Demo Pensyarah DGS',
-                          subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
-                          icon: Icons.person_outline,
-                          email: 'pensyarah_dgs@tvetmara.edu.my',
-                          onPressed: () => onFillDemo(
-                              'pensyarah_dgs@tvetmara.edu.my', 'password123'),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 20),
+                  const Text(
+                    'Masukkan emel dan kata laluan rasmi anda untuk meneruskan.',
+                    style: TextStyle(color: AppColors.muted, height: 1.35),
+                  ),
+                  const SizedBox(height: 24),
                   TextField(
                     controller: email,
                     keyboardType: TextInputType.emailAddress,
@@ -394,10 +345,12 @@ class _LoginForm extends StatelessWidget {
                     autofillHints: const [AutofillHints.email],
                     decoration: const InputDecoration(
                       labelText: 'Emel',
+                      hintText: 'nama@tvetmara.edu.my',
                       prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: password,
                     obscureText: obscurePassword,
@@ -407,6 +360,7 @@ class _LoginForm extends StatelessWidget {
                     decoration: InputDecoration(
                       labelText: 'Kata Laluan',
                       prefixIcon: const Icon(Icons.lock_outline),
+                      border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         tooltip: obscurePassword
                             ? 'Tunjuk kata laluan'
@@ -418,23 +372,28 @@ class _LoginForm extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: loggingIn ? null : onSubmit,
-                    icon: loggingIn
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.login),
-                    label: Text(loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    height: 48,
+                    child: FilledButton.icon(
+                      onPressed: loggingIn ? null : onSubmit,
+                      icon: loggingIn
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.login),
+                      label: Text(loggingIn ? 'Mengesahkan...' : 'Log Masuk'),
+                    ),
                   ),
                   if (kDebugMode) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    _DemoAccountsPanel(onFillDemo: onFillDemo),
+                    const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: seedingDemo ? null : onSeedDemo,
                       icon: seedingDemo
@@ -453,6 +412,150 @@ class _LoginForm extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DemoAccountsPanel extends StatelessWidget {
+  const _DemoAccountsPanel({required this.onFillDemo});
+
+  final void Function(String email, String password) onFillDemo;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: const ValueKey('demo-accounts-expansion'),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          leading: const Icon(Icons.science_outlined, color: AppColors.primary),
+          title: const Text(
+            'Demo Accounts',
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          subtitle: const Text(
+            'Pilihan akaun ujian disembunyikan supaya halaman kekal kemas.',
+            maxLines: 2,
+          ),
+          children: [
+            _DemoLoginSection(
+              title: 'Pentadbir',
+              buttons: [
+                _DemoLoginButton(
+                  label: 'Pentadbir Sistem',
+                  subtitle: 'Daftar akaun dan tetapan',
+                  icon: Icons.admin_panel_settings,
+                  email: 'admin@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('admin@tvetmara.edu.my', 'admin123'),
+                ),
+              ],
+            ),
+            _DemoLoginSection(
+              title: 'Ketua Jabatan',
+              buttons: [
+                _DemoLoginButton(
+                  label: 'KJ Elektrik',
+                  subtitle: 'Skop: DED / DCP / DCB',
+                  icon: Icons.account_balance,
+                  email: 'kj_elektrik@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('kj_elektrik@tvetmara.edu.my', 'password123'),
+                ),
+                _DemoLoginButton(
+                  label: 'KJ Mekanikal',
+                  subtitle: 'Skop: ITW / SLR / SMI',
+                  icon: Icons.account_balance,
+                  email: 'kj_mekanikal@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('kj_mekanikal@tvetmara.edu.my', 'password123'),
+                ),
+                _DemoLoginButton(
+                  label: 'KJ Automotif',
+                  subtitle: 'Skop: IMF / SMM / DMM',
+                  icon: Icons.account_balance,
+                  email: 'kj_automotif@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('kj_automotif@tvetmara.edu.my', 'password123'),
+                ),
+              ],
+            ),
+            _DemoLoginSection(
+              title: 'Ketua Program',
+              buttons: [
+                _DemoLoginButton(
+                  label: 'KP DGS',
+                  subtitle: 'Program tanpa KJ: DGS sahaja',
+                  icon: Icons.school,
+                  email: 'kp_dgs@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('kp_dgs@tvetmara.edu.my', 'password123'),
+                ),
+                _DemoLoginButton(
+                  label: 'KP DED',
+                  subtitle: 'Program dengan KJ: DED sahaja',
+                  icon: Icons.account_tree,
+                  email: 'kp_ded@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('kp_ded@tvetmara.edu.my', 'password123'),
+                ),
+              ],
+            ),
+            _DemoLoginSection(
+              title: 'Pensyarah Real Demo',
+              buttons: [
+                _DemoLoginButton(
+                  label: 'SYARIFAH BINTI ABDUL RAHIM',
+                  subtitle: 'Pensyarah Elektrik - akaun sebenar demo',
+                  icon: Icons.menu_book,
+                  email: 'lecturer046@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('lecturer046@tvetmara.edu.my', 'password123'),
+                ),
+                _DemoLoginButton(
+                  label: 'Zabhin bin Mohd Arbai',
+                  subtitle: 'Pensyarah DGS - akaun sebenar demo',
+                  icon: Icons.menu_book,
+                  email: 'lecturer001@tvetmara.edu.my',
+                  onPressed: () =>
+                      onFillDemo('lecturer001@tvetmara.edu.my', 'password123'),
+                ),
+              ],
+            ),
+            _DemoLoginSection(
+              title: 'Legacy Demo Pensyarah',
+              buttons: [
+                _DemoLoginButton(
+                  label: 'Demo Pensyarah DED',
+                  subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
+                  icon: Icons.person_outline,
+                  email: 'pensyarah_ded@tvetmara.edu.my',
+                  onPressed: () => onFillDemo(
+                      'pensyarah_ded@tvetmara.edu.my', 'password123'),
+                ),
+                _DemoLoginButton(
+                  label: 'Demo Pensyarah DGS',
+                  subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
+                  icon: Icons.person_outline,
+                  email: 'pensyarah_dgs@tvetmara.edu.my',
+                  onPressed: () => onFillDemo(
+                      'pensyarah_dgs@tvetmara.edu.my', 'password123'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
