@@ -172,8 +172,18 @@ class FirestoreService {
     await _timetableCol.doc(slotId).update({'status': status});
   }
 
-  Future<void> addTimetableSlot(TimetableSlot slot) async {
-    await _timetableCol.doc(slot.id).set(_slotToMap(slot));
+  /// [sourceBookingId] tags a generated "Ganti" slot with the booking that
+  /// produced it. Written straight onto the document (not a typed
+  /// TimetableSlot field) so every existing call site stays unaffected.
+  Future<void> addTimetableSlot(
+    TimetableSlot slot, {
+    String? sourceBookingId,
+  }) async {
+    final data = _slotToMap(slot);
+    if (sourceBookingId != null) {
+      data['sourceBookingId'] = sourceBookingId;
+    }
+    await _timetableCol.doc(slot.id).set(data);
   }
 
   Future<void> updateTimetableSlot(TimetableSlot slot) async {
@@ -698,6 +708,18 @@ class FirestoreService {
     if (reviewedByName != null) updates['reviewedByName'] = reviewedByName;
     if (rejectionReason != null) updates['rejectionReason'] = rejectionReason;
     await _bookingsCol.doc(id).update(updates);
+  }
+
+  /// Writes the generated replacement slot id back onto the source booking
+  /// so the approval trail is traceable from the booking document.
+  Future<void> linkBookingReplacementSlot(
+    String bookingId,
+    String slotId,
+  ) async {
+    await _bookingsCol.doc(bookingId).update({
+      'replacementSlotId': slotId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // ---------------------------------------------------------------------------

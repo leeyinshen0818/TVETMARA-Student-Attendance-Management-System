@@ -1029,35 +1029,67 @@ class AppState extends ChangeNotifier {
         );
         return;
       }
-      // Replacement slot helper: create normalized Kelas Ganti timetable slot
+
+      // Prefer a source slot taught by the *same* lecturer for this section
+      // so subjectCode / classType / program carry over correctly; fall
+      // back to any slot in the section if no exact match exists.
       final source = timetable
-          .where((slot) => slot.section == booking.section)
-          .firstOrNull;
+              .where((slot) =>
+                  slot.section == booking.section &&
+                  slot.lecturerId == booking.lecturerId)
+              .firstOrNull ??
+          timetable.where((slot) => slot.section == booking.section).firstOrNull;
+
+      // Best-effort: fills lecturerEmail / lecturerProfileId from the user
+      // record even when no matching source slot was found. Falls back
+      // silently to source's values if `users` hasn't been loaded yet.
+      final lecturerUser =
+          users.where((u) => u.uid == booking.lecturerId).firstOrNull;
+
+      final resolvedProgramId =
+          _programIdForBooking(booking) ?? source?.programId;
+      final resolvedDepartmentId = booking.departmentId ??
+          source?.departmentId ??
+          _programForId(resolvedProgramId)?.departmentId;
+      final resolvedSessionId =
+          source?.academicSessionId ?? source?.session ?? session;
+
+      final newSlotId = 'T${DateTime.now().millisecondsSinceEpoch}';
       final newSlot = TimetableSlot(
-        id: 'T${DateTime.now().millisecondsSinceEpoch}',
-        session: session,
+        id: newSlotId,
+        academicSessionId: resolvedSessionId,
+        session: resolvedSessionId,
         semester: semester,
+        programId: resolvedProgramId,
         program: source?.program ?? '',
+        departmentId: resolvedDepartmentId,
+        classId: booking.section,
         section: booking.section,
         subjectCode: source?.subjectCode ?? 'REP',
         subjectName: booking.subject,
         lecturerId: booking.lecturerId,
         lecturerName: booking.lecturerName,
-        lecturerEmail: source?.lecturerEmail,
-        lecturerProfileId: source?.lecturerProfileId,
+        lecturerEmail: lecturerUser?.email ?? source?.lecturerEmail,
+        lecturerProfileId:
+            lecturerUser?.lecturerProfileId ?? source?.lecturerProfileId,
+        roomId: booking.roomId ?? booking.room,
+        roomName: booking.roomName ?? booking.room,
+        room: booking.room,
         day: 'Ganti',
         date: booking.replacementDate,
         startTime: booking.replacementStart,
         endTime: booking.replacementEnd,
-        room: booking.room,
         enrolled: source?.enrolled ?? 0,
         capacity: source?.capacity ?? 0,
         classType: source?.classType ?? 'Teori',
-        slotType: 'Kelas Ganti',
-        status: 'Upcoming',
+        slotType: 'Ganti',
+        status: 'active',
+        isOfficial: true,
+        createdBy: reviewer?.uid,
       );
       timetable.add(newSlot);
-      await _fs.addTimetableSlot(newSlot);
+      await _fs.addTimetableSlot(newSlot, sourceBookingId: booking.id);
+      await _fs.linkBookingReplacementSlot(booking.id, newSlotId);
     }
 
     notifyListeners();
