@@ -1638,3 +1638,95 @@ class _DisciplineTile extends StatelessWidget {
     );
   }
 }
+
+// ─── Lecturer Assignment Group (mobile grouping model) ────────────────────────
+
+class _LecturerAssignmentGroup {
+  _LecturerAssignmentGroup({
+    required this.lecturerName,
+    required this.lecturerId,
+    required this.lecturerEmail,
+    required this.lecturerProfileId,
+    required this.slots,
+  });
+
+  final String lecturerName;
+  final String lecturerId;
+  final String? lecturerEmail;
+  final String? lecturerProfileId;
+  final List<TimetableSlot> slots;
+
+  List<String> get classes => slots.map((slot) => slot.section).toList();
+
+  List<String> get subjectCodes =>
+      slots.map((slot) => slot.subjectCode).toList();
+}
+
+// ─── Student Detail Row (mobile bottom-sheet / dialog detail row) ─────────────
+
+class _StudentDetailRow extends StatelessWidget {
+  const _StudentDetailRow({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _kMuted,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? '-' : value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: _kText,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Attendance Risk Chip (mobile student card chip) ──────────────────────────
+
+class _AttendanceRiskChip extends StatelessWidget {
+  const _AttendanceRiskChip({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
