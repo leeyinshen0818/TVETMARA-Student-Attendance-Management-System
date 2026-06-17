@@ -9,8 +9,8 @@ class CriticalAttendanceReportRow {
   const CriticalAttendanceReportRow({
     required this.student,
     required this.summary,
-    required this.programCode,
-    required this.disciplineCount,
+    this.programCode = '',
+    this.disciplineCount = 0,
   });
 
   final Student student;
@@ -30,10 +30,10 @@ class CriticalAttendancePdfReport {
     required this.averageAttendance,
     required this.completedSessions,
     required this.rows,
-    required this.selectedWeek,
-    required this.thresholdFilterLabel,
-    required this.groupFilterLabel,
-    required this.disciplineFilterLabel,
+    this.selectedWeek = 1,
+    this.thresholdFilterLabel = '',
+    this.groupFilterLabel = '',
+    this.disciplineFilterLabel = '',
   });
 
   final String academicSessionId;
@@ -77,7 +77,7 @@ class ReportsPdfExportService {
           (row) => [
             row.student.id,
             row.student.name,
-            row.programCode,
+            row.programCode.isEmpty ? row.student.program : row.programCode,
             row.student.section,
             '${row.summary.present}',
             '${row.summary.late}',
