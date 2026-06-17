@@ -39,7 +39,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   String _search = '';
   String _selectedGroup = _allGroupsKey;
-  int _selectedWeek = 1;
+  int? _selectedWeek;
   int? _selectedThresholdFilter;
   String _selectedDisciplineFilter = _allDisciplineKey;
 
@@ -48,12 +48,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _selectedGroup != _allGroupsKey ||
       _selectedThresholdFilter != null ||
       _selectedDisciplineFilter != _allDisciplineKey ||
-      _selectedWeek != 1;
+      _selectedWeek != null;
 
   void _clearFilters() => setState(() {
         _search = '';
         _selectedGroup = _allGroupsKey;
-        _selectedWeek = 1;
+        _selectedWeek = null;
         _selectedThresholdFilter = null;
         _selectedDisciplineFilter = _allDisciplineKey;
       });
@@ -167,7 +167,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
         }
       }
       if (_selectedThresholdFilter != null) {
-        final summary = state.attendanceSummaryForStudentWeek(s, _selectedWeek);
+        final summary = _selectedWeek == null
+            ? state.attendanceSummaryForStudent(s)
+            : state.attendanceSummaryForStudentWeek(s, _selectedWeek!);
         final pass = _selectedThresholdFilter == 80
             ? summary.percentage <= 80
             : summary.percentage < _selectedThresholdFilter!;
@@ -180,8 +182,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return true;
     }).toList();
 
+    final isAllWeeks = _selectedWeek == null;
     final summaries = filteredStudents
-        .map((s) => state.attendanceSummaryForStudentWeek(s, _selectedWeek))
+        .map((s) => isAllWeeks
+            ? state.attendanceSummaryForStudent(s)
+            : state.attendanceSummaryForStudentWeek(s, _selectedWeek!))
         .toList();
 
     final percentages = summaries.map((s) => s.percentage).toList();
@@ -201,7 +206,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     Future<void> exportCurrentView() async {
       final critical = filteredStudents.where((s) {
-        final sum = state.attendanceSummaryForStudentWeek(s, _selectedWeek);
+        final sum = isAllWeeks
+            ? state.attendanceSummaryForStudent(s)
+            : state.attendanceSummaryForStudentWeek(s, _selectedWeek!);
         return sum.percentage < state.attendanceThreshold;
       }).toList();
       await _exportPdf(
@@ -305,9 +312,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             child: AppPanel(
-              title: 'Laporan Kehadiran Kritikal $frequencyLabel',
-              subtitle: 'Sesi ${state.session} · '
-                  'Menunjukkan ${filteredStudents.length} pelajar',
+              title: isAllWeeks
+                  ? 'Laporan Kehadiran Keseluruhan'
+                  : 'Laporan Kehadiran Kritikal $frequencyLabel',
+              subtitle: isAllWeeks
+                  ? 'Sesi ${state.session} · Semua minggu · '
+                      'Menunjukkan ${filteredStudents.length} pelajar'
+                  : 'Sesi ${state.session} · '
+                      'Menunjukkan ${filteredStudents.length} pelajar',
               trailing: const Icon(Icons.picture_as_pdf_outlined, color: _kRed),
               child: _ReportsTable(
                 students: filteredStudents,
@@ -372,22 +384,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
       groupFilterLabel: groupLabel,
       disciplineFilterLabel: disciplineLabel,
       rows: criticalStudents
-          .map((s) => CriticalAttendanceReportRow(
-                student: s,
-                summary:
-                    state.attendanceSummaryForStudentWeek(s, _selectedWeek),
-                programCode: _programCodeForStudent(s),
-                disciplineCount: state.disciplineReports
-                    .where((r) => r.studentId == s.id)
-                    .length,
-              ))
+          .map((s) {
+            final summary = _selectedWeek == null
+                ? state.attendanceSummaryForStudent(s)
+                : state.attendanceSummaryForStudentWeek(s, _selectedWeek!);
+            return CriticalAttendanceReportRow(
+              student: s,
+              summary: summary,
+              programCode: _programCodeForStudent(s),
+              disciplineCount: state.disciplineReports
+                  .where((r) => r.studentId == s.id)
+                  .length,
+              isEligibleForPromotion: summary.percentage >= 80,
+            );
+          })
           .toList(),
     );
     try {
       final bytes = await exportService.buildCriticalAttendancePdf(report);
       await Printing.sharePdf(
         bytes: bytes,
-        filename: exportService.fileNameFor(state.session),
+        filename: exportService.fileNameFor(
+          state.session,
+          selectedWeek: _selectedWeek,
+        ),
       );
       messenger.showSnackBar(
         const SnackBar(content: Text('Laporan PDF berjaya dijana.')),
@@ -456,7 +476,7 @@ class _MobileReportsContent extends StatelessWidget {
   final List<Student> students;
   final List<AttendanceSummary> summaries;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final Widget filterSection;
   final VoidCallback onExport;
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
@@ -489,7 +509,7 @@ class _MobileReportsContent extends StatelessWidget {
             MobileSection(
               title: 'Senarai Pelajar',
               subtitle:
-                  'Minggu $selectedWeek - paparan kad dioptimumkan untuk telefon.',
+                  '${selectedWeek == null ? 'Semua Minggu' : 'Minggu $selectedWeek'} - paparan kad dioptimumkan untuk telefon.',
               child: _MobileReportsList(
                 students: students,
                 summaries: summaries,
@@ -644,7 +664,7 @@ class _MobileReportsList extends StatelessWidget {
   final List<Student> students;
   final List<AttendanceSummary> summaries;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
 
   @override
@@ -693,7 +713,7 @@ class _MobileReportCard extends StatelessWidget {
   final Student student;
   final AttendanceSummary summary;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final VoidCallback onExport;
 
   @override
@@ -798,6 +818,31 @@ class _MobileReportCard extends StatelessWidget {
                       valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
+                  if (selectedWeek == null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          summary.percentage >= 80
+                              ? Icons.check_circle
+                              : Icons.cancel,
+                          size: 13,
+                          color: summary.percentage >= 80 ? _kGreen : _kRed,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          summary.percentage >= 80
+                              ? 'Layak Naik Semester'
+                              : 'Tidak Layak Naik Semester',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: summary.percentage >= 80 ? _kGreen : _kRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -980,7 +1025,7 @@ class _FilterSection extends StatelessWidget {
   final String search;
   final int? selectedThreshold;
   final String selectedGroup;
-  final int selectedWeek;
+  final int? selectedWeek;
   final String selectedDiscipline;
   final List<String> availableGroups;
   final String Function(String) groupLabel;
@@ -991,7 +1036,7 @@ class _FilterSection extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<int?> onThresholdChanged;
   final ValueChanged<String> onGroupChanged;
-  final ValueChanged<int> onWeekChanged;
+  final ValueChanged<int?> onWeekChanged;
   final ValueChanged<String> onDisciplineChanged;
   final VoidCallback onClear;
 
@@ -1084,10 +1129,11 @@ class _FilterSection extends StatelessWidget {
               ),
               _FilterDropdown(
                 label: 'Minggu',
-                value: selectedWeek.toString(),
-                items: List.generate(18, (i) => '${i + 1}'),
-                labelFor: (v) => 'Minggu $v',
-                onChanged: (v) => onWeekChanged(int.parse(v)),
+                value: selectedWeek?.toString() ?? 'all',
+                items: ['all', ...List.generate(18, (i) => '${i + 1}')],
+                labelFor: (v) => v == 'all' ? 'Semua Minggu' : 'Minggu $v',
+                onChanged: (v) =>
+                    onWeekChanged(v == 'all' ? null : int.parse(v)),
               ),
               _FilterDropdown(
                 label: 'Status Disiplin',
@@ -1271,7 +1317,7 @@ class _ReportsTable extends StatelessWidget {
   final List<Student> students;
   final List<AttendanceSummary> summaries;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final String Function(Student) programCodeForStudent;
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
 
@@ -1301,21 +1347,24 @@ class _ReportsTable extends StatelessWidget {
     if (students.isEmpty) {
       return const _EmptyState();
     }
+    final isAllWeeks = selectedWeek == null;
     return AppDataTable(
-      columns: const [
-        DataColumn(label: Text('ID Pelajar')),
-        DataColumn(label: Text('Nama')),
-        DataColumn(label: Text('Program')),
-        DataColumn(label: Text('Kelas')),
-        DataColumn(label: Text('Disiplin')),
-        DataColumn(label: Text('P')),
-        DataColumn(label: Text('L')),
-        DataColumn(label: Text('A')),
-        DataColumn(label: Text('MC')),
-        DataColumn(label: Text('CK')),
-        DataColumn(label: Text('Kehadiran')),
-        DataColumn(label: Text('Status')),
-        DataColumn(label: Text('Tindakan')),
+      columns: [
+        const DataColumn(label: Text('ID Pelajar')),
+        const DataColumn(label: Text('Nama')),
+        const DataColumn(label: Text('Program')),
+        const DataColumn(label: Text('Kelas')),
+        const DataColumn(label: Text('Disiplin')),
+        const DataColumn(label: Text('P')),
+        const DataColumn(label: Text('L')),
+        const DataColumn(label: Text('A')),
+        const DataColumn(label: Text('MC')),
+        const DataColumn(label: Text('CK')),
+        const DataColumn(label: Text('Kehadiran')),
+        const DataColumn(label: Text('Status')),
+        if (isAllWeeks)
+          const DataColumn(label: Text('Naik Semester')),
+        const DataColumn(label: Text('Tindakan')),
       ],
       rows: List<DataRow>.generate(students.length, (i) {
         final student = students[i];
@@ -1390,6 +1439,14 @@ class _ReportsTable extends StatelessWidget {
             ),
           )),
           DataCell(StatusChip(risk)),
+          if (isAllWeeks)
+            DataCell(
+              Icon(
+                pct >= 80 ? Icons.check_circle : Icons.cancel,
+                color: pct >= 80 ? _kGreen : _kRed,
+                size: 20,
+              ),
+            ),
           DataCell(
             _LihatButiranButton(
               student: student,
@@ -1437,7 +1494,7 @@ class _LihatButiranButton extends StatelessWidget {
   });
   final Student student;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final VoidCallback onExport;
 
   @override
@@ -1487,13 +1544,14 @@ class _StudentDetailDialog extends StatelessWidget {
 
   final Student student;
   final AppState state;
-  final int selectedWeek;
+  final int? selectedWeek;
   final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
-    final weekSummary =
-        state.attendanceSummaryForStudentWeek(student, selectedWeek);
+    final weekSummary = selectedWeek == null
+        ? state.attendanceSummaryForStudent(student)
+        : state.attendanceSummaryForStudentWeek(student, selectedWeek!);
     final overallSummary = state.attendanceSummaryForStudent(student);
     final riskMalay = _ReportsScreenState.weeklyRisk(
         weekSummary.percentage, state.attendanceThreshold);
@@ -1507,8 +1565,11 @@ class _StudentDetailDialog extends StatelessWidget {
 
     final warnings = <String>[];
     if (weekSummary.percentage < state.attendanceThreshold) {
+      final weekLabel = selectedWeek == null
+          ? 'Keseluruhan'
+          : 'Minggu $selectedWeek';
       warnings.add(
-          'Kehadiran ${weekSummary.percentage}% (Minggu $selectedWeek) adalah di bawah had '
+          'Kehadiran ${weekSummary.percentage}% ($weekLabel) adalah di bawah had '
           '${state.attendanceThreshold}%. Tindakan segera diperlukan.');
     }
     if (overallSummary.absent >= 3) {
@@ -1631,7 +1692,7 @@ class _DialogHeader extends StatelessWidget {
   final String riskLabel;
   final Color riskColour;
   final AttendanceSummary weekSummary;
-  final int selectedWeek;
+  final int? selectedWeek;
 
   @override
   Widget build(BuildContext context) {
@@ -1695,7 +1756,10 @@ class _DialogHeader extends StatelessWidget {
                     _InfoPill(
                         Icons.layers_outlined, 'Semester ${student.semester}'),
                     _InfoPill(
-                        Icons.calendar_today_outlined, 'Minggu $selectedWeek'),
+                        Icons.calendar_today_outlined,
+                        selectedWeek == null
+                            ? 'Semua Minggu'
+                            : 'Minggu $selectedWeek'),
                   ],
                 ),
               ],
@@ -1712,7 +1776,7 @@ class _DialogHeader extends StatelessWidget {
                       color: riskColour)),
               const Text('Kehadiran',
                   style: TextStyle(fontSize: 11, color: _kMuted)),
-              Text('M$selectedWeek',
+              Text(selectedWeek == null ? 'Semua' : 'M$selectedWeek',
                   style: const TextStyle(fontSize: 10, color: _kMuted)),
             ],
           ),

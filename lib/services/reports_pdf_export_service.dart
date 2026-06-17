@@ -11,12 +11,14 @@ class CriticalAttendanceReportRow {
     required this.summary,
     this.programCode = '',
     this.disciplineCount = 0,
+    this.isEligibleForPromotion = false,
   });
 
   final Student student;
   final AttendanceSummary summary;
   final String programCode;
   final int disciplineCount;
+  final bool isEligibleForPromotion;
 }
 
 class CriticalAttendancePdfReport {
@@ -30,7 +32,7 @@ class CriticalAttendancePdfReport {
     required this.averageAttendance,
     required this.completedSessions,
     required this.rows,
-    this.selectedWeek = 1,
+    this.selectedWeek,
     this.thresholdFilterLabel = '',
     this.groupFilterLabel = '',
     this.disciplineFilterLabel = '',
@@ -45,7 +47,7 @@ class CriticalAttendancePdfReport {
   final int averageAttendance;
   final int completedSessions;
   final List<CriticalAttendanceReportRow> rows;
-  final int selectedWeek;
+  final int? selectedWeek;
   final String thresholdFilterLabel;
   final String groupFilterLabel;
   final String disciplineFilterLabel;
@@ -54,21 +56,29 @@ class CriticalAttendancePdfReport {
 class ReportsPdfExportService {
   const ReportsPdfExportService();
 
-  String fileNameFor(String academicSessionId) {
+  String fileNameFor(String academicSessionId, {int? selectedWeek}) {
     final safeSession = academicSessionId
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
         .replaceAll(RegExp(r'_+'), '_');
-    return 'laporan_kehadiran_kritikal_${safeSession.isEmpty ? 'sesi' : safeSession}.pdf';
+    final prefix = selectedWeek == null
+        ? 'laporan_kehadiran_keseluruhan'
+        : 'laporan_kehadiran_kritikal';
+    return '${prefix}_${safeSession.isEmpty ? 'sesi' : safeSession}.pdf';
   }
 
   Future<Uint8List> buildCriticalAttendancePdf(
     CriticalAttendancePdfReport report,
   ) async {
+    final isAllWeeks = report.selectedWeek == null;
     final document = pw.Document(
-      title: 'Laporan Kehadiran Kritikal Mingguan',
+      title: isAllWeeks
+          ? 'Laporan Kehadiran Keseluruhan'
+          : 'Laporan Kehadiran Kritikal Mingguan',
       author: report.generatedBy,
-      subject: 'Laporan kehadiran pelajar bawah ${report.threshold}%',
+      subject: isAllWeeks
+          ? 'Laporan kehadiran keseluruhan pelajar'
+          : 'Laporan kehadiran pelajar bawah ${report.threshold}%',
       compress: false,
     );
 
@@ -86,6 +96,8 @@ class ReportsPdfExportService {
             '${row.summary.ck}',
             '${row.summary.percentage}%',
             '${row.disciplineCount}',
+            if (isAllWeeks)
+              row.isEligibleForPromotion ? 'Layak' : 'Tidak Layak',
           ],
         )
         .toList();
@@ -100,7 +112,10 @@ class ReportsPdfExportService {
           pw.SizedBox(height: 14),
           _buildSummary(report),
           pw.SizedBox(height: 18),
-          if (rows.isEmpty) _buildEmptyState() else _buildTable(rows),
+          if (rows.isEmpty)
+            _buildEmptyState()
+          else
+            _buildTable(rows, isAllWeeks: isAllWeeks),
         ],
       ),
     );
@@ -119,7 +134,9 @@ class ReportsPdfExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Laporan Kehadiran Kritikal Mingguan',
+            report.selectedWeek == null
+                ? 'Laporan Kehadiran Keseluruhan'
+                : 'Laporan Kehadiran Kritikal Mingguan',
             style: pw.TextStyle(
               color: PdfColors.white,
               fontSize: 18,
@@ -136,7 +153,9 @@ class ReportsPdfExportService {
               _metadataText('Dijana oleh', report.generatedBy),
               _metadataText('Skop', report.scopeLabel),
               _metadataText('Had', 'Bawah ${report.threshold}%'),
-              _metadataText('Minggu', 'Minggu ${report.selectedWeek}'),
+              _metadataText('Minggu', report.selectedWeek == null
+                  ? 'Semua Minggu'
+                  : 'Minggu ${report.selectedWeek}'),
               _metadataText('Status', report.thresholdFilterLabel),
               _metadataText('Program/Kelas', report.groupFilterLabel),
               _metadataText('Disiplin', report.disciplineFilterLabel),
@@ -193,21 +212,37 @@ class ReportsPdfExportService {
     );
   }
 
-  pw.Widget _buildTable(List<List<String>> rows) {
+  pw.Widget _buildTable(List<List<String>> rows, {bool isAllWeeks = false}) {
+    final headers = [
+      'ID Pelajar',
+      'Nama',
+      'Program',
+      'Kelas',
+      'P',
+      'L',
+      'A',
+      'MC',
+      'CK',
+      'Kehadiran %',
+      'Disiplin',
+      if (isAllWeeks) 'Naik Semester',
+    ];
+    final columnWidths = <int, pw.FlexColumnWidth>{
+      0: const pw.FlexColumnWidth(1.1),
+      1: const pw.FlexColumnWidth(2.4),
+      2: const pw.FlexColumnWidth(0.6),
+      3: const pw.FlexColumnWidth(0.8),
+      4: const pw.FlexColumnWidth(0.45),
+      5: const pw.FlexColumnWidth(0.45),
+      6: const pw.FlexColumnWidth(0.45),
+      7: const pw.FlexColumnWidth(0.55),
+      8: const pw.FlexColumnWidth(0.55),
+      9: const pw.FlexColumnWidth(0.9),
+      10: const pw.FlexColumnWidth(0.6),
+      if (isAllWeeks) 11: const pw.FlexColumnWidth(0.9),
+    };
     return pw.TableHelper.fromTextArray(
-      headers: const [
-        'ID Pelajar',
-        'Nama',
-        'Program',
-        'Kelas',
-        'P',
-        'L',
-        'A',
-        'MC',
-        'CK',
-        'Kehadiran %',
-        'Disiplin',
-      ],
+      headers: headers,
       data: rows,
       headerStyle: pw.TextStyle(
         color: PdfColors.white,
@@ -219,19 +254,7 @@ class ReportsPdfExportService {
       cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 5),
       oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey100),
       border: pw.TableBorder.all(color: PdfColors.blueGrey100, width: 0.5),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(1.1),
-        1: const pw.FlexColumnWidth(2.4),
-        2: const pw.FlexColumnWidth(0.6),
-        3: const pw.FlexColumnWidth(0.8),
-        4: const pw.FlexColumnWidth(0.45),
-        5: const pw.FlexColumnWidth(0.45),
-        6: const pw.FlexColumnWidth(0.45),
-        7: const pw.FlexColumnWidth(0.55),
-        8: const pw.FlexColumnWidth(0.55),
-        9: const pw.FlexColumnWidth(0.9),
-        10: const pw.FlexColumnWidth(0.6),
-      },
+      columnWidths: columnWidths,
     );
   }
 
