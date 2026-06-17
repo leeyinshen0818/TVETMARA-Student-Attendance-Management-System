@@ -383,22 +383,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
       thresholdFilterLabel: thresholdLabel,
       groupFilterLabel: groupLabel,
       disciplineFilterLabel: disciplineLabel,
-      rows: criticalStudents
-          .map((s) {
-            final summary = _selectedWeek == null
-                ? state.attendanceSummaryForStudent(s)
-                : state.attendanceSummaryForStudentWeek(s, _selectedWeek!);
-            return CriticalAttendanceReportRow(
-              student: s,
-              summary: summary,
-              programCode: _programCodeForStudent(s),
-              disciplineCount: state.disciplineReports
-                  .where((r) => r.studentId == s.id)
-                  .length,
-              isEligibleForPromotion: summary.percentage >= 80,
-            );
-          })
-          .toList(),
+      rows: criticalStudents.map((s) {
+        final summary = _selectedWeek == null
+            ? state.attendanceSummaryForStudent(s)
+            : state.attendanceSummaryForStudentWeek(s, _selectedWeek!);
+        return CriticalAttendanceReportRow(
+          student: s,
+          summary: summary,
+          programCode: _programCodeForStudent(s),
+          disciplineCount:
+              state.disciplineReports.where((r) => r.studentId == s.id).length,
+          isEligibleForPromotion: summary.percentage >= 80,
+        );
+      }).toList(),
     );
     try {
       final bytes = await exportService.buildCriticalAttendancePdf(report);
@@ -723,9 +720,8 @@ class _MobileReportCard extends StatelessWidget {
       state.attendanceThreshold,
     );
     final color = _ReportsScreenState.riskColor(risk);
-    final disciplineCount = state.disciplineReports
-        .where((r) => r.studentId == student.id)
-        .length;
+    final disciplineCount =
+        state.disciplineReports.where((r) => r.studentId == student.id).length;
 
     return InkWell(
       onTap: () => showDialog<void>(
@@ -789,8 +785,7 @@ class _MobileReportCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '${student.id} · ${student.section}',
-                          style: const TextStyle(
-                              fontSize: 12, color: _kMuted),
+                          style: const TextStyle(fontSize: 12, color: _kMuted),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1362,8 +1357,7 @@ class _ReportsTable extends StatelessWidget {
         const DataColumn(label: Text('CK')),
         const DataColumn(label: Text('Kehadiran')),
         const DataColumn(label: Text('Status')),
-        if (isAllWeeks)
-          const DataColumn(label: Text('Naik Semester')),
+        if (isAllWeeks) const DataColumn(label: Text('Naik Semester')),
         const DataColumn(label: Text('Tindakan')),
       ],
       rows: List<DataRow>.generate(students.length, (i) {
@@ -1565,9 +1559,8 @@ class _StudentDetailDialog extends StatelessWidget {
 
     final warnings = <String>[];
     if (weekSummary.percentage < state.attendanceThreshold) {
-      final weekLabel = selectedWeek == null
-          ? 'Keseluruhan'
-          : 'Minggu $selectedWeek';
+      final weekLabel =
+          selectedWeek == null ? 'Keseluruhan' : 'Minggu $selectedWeek';
       warnings.add(
           'Kehadiran ${weekSummary.percentage}% ($weekLabel) adalah di bawah had '
           '${state.attendanceThreshold}%. Tindakan segera diperlukan.');

@@ -30,8 +30,18 @@ class LecturerExportMeta {
   String get formattedDate {
     final d = generatedAt;
     const months = [
-      'Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis',
+      'Jan',
+      'Feb',
+      'Mac',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Ogo',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Dis',
     ];
     final hh = d.hour.toString().padLeft(2, '0');
     final mm = d.minute.toString().padLeft(2, '0');

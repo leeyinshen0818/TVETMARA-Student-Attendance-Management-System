@@ -66,5 +66,4 @@ class DefaultFirebaseOptions {
     projectId: 'tvetmara-7e520',
     storageBucket: 'tvetmara-7e520.firebasestorage.app',
   );
-
 }

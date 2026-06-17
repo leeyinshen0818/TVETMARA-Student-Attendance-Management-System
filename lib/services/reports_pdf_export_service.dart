@@ -153,9 +153,11 @@ class ReportsPdfExportService {
               _metadataText('Dijana oleh', report.generatedBy),
               _metadataText('Skop', report.scopeLabel),
               _metadataText('Had', 'Bawah ${report.threshold}%'),
-              _metadataText('Minggu', report.selectedWeek == null
-                  ? 'Semua Minggu'
-                  : 'Minggu ${report.selectedWeek}'),
+              _metadataText(
+                  'Minggu',
+                  report.selectedWeek == null
+                      ? 'Semua Minggu'
+                      : 'Minggu ${report.selectedWeek}'),
               _metadataText('Status', report.thresholdFilterLabel),
               _metadataText('Program/Kelas', report.groupFilterLabel),
               _metadataText('Disiplin', report.disciplineFilterLabel),

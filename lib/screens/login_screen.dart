@@ -333,7 +333,14 @@ class _LoginIntro extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.primaryDark,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryDark,
+            AppColors.primary,
+          ],
+        ),
         borderRadius: mobile ? BorderRadius.circular(24) : null,
       ),
       padding: EdgeInsets.all(mobile ? 20 : (compact ? 28 : 42)),
@@ -372,58 +379,28 @@ class _LoginIntro extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Sistem Pengurusan Kehadiran Pelajar TVETMARA',
+                    'Sistem Kehadiran TVETMARA',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: mobile ? 24 : (compact ? 30 : 40),
+                      fontSize: mobile ? 26 : (compact ? 36 : 48),
                       fontWeight: FontWeight.w900,
                       height: 1.08,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Text(
-                    'Pengurusan berpusat untuk kehadiran, jadual, disiplin dan kelas ganti.',
+                    'Pengurusan kehadiran, jadual dan laporan pelajar dalam satu platform.',
                     maxLines: mobile ? 2 : 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: .78),
-                      fontSize: mobile ? 13 : 16,
+                      color: Colors.white.withValues(alpha: .85),
+                      fontSize: mobile ? 14 : 18,
                       height: 1.38,
                     ),
-                  ),
-                  SizedBox(height: mobile ? 16 : 24),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _LoginFeatureChip('Had 80%'),
-                      _LoginFeatureChip('PDF Mingguan'),
-                      _LoginFeatureChip('Tempahan Bilik'),
-                      _LoginFeatureChip('Firebase Cloud'),
-                    ],
                   ),
                 ],
               ),
             ),
-            if (!mobile)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .12),
-                  ),
-                ),
-                child: const Text(
-                  'Flutter + Firebase Cloud',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -813,32 +790,6 @@ class _DemoLoginButton extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoginFeatureChip extends StatelessWidget {
-  const _LoginFeatureChip(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .08),
-        border: Border.all(color: Colors.white.withValues(alpha: .16)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );

@@ -27,26 +27,33 @@ import 'lecturer_export_service.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kDayOrder = {
-  'ISNIN': 0,   'MONDAY': 0,
-  'SELASA': 1,  'TUESDAY': 1,
-  'RABU': 2,    'WEDNESDAY': 2,
-  'KHAMIS': 3,  'THURSDAY': 3,
-  'JUMAAT': 4,  'FRIDAY': 4,
-  'SABTU': 5,   'SATURDAY': 5,
-  'AHAD': 6,    'SUNDAY': 6,
+  'ISNIN': 0,
+  'MONDAY': 0,
+  'SELASA': 1,
+  'TUESDAY': 1,
+  'RABU': 2,
+  'WEDNESDAY': 2,
+  'KHAMIS': 3,
+  'THURSDAY': 3,
+  'JUMAAT': 4,
+  'FRIDAY': 4,
+  'SABTU': 5,
+  'SATURDAY': 5,
+  'AHAD': 6,
+  'SUNDAY': 6,
 };
 
 int _dayIndex(String day) => _kDayOrder[day.toUpperCase().trim()] ?? 99;
 
 String _normalDay(String v) => switch (v.trim().toUpperCase()) {
-      'MONDAY'    || 'ISNIN'   => 'Isnin',
-      'TUESDAY'   || 'SELASA'  => 'Selasa',
-      'WEDNESDAY' || 'RABU'    => 'Rabu',
-      'THURSDAY'  || 'KHAMIS'  => 'Khamis',
-      'FRIDAY'    || 'JUMAAT'  => 'Jumaat',
-      'SATURDAY'  || 'SABTU'   => 'Sabtu',
-      'SUNDAY'    || 'AHAD'    => 'Ahad',
-      _                        => v,
+      'MONDAY' || 'ISNIN' => 'Isnin',
+      'TUESDAY' || 'SELASA' => 'Selasa',
+      'WEDNESDAY' || 'RABU' => 'Rabu',
+      'THURSDAY' || 'KHAMIS' => 'Khamis',
+      'FRIDAY' || 'JUMAAT' => 'Jumaat',
+      'SATURDAY' || 'SABTU' => 'Sabtu',
+      'SUNDAY' || 'AHAD' => 'Ahad',
+      _ => v,
     };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,8 +93,7 @@ Future<void> exportLecturerTimetableAsPdf({
   // ── 3. Safe PDF filename ──────────────────────────────────────────────────
   final safeName = meta.lecturerName.replaceAll(RegExp(r'[^\w]'), '_');
   final d = meta.generatedAt;
-  final ds =
-      '${d.year}${_p(d.month)}${_p(d.day)}';
+  final ds = '${d.year}${_p(d.month)}${_p(d.day)}';
   final pdfFilename = 'jadual_${safeName}_$ds.pdf';
 
   // ── 4. Build the full HTML payload ───────────────────────────────────────
@@ -235,16 +241,16 @@ $rows
 
   // ── 5. Mount an invisible off-screen iframe ───────────────────────────────
   final iframe = html.IFrameElement()
-    ..style.position  = 'fixed'
-    ..style.top       = '-9999px'
-    ..style.left      = '-9999px'
-    ..style.width     = '1px'
-    ..style.height    = '1px'
-    ..style.opacity   = '0'
-    ..style.border    = 'none'
+    ..style.position = 'fixed'
+    ..style.top = '-9999px'
+    ..style.left = '-9999px'
+    ..style.width = '1px'
+    ..style.height = '1px'
+    ..style.opacity = '0'
+    ..style.border = 'none'
     ..style.pointerEvents = 'none'
-    ..setAttribute('sandbox',
-        'allow-scripts allow-same-origin allow-downloads');
+    ..setAttribute(
+        'sandbox', 'allow-scripts allow-same-origin allow-downloads');
 
   html.document.body!.append(iframe);
 
