@@ -17,40 +17,69 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      padding: EdgeInsets.only(bottom: mobile ? 14 : 18),
+      child: mobile
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (trailing != null) ...[
+                  Align(alignment: Alignment.centerLeft, child: trailing!),
+                  const SizedBox(height: 8),
+                ],
                 Text(
                   title,
-                  style: theme.textTheme.headlineSmall?.copyWith(
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: AppColors.primaryDark,
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: AppColors.muted,
-                    height: 1.45,
+                    height: 1.35,
                   ),
                 ),
               ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primaryDark,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 16),
+                  trailing!,
+                ],
+              ],
             ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 16),
-            trailing!,
-          ],
-        ],
-      ),
     );
   }
 }
@@ -72,21 +101,22 @@ class AppPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(mobile ? 12 : 18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryDark.withValues(alpha: .045),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: AppColors.primaryDark.withValues(alpha: mobile ? .028 : .045),
+            blurRadius: mobile ? 12 : 22,
+            offset: Offset(0, mobile ? 4 : 10),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(mobile ? 14 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -104,12 +134,15 @@ class AppPanel extends StatelessWidget {
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w900,
                               color: AppColors.primaryDark,
+                              fontSize: mobile ? 15 : null,
                             ),
                           ),
                         if (subtitle != null) ...[
-                          const SizedBox(height: 4),
+                          SizedBox(height: mobile ? 3 : 4),
                           Text(
                             subtitle!,
+                            maxLines: mobile ? 2 : null,
+                            overflow: mobile ? TextOverflow.ellipsis : null,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppColors.muted,
                               height: 1.35,
@@ -125,7 +158,7 @@ class AppPanel extends StatelessWidget {
                   ],
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: mobile ? 12 : 16),
             ],
             child,
           ],
