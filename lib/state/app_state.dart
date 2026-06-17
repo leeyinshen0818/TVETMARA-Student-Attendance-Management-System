@@ -1294,8 +1294,38 @@ class AppState extends ChangeNotifier {
     required String end,
     String? ignoreBookingId,
   }) {
-    final matchingSlots =
-        timetable.where((slot) => slot.room == room && slot.date == date);
+    String getMalayDayName(String dateStr) {
+      try {
+        final parsedDate = DateTime.parse(dateStr);
+        switch (parsedDate.weekday) {
+          case 1: return 'Isnin';
+          case 2: return 'Selasa';
+          case 3: return 'Rabu';
+          case 4: return 'Khamis';
+          case 5: return 'Jumaat';
+          case 6: return 'Sabtu';
+          case 7: return 'Ahad';
+          default: return '';
+        }
+      } catch (_) {
+        return '';
+      }
+    }
+
+    String cleanRoom(String name) {
+      return name.replaceAll(RegExp(r'\s*\(.*?\)\s*'), '').trim().toLowerCase();
+    }
+
+    final targetDay = getMalayDayName(date);
+    final targetRoomClean = cleanRoom(room);
+
+    final matchingSlots = timetable.where((slot) {
+      if (cleanRoom(slot.room) != targetRoomClean) return false;
+      final dayMatch = slot.day.toLowerCase() == targetDay.toLowerCase() ||
+          slot.dayOfWeek?.toLowerCase() == targetDay.toLowerCase();
+      final dateMatch = slot.date == date;
+      return dayMatch || dateMatch;
+    });
     for (final slot in matchingSlots) {
       if (_timesOverlap(start, end, slot.startTime, slot.endTime)) return false;
     }
@@ -1303,8 +1333,8 @@ class AppState extends ChangeNotifier {
     final approvedBookings = bookings.where(
       (booking) =>
           booking.id != ignoreBookingId &&
-          booking.status == 'Approved' &&
-          booking.room == room &&
+          (booking.status == 'Approved' || booking.status == 'Lulus') &&
+          cleanRoom(booking.room) == targetRoomClean &&
           booking.replacementDate == date,
     );
     for (final booking in approvedBookings) {

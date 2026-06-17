@@ -249,7 +249,7 @@ class _NewRequestTabState extends State<_NewRequestTab> {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
             content: Text(
-                'Bilik yang dipilih tidak tersedia pada masa tersebut. Sila pilih bilik atau masa lain.'),
+                'Slot masa yang dipilih bertindih dengan slot yang telah diisi. Sila pilih waktu lain.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -524,6 +524,22 @@ class _NewRequestTabState extends State<_NewRequestTab> {
                           ),
                         ),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  _RoomTimeSlotAvailabilitySelector(
+                    room: _room,
+                    date: _replacementDate,
+                    selectedStartTime: _startTime,
+                    selectedEndTime: _endTime,
+                    state: state,
+                    onSlotSelected: (start, end) {
+                      setState(() {
+                        _startTime = start;
+                        _endTime = end;
+                        _startCtrl.text = start;
+                        _endCtrl.text = end;
+                      });
+                    },
                   ),
                   if (canCheck && !available)
                     const Padding(
@@ -1460,6 +1476,240 @@ class _ApproveRejectButtons extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
+  const _RoomTimeSlotAvailabilitySelector({
+    required this.room,
+    required this.date,
+    required this.selectedStartTime,
+    required this.selectedEndTime,
+    required this.state,
+    required this.onSlotSelected,
+  });
+
+  final String room;
+  final String date;
+  final String selectedStartTime;
+  final String selectedEndTime;
+  final dynamic state;
+  final Function(String start, String end) onSlotSelected;
+
+  static const _standardSlots = [
+    {'start': '08:00', 'end': '10:00'},
+    {'start': '10:00', 'end': '12:00'},
+    {'start': '12:00', 'end': '14:00'},
+    {'start': '14:00', 'end': '16:00'},
+    {'start': '16:00', 'end': '18:00'},
+    {'start': '18:00', 'end': '20:00'},
+  ];
+
+  bool _timesOverlap(String startA, String endA, String startB, String endB) {
+    int minutes(String text) {
+      final parts = text.split(':');
+      if (parts.length != 2) return 0;
+      return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+    }
+    final aStart = minutes(startA);
+    final aEnd = minutes(endA);
+    final bStart = minutes(startB);
+    final bEnd = minutes(endB);
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (room.isEmpty || date.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xfff8fafc),
+          border: Border.all(color: const Color(0xffe2e8f0)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Color(0xff64748b), size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Sila pilih Tarikh Ganti dan Bilik untuk melihat ketersediaan slot masa.',
+                style: TextStyle(color: Color(0xff64748b), fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String getMalayDayName(String dateStr) {
+      try {
+        final parsedDate = DateTime.parse(dateStr);
+        switch (parsedDate.weekday) {
+          case 1: return 'Isnin';
+          case 2: return 'Selasa';
+          case 3: return 'Rabu';
+          case 4: return 'Khamis';
+          case 5: return 'Jumaat';
+          case 6: return 'Sabtu';
+          case 7: return 'Ahad';
+          default: return '';
+        }
+      } catch (_) {
+        return '';
+      }
+    }
+
+    String cleanRoom(String name) {
+      return name.replaceAll(RegExp(r'\s*\(.*?\)\s*'), '').trim().toLowerCase();
+    }
+
+    final targetDay = getMalayDayName(date);
+    final targetRoomClean = cleanRoom(room);
+
+    final timetable = state.timetable as List;
+    final bookings = state.bookings as List;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel('Jadual Ketersediaan Slot Masa'),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.6,
+          ),
+          itemCount: _standardSlots.length,
+          itemBuilder: (context, index) {
+            final slot = _standardSlots[index];
+            final start = slot['start']!;
+            final end = slot['end']!;
+
+            final hasJadualConflict = timetable.any((s) {
+              if (cleanRoom(s.room) != targetRoomClean) return false;
+              final dayMatch = s.day.toLowerCase() == targetDay.toLowerCase() ||
+                  s.dayOfWeek?.toLowerCase() == targetDay.toLowerCase();
+              final dateMatch = s.date == date;
+              if (!dayMatch && !dateMatch) return false;
+              return _timesOverlap(start, end, s.startTime, s.endTime);
+            });
+
+            final hasBookingConflict = bookings.any((b) {
+              if (cleanRoom(b.room) != targetRoomClean || b.replacementDate != date) return false;
+              final isApproved = b.status == 'Approved' || b.status == 'Lulus';
+              if (!isApproved) return false;
+              return _timesOverlap(start, end, b.replacementStart, b.replacementEnd);
+            });
+
+            final isSelected = selectedStartTime == start && selectedEndTime == end;
+
+            String label = 'Kosong';
+            Color bgColor = const Color(0xffdcfce7);
+            Color borderColor = const Color(0xff86efac);
+            Color textColor = const Color(0xff166534);
+            IconData icon = Icons.check_circle_outline;
+            bool isOccupied = false;
+
+            if (hasJadualConflict) {
+              label = 'Jadual';
+              bgColor = const Color(0xfffee2e2);
+              borderColor = const Color(0xfffca5a5);
+              textColor = const Color(0xff991b1b);
+              icon = Icons.calendar_month_outlined;
+              isOccupied = true;
+            } else if (hasBookingConflict) {
+              label = 'Tempahan Diluluskan';
+              bgColor = const Color(0xfffff7ed);
+              borderColor = const Color(0xfffed7aa);
+              textColor = const Color(0xffc2410c);
+              icon = Icons.lock_outline;
+              isOccupied = true;
+            } else if (isSelected) {
+              label = 'Boleh Ditempah (Dipilih)';
+              bgColor = const Color(0xff15803d);
+              borderColor = const Color(0xff166534);
+              textColor = Colors.white;
+              icon = Icons.check_circle;
+            }
+
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isOccupied
+                    ? () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                                'Slot $start - $end telah diisi ($label). Sila pilih slot yang kosong.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    : () => onSlotSelected(start, end),
+                borderRadius: BorderRadius.circular(10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: .2),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: textColor, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$start - $end',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                color: textColor.withValues(alpha: isSelected ? 0.9 : 0.8),
+                                fontSize: 10,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
