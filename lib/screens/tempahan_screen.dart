@@ -848,15 +848,6 @@ class _BookingApprovalCard extends StatelessWidget {
                     runSpacing: 6,
                     children: [
                       _DetailItem(
-                          icon: Icons.person_outline,
-                          label: 'Pensyarah',
-                          value: booking.lecturerName),
-                      _DetailItem(
-                          icon: Icons.event_outlined,
-                          label: 'Kelas Asal',
-                          value:
-                              '${booking.originalDate}  ${booking.originalTime}'),
-                      _DetailItem(
                           icon: Icons.swap_horiz,
                           label: 'Ganti',
                           value:
@@ -865,10 +856,6 @@ class _BookingApprovalCard extends StatelessWidget {
                           icon: Icons.door_front_door_outlined,
                           label: 'Bilik',
                           value: booking.room),
-                      _DetailItem(
-                          icon: Icons.circle_outlined,
-                          label: 'Ketersediaan',
-                          value: avail ? '✓ Tersedia' : '✗ Tidak Tersedia'),
                     ],
                   ),
 
@@ -900,25 +887,19 @@ class _BookingApprovalCard extends StatelessWidget {
                           const Icon(Icons.verified_user_outlined,
                               size: 13, color: Color(0xff64748b)),
                           const SizedBox(width: 4),
-                          const Text(
-                            'Disemak oleh \${booking.reviewedByName ?? booking.reviewedBy}',
-                            style: TextStyle(
-                                fontSize: 11, color: Color(0xff64748b)),
-                          ),
-                          if (booking.rejectionReason != null &&
-                              booking.status == 'Rejected') ...[
-                            const Text('  ·  ',
-                                style: TextStyle(
-                                    fontSize: 11, color: Color(0xff64748b))),
-                            const Expanded(
-                              child: Text(
-                                'Sebab: \${booking.rejectionReason}',
-                                style: TextStyle(
-                                    fontSize: 11, color: AppColors.danger),
-                                overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              booking.status == 'Rejected'
+                                  ? 'Disemak oleh: ${booking.reviewedByName ?? "Penyelia"}. Sebab: ${booking.rejectionReason ?? "Tiada alasan diberikan"}'
+                                  : 'Disemak oleh: ${booking.reviewedByName ?? booking.reviewedBy ?? "Penyelia"}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: booking.status == 'Rejected'
+                                    ? AppColors.danger
+                                    : const Color(0xff64748b),
                               ),
                             ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
