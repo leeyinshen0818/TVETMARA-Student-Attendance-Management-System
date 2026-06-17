@@ -2,8 +2,48 @@ import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 
-class PageHeader extends StatelessWidget {
-  const PageHeader({
+class AppPage extends StatelessWidget {
+  const AppPage({
+    super.key,
+    required this.child,
+    this.backgroundColor,
+    this.padding,
+  });
+
+  final Widget child;
+  final Color? backgroundColor;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+    return Container(
+      color: backgroundColor ?? AppColors.background,
+      width: double.infinity,
+      child: SafeArea(
+        bottom: mobile,
+        child: SingleChildScrollView(
+          padding: padding ??
+              EdgeInsets.only(
+                top: mobile ? 16 : 32,
+                left: mobile ? 16 : 32,
+                right: mobile ? 16 : 32,
+                bottom: mobile ? 100 : 32,
+              ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AppPageHeader extends StatelessWidget {
+  const AppPageHeader({
     super.key,
     required this.title,
     required this.subtitle,
@@ -19,21 +59,21 @@ class PageHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final mobile = MediaQuery.sizeOf(context).width < 600;
     return Padding(
-      padding: EdgeInsets.only(bottom: mobile ? 14 : 18),
+      padding: EdgeInsets.only(bottom: mobile ? 16 : 24),
       child: mobile
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (trailing != null) ...[
                   Align(alignment: Alignment.centerLeft, child: trailing!),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                 ],
                 Text(
                   title,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
-                    color: AppColors.primaryDark,
-                    letterSpacing: 0,
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.5,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -41,9 +81,9 @@ class PageHeader extends StatelessWidget {
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.muted,
-                    height: 1.35,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -59,15 +99,15 @@ class PageHeader extends StatelessWidget {
                         title,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primaryDark,
-                          letterSpacing: 0,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.5,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.muted,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: AppColors.textSecondary,
                           height: 1.45,
                         ),
                       ),
@@ -90,34 +130,40 @@ class AppPanel extends StatelessWidget {
     this.title,
     this.subtitle,
     this.trailing,
+    this.compact = false,
     required this.child,
   });
 
   final String? title;
   final String? subtitle;
   final Widget? trailing;
+  final bool compact;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final mobile = MediaQuery.sizeOf(context).width < 600;
+
+    final padding = compact
+        ? EdgeInsets.all(mobile ? 12 : 16)
+        : EdgeInsets.all(mobile ? 16 : 24);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(mobile ? 12 : 18),
+        borderRadius: BorderRadius.circular(mobile ? 16 : 24),
         boxShadow: [
           BoxShadow(
-            color:
-                AppColors.primaryDark.withValues(alpha: mobile ? .028 : .045),
-            blurRadius: mobile ? 12 : 22,
-            offset: Offset(0, mobile ? 4 : 10),
+            color: AppColors.primaryDark.withValues(alpha: .03),
+            blurRadius: mobile ? 12 : 24,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(mobile ? 14 : 18),
+        padding: padding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -134,19 +180,19 @@ class AppPanel extends StatelessWidget {
                             title!,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w900,
-                              color: AppColors.primaryDark,
-                              fontSize: mobile ? 15 : null,
+                              color: AppColors.textPrimary,
+                              fontSize: mobile ? 15 : 16,
                             ),
                           ),
                         if (subtitle != null) ...[
-                          SizedBox(height: mobile ? 3 : 4),
+                          const SizedBox(height: 2),
                           Text(
                             subtitle!,
                             maxLines: mobile ? 2 : null,
                             overflow: mobile ? TextOverflow.ellipsis : null,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.muted,
-                              height: 1.35,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.4,
                             ),
                           ),
                         ],
@@ -159,7 +205,7 @@ class AppPanel extends StatelessWidget {
                   ],
                 ],
               ),
-              SizedBox(height: mobile ? 12 : 16),
+              SizedBox(height: mobile ? 14 : 20),
             ],
             child,
           ],

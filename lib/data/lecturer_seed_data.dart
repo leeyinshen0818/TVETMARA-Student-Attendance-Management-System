@@ -1,4 +1,4 @@
-﻿// Generated from SENARAI NAMA PENSYARAH & KURSUS YANG DIAJAR SESI JAN JUN 2026.xlsx.
+// Generated from SENARAI NAMA PENSYARAH & KURSUS YANG DIAJAR SESI JAN JUN 2026.xlsx.
 // Workbook provides lecturer names and course rows, but no real lecturer emails.
 // Emails below are generated demo addresses for safe testing.
 

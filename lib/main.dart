@@ -106,6 +106,15 @@ class TvetmaraApp extends StatelessWidget {
           surface: AppColors.surface,
           error: AppColors.danger,
         ),
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(color: AppColors.primaryDark),
+          bodyMedium: TextStyle(color: AppColors.primaryDark),
+          bodySmall: TextStyle(color: AppColors.textSecondary),
+          titleLarge: TextStyle(color: AppColors.primaryDark),
+          titleMedium: TextStyle(color: AppColors.primaryDark),
+          titleSmall: TextStyle(color: AppColors.primaryDark),
+          headlineSmall: TextStyle(color: AppColors.primaryDark),
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.surface,
           foregroundColor: AppColors.primaryDark,
@@ -116,9 +125,9 @@ class TvetmaraApp extends StatelessWidget {
           elevation: 0,
           margin: EdgeInsets.zero,
           color: AppColors.surface,
-          shadowColor: AppColors.primaryDark.withValues(alpha: .08),
+          shadowColor: AppColors.primaryDark.withValues(alpha: .04),
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(18)),
+            borderRadius: BorderRadius.all(Radius.circular(20)),
             side: BorderSide(color: AppColors.border),
           ),
         ),
@@ -131,13 +140,14 @@ class TvetmaraApp extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
           side: const BorderSide(color: AppColors.border),
-          shape: const StadiumBorder(),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: AppColors.surface,
-          labelStyle: const TextStyle(color: AppColors.muted),
+          labelStyle: const TextStyle(color: AppColors.textSecondary),
           hintStyle: TextStyle(color: AppColors.muted.withValues(alpha: .72)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),

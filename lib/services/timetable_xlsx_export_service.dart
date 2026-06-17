@@ -655,3 +655,111 @@ void _labelValueRow(
     CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row),
   );
 }
+// ---------------------------------------------------------------------------
+// Class Timetable Export
+// ---------------------------------------------------------------------------
+
+List<int> buildClassTimetableXlsx({
+  required String programId,
+  required String programName,
+  required String classId,
+  required String academicSessionId,
+  required String generatedBy,
+  required DateTime generatedAt,
+  required List<TimetableSlot> slots,
+}) {
+  final excel = Excel.createExcel();
+  final sheet = excel['Jadual Kelas'];
+  excel.setDefaultSheet('Jadual Kelas');
+
+  if (excel.sheets.containsKey('Sheet1')) {
+    excel.delete('Sheet1');
+  }
+
+  // Set column widths
+  sheet.setColumnWidth(0, 15); // Masa
+  sheet.setColumnWidth(1, 15); // Hari
+  sheet.setColumnWidth(2, 15); // Kod Kursus
+  sheet.setColumnWidth(3, 40); // Nama Kursus
+  sheet.setColumnWidth(4, 30); // Pensyarah
+  sheet.setColumnWidth(5, 20); // Bilik
+  sheet.setColumnWidth(6, 15); // Minggu
+  sheet.setColumnWidth(7, 15); // Jenis Slot
+  sheet.setColumnWidth(8, 15); // Status
+
+  final titleStyle = _titleStyle();
+  final metaLabelStyle = _metaLabelStyle();
+  final metaValueStyle = _metaValueStyle();
+
+  int currentRow = 0;
+
+  // Title
+  _mergedTextRow(sheet, currentRow, 9, 'JADUAL WAKTU KELAS', titleStyle);
+  currentRow += 2;
+
+  // Meta details
+  _labelValueRow(sheet, currentRow++, 'Program', '$programId - $programName',
+      metaLabelStyle, metaValueStyle);
+  _labelValueRow(
+      sheet, currentRow++, 'Kelas', classId, metaLabelStyle, metaValueStyle);
+  _labelValueRow(sheet, currentRow++, 'Sesi Akademik', academicSessionId,
+      metaLabelStyle, metaValueStyle);
+  _labelValueRow(sheet, currentRow++, 'Dijana Oleh', generatedBy,
+      metaLabelStyle, metaValueStyle);
+  _labelValueRow(sheet, currentRow++, 'Tarikh Jana',
+      _formatDateTime(generatedAt), metaLabelStyle, metaValueStyle);
+  currentRow++;
+
+  // Table header
+  final headerStyle = _tableHeaderStyle();
+  final headers = [
+    'Masa',
+    'Hari',
+    'Kod Kursus',
+    'Nama Kursus',
+    'Pensyarah',
+    'Bilik',
+    'Minggu',
+    'Jenis Slot',
+    'Status',
+  ];
+
+  for (var i = 0; i < headers.length; i++) {
+    final cell = sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: currentRow));
+    cell.value = TextCellValue(headers[i]);
+    cell.cellStyle = headerStyle;
+  }
+  currentRow++;
+
+  // Table rows
+  final dataStyle = _dataCellStyle();
+  final altDataStyle = _dataCellStyle(altRow: true);
+
+  for (var i = 0; i < slots.length; i++) {
+    final slot = slots[i];
+    final rowStyle = (i % 2 == 0) ? dataStyle : altDataStyle;
+
+    final rowData = [
+      '${slot.startTime}-${slot.endTime}',
+      _normalDay(slot.dayOfWeek ?? slot.day),
+      slot.subjectCode,
+      slot.subjectName,
+      slot.lecturerName,
+      slot.roomName ?? slot.room,
+      '${slot.weekStart ?? '1'}-${slot.weekEnd ?? '18'}',
+      slot.slotType,
+      xlsxStatusLabel(slot.status),
+    ];
+
+    for (var j = 0; j < rowData.length; j++) {
+      final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: j, rowIndex: currentRow));
+      cell.value = TextCellValue(rowData[j]);
+      cell.cellStyle = rowStyle;
+    }
+    currentRow++;
+  }
+
+  return excel.encode()!;
+}

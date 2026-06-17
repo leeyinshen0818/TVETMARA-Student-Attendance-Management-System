@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../services/timetable_file_io.dart';
 import '../services/timetable_view_export_service.dart';
+import '../services/timetable_xlsx_export_service.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/class_timetable_generator_dialog.dart';
@@ -57,7 +58,7 @@ class _KpTimetableScreenState extends State<KpTimetableScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: 'Jadual Program',
           subtitle:
               'Lihat jadual rasmi untuk program $titleProgram sahaja. Gunakan eksport untuk berkongsi jadual dengan pelajar.',
@@ -188,15 +189,17 @@ class _KpTimetableScreenState extends State<KpTimetableScreen> {
     required String generatedBy,
     required List<TimetableSlot> slots,
   }) {
-    downloadTextFile(
+    final state = AppScope.of(context);
+    final program = state.programs.where((p) => p.id == programId).firstOrNull;
+    downloadBinaryFile(
       filename:
-          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.csv',
-      content: buildClassTimetableCsv(
+          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.xlsx',
+      bytes: buildClassTimetableXlsx(
         programId: programId,
-        programName: programName,
+        programName: program?.name ?? programId,
         classId: classId,
         academicSessionId: academicSessionId,
-        generatedBy: generatedBy,
+        generatedBy: state.currentUser?.name ?? '-',
         generatedAt: DateTime.now(),
         slots: slots,
       ),

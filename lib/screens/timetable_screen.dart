@@ -90,7 +90,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final canUploadTimetable = user.role == UserRole.ketua_jabatan ||
         state.currentKetuaProgramInheritsKetuaJabatanTasks;
     if (!canUploadTimetable) {
-      return const PageHeader(
+      return const AppPageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
             'Hanya Ketua Jabatan atau Ketua Program tanpa Ketua Jabatan boleh memuat naik dan mengurus jadual.',
@@ -103,166 +103,173 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final sessionTimetable = _sessionTimetable(timetable, selectedSession);
     final filteredTimetable = _filteredTimetable(sessionTimetable);
     final generatorPrograms = _availableProgramOptions(sessionTimetable);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (context.isMobile)
-          MobileHeroCard(
-            icon: Icons.calendar_month_outlined,
-            title: user.role == UserRole.ketua_program
-                ? 'Pengurusan Jadual Program'
-                : 'Pengurusan Jadual Jabatan',
-            subtitle:
-                'Urus jadual rasmi, muat naik CSV dan semak import mengikut skop anda.',
-            chips: [
-              StatusChip('${sessionTimetable.length} Rekod Jadual'),
-              StatusChip(selectedSession),
-            ],
-          )
-        else
-          PageHeader(
-            title: user.role == UserRole.ketua_program
-                ? 'Pengurusan Jadual Program'
-                : 'Pengurusan Jadual Jabatan',
-            subtitle:
-                'Urus jadual rasmi, muat naik jadual CSV, dan semak rekod import mengikut skop pengguna.',
-            trailing: StatusChip('${sessionTimetable.length} Rekod Jadual'),
-          ),
-        _ScopeSummary(
-          state: state,
-          slotCount: sessionTimetable.length,
-          selectedAcademicSession: selectedSession,
-          academicSessionOptions: sessionOptions,
-          onAcademicSessionChanged: (value) {
-            if (value == null) return;
-            _updateFilters(() {
-              state.updateAcademicSession(value);
-              _academicSessionFilter = value;
-              _dayFilter = null;
-              _statusFilter = null;
-              _programFilter = null;
-              _classFilter = null;
-              _lecturerFilter = null;
-              _roomFilter = null;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
-        _HeaderActionBar(
-          hasTimetable: filteredTimetable.isNotEmpty,
-          onUpload: () => setState(() => _selectedSection = 1),
-          onExport: () => _exportTimetable(filteredTimetable),
-          onAddManual: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AddTimetableScreen(),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        _ClassTimetableSecondaryAction(
-          enabled: generatorPrograms.isNotEmpty,
-          onOpen: () => _showClassTimetableGeneratorDialog(
-            state: state,
-            selectedSession: selectedSession,
-            programOptions: generatorPrograms,
-          ),
-        ),
-        const SizedBox(height: 20),
-        _SectionTabs(
-          selectedIndex: _selectedSection,
-          onChanged: (index) => setState(() => _selectedSection = index),
-        ),
-        const SizedBox(height: 16),
-        if (_selectedSection == 0)
-          _OfficialTimetableSection(
-            state: state,
-            slots: filteredTimetable,
-            allSlots: sessionTimetable,
-            selectedAcademicSession: selectedSession,
-            searchCtrl: _searchCtrl,
-            dayFilter: _dayFilter,
-            statusFilter: _statusFilter,
-            programFilter: _programFilter,
-            classFilter: _classFilter,
-            lecturerFilter: _lecturerFilter,
-            roomFilter: _roomFilter,
-            selectedViewMode: _selectedTimetableView,
-            selectedSlotKeys: _selectedSlotKeys,
-            batchProcessing: _batchProcessing,
-            onSearchChanged: (_) => _updateFilters(() {}),
-            onDayChanged: (value) => _updateFilters(() => _dayFilter = value),
-            onStatusChanged: (value) =>
-                _updateFilters(() => _statusFilter = value),
-            onProgramChanged: (value) => _updateFilters(() {
-              _programFilter = value;
-              _classFilter = null;
-              _lecturerFilter = null;
-              _roomFilter = null;
-            }),
-            onClassChanged: (value) => _updateFilters(() {
-              _classFilter = value;
-              _lecturerFilter = null;
-              _roomFilter = null;
-            }),
-            onLecturerChanged: (value) => _updateFilters(() {
-              _lecturerFilter = value;
-              _roomFilter = null;
-            }),
-            onRoomChanged: (value) => _updateFilters(() => _roomFilter = value),
-            onResetFilters: _resetFilters,
-            onViewModeChanged: (mode) => setState(() {
-              _selectedTimetableView = mode;
-              if (mode != _TimetableViewMode.list) {
-                _selectedSlotKeys.clear();
-              }
-            }),
-            onToggleSelectAllVisible: () =>
-                _toggleSelectAllVisible(filteredTimetable),
-            onClearSelection: _clearSelection,
-            onExportSelected: () => _exportSelected(filteredTimetable),
-            onBatchInactive: () =>
-                _confirmBatchInactive(state, filteredTimetable),
-            onBatchDelete: () => _confirmBatchDelete(state, filteredTimetable),
-            onSelectionChanged: _setSlotSelection,
-            onDetails: (slot) => _showSlotDetails(state, slot),
-            onEdit: (slot) => _showEditDialog(state, slot),
-            onConflictEdit: (slot) =>
-                _showEditDialog(state, slot, conflictContext: true),
-            onPublishDrafts: (slots) => _confirmPublishDraftSlots(state, slots),
-            onDelete: (slot) => _confirmDelete(state, slot),
-          )
-        else if (_selectedSection == 1)
-          _UploadWorkflowSection(
-            selectedAcademicSession: selectedSession,
-            processingImport: _processingImport,
-            importError: _importError,
-            previewResult: _previewResult,
-            previewConflicts: _previewConflicts,
-            previewFileName: _previewFileName,
-            lastImportResult: _lastImportResult,
-            importing: _importing,
-            canImportPreview: _canImportPreview,
-            canSaveDraftPreview: _canSaveDraftPreview,
-            onPickFile: () => _pickAndPreviewFile(state),
-            onDownloadTemplate: () => _downloadTemplate(state, selectedSession),
-            onClearPreview: _clearPreview,
-            onSaveDraftPreview: () => _confirmAndImportPreview(
-              state,
-              saveMode: TimetableImportSaveMode.draft,
+    return AppPage(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (context.isMobile)
+            MobileHeroCard(
+              icon: Icons.calendar_month_outlined,
+              title: user.role == UserRole.ketua_program
+                  ? 'Pengurusan Jadual Program'
+                  : 'Pengurusan Jadual Jabatan',
+              subtitle:
+                  'Urus jadual rasmi, muat naik CSV dan semak import mengikut skop anda.',
+              chips: [
+                StatusChip('${sessionTimetable.length} Rekod Jadual'),
+                StatusChip(selectedSession),
+              ],
+            )
+          else
+            AppPageHeader(
+              title: user.role == UserRole.ketua_program
+                  ? 'Pengurusan Jadual Program'
+                  : 'Pengurusan Jadual Jabatan',
+              subtitle:
+                  'Urus jadual rasmi, muat naik jadual CSV, dan semak rekod import mengikut skop pengguna.',
+              trailing: StatusChip('${sessionTimetable.length} Rekod Jadual'),
             ),
-            onImportPreview: () => _confirmAndImportPreview(state),
-            onViewOfficialTimetable: () => setState(() => _selectedSection = 0),
-          )
-        else
-          _ImportHistorySection(
-            records: _filteredUploadHistory(state),
-            scopedSlots: timetable,
-            onUpload: () => setState(() => _selectedSection = 1),
+          _ScopeSummary(
+            state: state,
+            slotCount: sessionTimetable.length,
+            selectedAcademicSession: selectedSession,
+            academicSessionOptions: sessionOptions,
+            onAcademicSessionChanged: (value) {
+              if (value == null) return;
+              _updateFilters(() {
+                state.updateAcademicSession(value);
+                _academicSessionFilter = value;
+                _dayFilter = null;
+                _statusFilter = null;
+                _programFilter = null;
+                _classFilter = null;
+                _lecturerFilter = null;
+                _roomFilter = null;
+              });
+            },
           ),
-      ],
+          const SizedBox(height: 12),
+          _HeaderActionBar(
+            hasTimetable: filteredTimetable.isNotEmpty,
+            onUpload: () => setState(() => _selectedSection = 1),
+            onExport: () => _exportTimetable(filteredTimetable),
+            onAddManual: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AddTimetableScreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          _ClassTimetableSecondaryAction(
+            enabled: generatorPrograms.isNotEmpty,
+            onOpen: () => _showClassTimetableGeneratorDialog(
+              state: state,
+              selectedSession: selectedSession,
+              programOptions: generatorPrograms,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _SectionTabs(
+            selectedIndex: _selectedSection,
+            onChanged: (index) => setState(() => _selectedSection = index),
+          ),
+          const SizedBox(height: 16),
+          if (_selectedSection == 0)
+            _OfficialTimetableSection(
+              state: state,
+              slots: filteredTimetable,
+              allSlots: sessionTimetable,
+              selectedAcademicSession: selectedSession,
+              searchCtrl: _searchCtrl,
+              dayFilter: _dayFilter,
+              statusFilter: _statusFilter,
+              programFilter: _programFilter,
+              classFilter: _classFilter,
+              lecturerFilter: _lecturerFilter,
+              roomFilter: _roomFilter,
+              selectedViewMode: _selectedTimetableView,
+              selectedSlotKeys: _selectedSlotKeys,
+              batchProcessing: _batchProcessing,
+              onSearchChanged: (_) => _updateFilters(() {}),
+              onDayChanged: (value) => _updateFilters(() => _dayFilter = value),
+              onStatusChanged: (value) =>
+                  _updateFilters(() => _statusFilter = value),
+              onProgramChanged: (value) => _updateFilters(() {
+                _programFilter = value;
+                _classFilter = null;
+                _lecturerFilter = null;
+                _roomFilter = null;
+              }),
+              onClassChanged: (value) => _updateFilters(() {
+                _classFilter = value;
+                _lecturerFilter = null;
+                _roomFilter = null;
+              }),
+              onLecturerChanged: (value) => _updateFilters(() {
+                _lecturerFilter = value;
+                _roomFilter = null;
+              }),
+              onRoomChanged: (value) =>
+                  _updateFilters(() => _roomFilter = value),
+              onResetFilters: _resetFilters,
+              onViewModeChanged: (mode) => setState(() {
+                _selectedTimetableView = mode;
+                if (mode != _TimetableViewMode.list) {
+                  _selectedSlotKeys.clear();
+                }
+              }),
+              onToggleSelectAllVisible: () =>
+                  _toggleSelectAllVisible(filteredTimetable),
+              onClearSelection: _clearSelection,
+              onExportSelected: () => _exportSelected(filteredTimetable),
+              onBatchInactive: () =>
+                  _confirmBatchInactive(state, filteredTimetable),
+              onBatchDelete: () =>
+                  _confirmBatchDelete(state, filteredTimetable),
+              onSelectionChanged: _setSlotSelection,
+              onDetails: (slot) => _showSlotDetails(state, slot),
+              onEdit: (slot) => _showEditDialog(state, slot),
+              onConflictEdit: (slot) =>
+                  _showEditDialog(state, slot, conflictContext: true),
+              onPublishDrafts: (slots) =>
+                  _confirmPublishDraftSlots(state, slots),
+              onDelete: (slot) => _confirmDelete(state, slot),
+            )
+          else if (_selectedSection == 1)
+            _UploadWorkflowSection(
+              selectedAcademicSession: selectedSession,
+              processingImport: _processingImport,
+              importError: _importError,
+              previewResult: _previewResult,
+              previewConflicts: _previewConflicts,
+              previewFileName: _previewFileName,
+              lastImportResult: _lastImportResult,
+              importing: _importing,
+              canImportPreview: _canImportPreview,
+              canSaveDraftPreview: _canSaveDraftPreview,
+              onPickFile: () => _pickAndPreviewFile(state),
+              onDownloadTemplate: () =>
+                  _downloadTemplate(state, selectedSession),
+              onClearPreview: _clearPreview,
+              onSaveDraftPreview: () => _confirmAndImportPreview(
+                state,
+                saveMode: TimetableImportSaveMode.draft,
+              ),
+              onImportPreview: () => _confirmAndImportPreview(state),
+              onViewOfficialTimetable: () =>
+                  setState(() => _selectedSection = 0),
+            )
+          else
+            _ImportHistorySection(
+              records: _filteredUploadHistory(state),
+              scopedSlots: timetable,
+              onUpload: () => setState(() => _selectedSection = 1),
+            ),
+        ],
+      ),
     );
   }
 
@@ -424,10 +431,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }) {
     final program =
         state.programs.where((item) => item.id == programId).firstOrNull;
-    downloadTextFile(
+    downloadBinaryFile(
       filename:
-          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.csv',
-      content: buildClassTimetableCsv(
+          'jadual_kelas_${_safeFileSegment(classId)}_${_safeFileSegment(academicSessionId)}.xlsx',
+      bytes: buildClassTimetableXlsx(
         programId: programId,
         programName: program?.name ?? programId,
         classId: classId,

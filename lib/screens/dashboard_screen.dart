@@ -4,11 +4,11 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_components.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/academic_session_manager_dialog.dart';
-import '../widgets/mobile_components.dart';
+
 import '../widgets/responsive.dart';
-import '../widgets/stat_tile.dart';
 import '../widgets/status_chip.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -22,23 +22,29 @@ class DashboardScreen extends StatelessWidget {
     final user = state.currentUser!;
 
     if (user.role == UserRole.pentadbir) {
-      return _PentadbirDashboard(
-        state: state,
-        onNavigateToLabel: onNavigateToLabel,
+      return AppPage(
+        child: _PentadbirDashboard(
+          state: state,
+          onNavigateToLabel: onNavigateToLabel,
+        ),
       );
     }
 
     if (user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program) {
-      return _KetuaDashboard(
-        state: state,
-        onNavigateToLabel: onNavigateToLabel,
+      return AppPage(
+        child: _KetuaDashboard(
+          state: state,
+          onNavigateToLabel: onNavigateToLabel,
+        ),
       );
     }
 
-    return _PensyarahDashboard(
-      state: state,
-      onNavigateToLabel: onNavigateToLabel,
+    return AppPage(
+      child: _PensyarahDashboard(
+        state: state,
+        onNavigateToLabel: onNavigateToLabel,
+      ),
     );
   }
 }
@@ -93,22 +99,22 @@ class _PentadbirDashboard extends StatelessWidget {
           const SizedBox(height: 12),
           _AdminStatGrid(
             tiles: [
-              StatTile(
+              AppStatCard(
                 label: 'Pengguna',
                 value: '${users.length}',
                 icon: Icons.people_alt_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Pelajar',
                 value: '${students.length}',
                 icon: Icons.school_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Pensyarah',
                 value: '${lecturerEmails.length}',
                 icon: Icons.badge_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Akaun Tidak Aktif',
                 value: '$inactiveAccounts',
                 icon: Icons.person_off_outlined,
@@ -119,36 +125,43 @@ class _PentadbirDashboard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _AdminQuickActionsPanel(
-            state: state,
-            onNavigateToLabel: onNavigateToLabel,
+          _DashboardQuickActionsPanel(
+            title: 'Tindakan Pentadbiran',
+            subtitle: 'Urus akaun pengguna dan data asas sistem.',
+            actions: [
+              _DashboardQuickAction(
+                icon: Icons.person_add_alt_1_outlined,
+                label: 'Daftar',
+                description: 'Cipta akaun baharu',
+                onPressed: () => onNavigateToLabel?.call('Daftar Akaun'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.manage_accounts_outlined,
+                label: 'Pengguna',
+                description: 'Urus akaun sistem',
+                onPressed: () => onNavigateToLabel?.call('Pengurusan Pengguna'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.event_note_outlined,
+                label: 'Sesi',
+                description: 'Tambah atau arkib sesi akademik',
+                onPressed: () => showAcademicSessionManagerDialog(
+                  context: context,
+                  state: state,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          AppPanel(
-            title: 'Status Data Sistem',
-            subtitle: 'Kesediaan data asas untuk operasi semester semasa.',
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _ReadinessTile(
-                    label: 'Program aktif', value: '${programs.length}'),
-                _ReadinessTile(label: 'Kelas aktif', value: '$activeClasses'),
-                _ReadinessTile(label: 'Pelajar', value: '${students.length}'),
-                _ReadinessTile(
-                    label: 'Pensyarah / profil',
-                    value: '${lecturerEmails.length}'),
-              ],
+          if (inactiveAccounts > 0 || _lecturerProfilesWithoutLogin(lecturers, users) > 0) ...[
+            const SizedBox(height: 16),
+            _ReviewNeededPanel(
+              inactiveAccounts: inactiveAccounts,
+              lecturerProfilesWithoutLogin: _lecturerProfilesWithoutLogin(
+                lecturers,
+                users,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _ReviewNeededPanel(
-            inactiveAccounts: inactiveAccounts,
-            lecturerProfilesWithoutLogin: _lecturerProfilesWithoutLogin(
-              lecturers,
-              users,
-            ),
-          ),
+          ],
         ],
       );
     }
@@ -156,7 +169,7 @@ class _PentadbirDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: 'Selamat kembali, Pentadbir',
           subtitle:
               'Ringkasan pentadbiran pengguna, data sistem dan tetapan asas.',
@@ -164,34 +177,34 @@ class _PentadbirDashboard extends StatelessWidget {
         ),
         _AdminStatGrid(
           tiles: [
-            StatTile(
+            AppStatCard(
               label: 'Pengguna',
               value: '${users.length}',
               icon: Icons.people_alt_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Pelajar',
               value: '${students.length}',
               icon: Icons.school_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Pensyarah',
               value: '${lecturerEmails.length}',
               icon: Icons.badge_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Pengurusan',
               value: '$managementAccounts',
               icon: Icons.admin_panel_settings_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Akaun Tidak Aktif',
               value: '$inactiveAccounts',
               icon: Icons.person_off_outlined,
               color:
                   inactiveAccounts > 0 ? AppColors.warning : AppColors.success,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Program / Kelas Aktif',
               value: '${programs.length} / $activeClasses',
               icon: Icons.account_tree_outlined,
@@ -377,22 +390,32 @@ class _KetuaDashboard extends StatelessWidget {
             sessionLabel: _activeSessionLabel(state),
             icon: Icons.admin_panel_settings_outlined,
           ),
-          const SizedBox(height: 12),
+          if (pendingActions > 0) ...[
+            const SizedBox(height: 12),
+            _ActionRequiredPanel(
+              pendingBookings: pendingBookings,
+              pendingDiscipline: pendingDiscipline,
+              riskStudents: riskStudentCount,
+              timetableConflicts: conflictCount,
+              onNavigateToLabel: onNavigateToLabel,
+            ),
+          ],
+          const SizedBox(height: 16),
           _AdminStatGrid(
             tiles: [
-              StatTile(
+              AppStatCard(
                 label: 'Pelajar',
                 value: hasStudentData
                     ? '${scopedStudents.length}'
                     : '${studentSummary.totalStudents}',
                 icon: Icons.school_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Slot Aktif',
                 value: '${activeSlots.length}',
                 icon: Icons.calendar_month_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Bawah Had',
                 value: '$riskStudentCount',
                 icon: Icons.warning_amber_outlined,
@@ -400,7 +423,7 @@ class _KetuaDashboard extends StatelessWidget {
                     ? AppColors.success
                     : AppColors.danger,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Tindakan',
                 value: '$pendingActions',
                 icon: Icons.pending_actions_outlined,
@@ -414,20 +437,25 @@ class _KetuaDashboard extends StatelessWidget {
             title: 'Tindakan Pantas $scopeWord',
             subtitle: 'Buka modul utama untuk semakan dan tindakan lanjut.',
             actions: [
-              if (isKj || inheritsKj)
-                _DashboardQuickAction(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Pengurusan Jadual',
-                  description: 'Urus jadual & tempahan',
-                  onPressed: () => onNavigateToLabel?.call('Pengurusan Jadual'),
-                )
-              else
-                _DashboardQuickAction(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Jadual Program',
-                  description: 'Lihat slot program',
-                  onPressed: () => onNavigateToLabel?.call('Jadual Program'),
-                ),
+              _DashboardQuickAction(
+                icon: Icons.calendar_month_outlined,
+                label: 'Jadual',
+                description: 'Urus jadual & tempahan',
+                onPressed: () => onNavigateToLabel?.call(
+                    (isKj || inheritsKj) ? 'Pengurusan Jadual' : 'Jadual Program'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.bar_chart_outlined,
+                label: 'Laporan',
+                description: 'Semak laporan kehadiran',
+                onPressed: () => onNavigateToLabel?.call('Laporan'),
+              ),
+              _DashboardQuickAction(
+                icon: Icons.meeting_room_outlined,
+                label: 'Tempahan',
+                description: 'Luluskan atau semak permohonan bilik',
+                onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
+              ),
               _DashboardQuickAction(
                 icon: Icons.gavel_outlined,
                 label: 'Disiplin',
@@ -435,25 +463,12 @@ class _KetuaDashboard extends StatelessWidget {
                 onPressed: () => onNavigateToLabel?.call('Laporan Disiplin'),
               ),
               _DashboardQuickAction(
-                icon: Icons.meeting_room_outlined,
-                label: 'Semak Tempahan',
-                description: 'Luluskan atau semak permohonan bilik',
-                onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
-              ),
-              _DashboardQuickAction(
                 icon: Icons.people_alt_outlined,
-                label: 'Rekod Pelajar',
+                label: 'Rekod',
                 description: 'Semak pelajar',
                 onPressed: () => onNavigateToLabel?.call('Rekod Pelajar'),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          _ActionRequiredPanel(
-            pendingBookings: pendingBookings,
-            pendingDiscipline: pendingDiscipline,
-            riskStudents: riskStudentCount,
-            timetableConflicts: conflictCount,
           ),
           const SizedBox(height: 16),
           _AttendanceSummaryPanel(
@@ -465,18 +480,6 @@ class _KetuaDashboard extends StatelessWidget {
                 ? 'Ringkasan Kehadiran Jabatan'
                 : 'Ringkasan Kehadiran Program',
           ),
-          const SizedBox(height: 16),
-          _TimetableProgrammeSummaryPanel(
-            programs: scopedPrograms,
-            slots: activeSlots,
-            title:
-                isKj ? 'Ringkasan Jadual Jabatan' : 'Ringkasan Jadual Program',
-          ),
-          const SizedBox(height: 16),
-          _MobileTimetableListPanel(
-            title: isKj ? 'Slot Jadual Terkini' : 'Jadual Program Terkini',
-            slots: activeSlots,
-          ),
         ],
       );
     }
@@ -484,33 +487,33 @@ class _KetuaDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: title,
           subtitle: subtitle,
           trailing: StatusChip(_activeSessionLabel(state)),
         ),
         _AdminStatGrid(
           tiles: [
-            StatTile(
+            AppStatCard(
               label: 'Pelajar',
               value: hasStudentData
                   ? '${scopedStudents.length}'
                   : '${studentSummary.totalStudents}',
               icon: Icons.school_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Slot Aktif',
               value: '${activeSlots.length}',
               icon: Icons.calendar_month_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Bawah Had',
               value: '$riskStudentCount',
               icon: Icons.warning_amber_outlined,
               color:
                   riskStudentCount == 0 ? AppColors.success : AppColors.danger,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Tindakan',
               value: '$pendingActions',
               icon: Icons.pending_actions_outlined,
@@ -570,6 +573,7 @@ class _KetuaDashboard extends StatelessWidget {
           pendingDiscipline: pendingDiscipline,
           riskStudents: riskStudentCount,
           timetableConflicts: conflictCount,
+          onNavigateToLabel: onNavigateToLabel,
         ),
         const SizedBox(height: 16),
         LayoutBuilder(
@@ -669,20 +673,26 @@ class _PensyarahDashboard extends StatelessWidget {
             sessionLabel: _activeSessionLabel(state),
             icon: Icons.badge_outlined,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          _NextClassPanel(slot: nextSlot),
+          const SizedBox(height: 16),
+          if (pendingAttendanceSlots.isNotEmpty) ...[
+            _LecturerAttendanceActionPanel(slots: pendingAttendanceSlots),
+            const SizedBox(height: 16),
+          ],
           _AdminStatGrid(
             tiles: [
-              StatTile(
+              AppStatCard(
                 label: 'Kelas',
                 value: '${assignedClasses.length}',
                 icon: Icons.groups_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Slot Saya',
                 value: '${slots.length}',
                 icon: Icons.calendar_month_outlined,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Belum Diambil',
                 value: '${pendingAttendanceSlots.length}',
                 icon: Icons.fact_check_outlined,
@@ -690,7 +700,7 @@ class _PensyarahDashboard extends StatelessWidget {
                     ? AppColors.success
                     : AppColors.warning,
               ),
-              StatTile(
+              AppStatCard(
                 label: 'Bawah Had',
                 value: '${riskStudents.length}',
                 icon: Icons.report_problem_outlined,
@@ -706,7 +716,7 @@ class _PensyarahDashboard extends StatelessWidget {
             actions: [
               _DashboardQuickAction(
                 icon: Icons.calendar_view_week_outlined,
-                label: 'Jadual Saya',
+                label: 'Jadual',
                 description: 'Lihat slot mengajar',
                 onPressed: () => onNavigateToLabel?.call('Jadual Saya'),
               ),
@@ -731,19 +741,6 @@ class _PensyarahDashboard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _NextClassPanel(slot: nextSlot),
-          const SizedBox(height: 16),
-          _LecturerAttendanceActionPanel(slots: pendingAttendanceSlots),
-          const SizedBox(height: 16),
-          _RiskStudentPanel(state: state, students: riskStudents),
-          const SizedBox(height: 16),
-          _LecturerRequestsPanel(bookings: bookings, reports: reports),
-          const SizedBox(height: 16),
-          _MobileTimetableListPanel(
-            title: 'Slot Jadual Saya',
-            slots: slots,
-          ),
         ],
       );
     }
@@ -751,7 +748,7 @@ class _PensyarahDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: user.name.trim().isEmpty
               ? 'Selamat kembali, Pensyarah'
               : 'Selamat kembali, ${user.name}',
@@ -761,17 +758,17 @@ class _PensyarahDashboard extends StatelessWidget {
         ),
         _AdminStatGrid(
           tiles: [
-            StatTile(
+            AppStatCard(
               label: 'Kelas',
               value: '${assignedClasses.length}',
               icon: Icons.groups_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Slot Saya',
               value: '${slots.length}',
               icon: Icons.calendar_month_outlined,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Belum Diambil',
               value: '${pendingAttendanceSlots.length}',
               icon: Icons.fact_check_outlined,
@@ -779,7 +776,7 @@ class _PensyarahDashboard extends StatelessWidget {
                   ? AppColors.success
                   : AppColors.warning,
             ),
-            StatTile(
+            AppStatCard(
               label: 'Bawah Had',
               value: '${riskStudents.length}',
               icon: Icons.report_problem_outlined,
@@ -1353,14 +1350,44 @@ class _MobileDashboardWelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MobileHeroCard(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-      chips: [
-        StatusChip(scopeLabel),
-        StatusChip(sessionLabel),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$scopeLabel • $sessionLabel',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1383,77 +1410,16 @@ class _DashboardQuickAction extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = MediaQuery.sizeOf(context).width < 600;
-        final mobileWidth = (MediaQuery.sizeOf(context).width - 64).clamp(
-          240.0,
-          520.0,
-        );
-        if (narrow) {
-          return SizedBox(
-            width: mobileWidth,
-            child: MobileActionCard(
-              icon: icon,
-              title: label,
-              subtitle: description,
-              onTap: onPressed,
-            ),
-          );
-        }
+        final width =
+            narrow ? (MediaQuery.sizeOf(context).width - 44) / 2 : 250.0;
+
         return SizedBox(
-          width: 235,
-          child: OutlinedButton(
-            onPressed: onPressed,
-            style: OutlinedButton.styleFrom(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.all(14),
-              side: const BorderSide(color: AppColors.border),
-              backgroundColor: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          width: width,
+          child: AppActionCard(
+            icon: icon,
+            title: label,
+            subtitle: narrow ? null : description,
+            onTap: onPressed ?? () {},
           ),
         );
       },
@@ -1461,66 +1427,7 @@ class _DashboardQuickAction extends StatelessWidget {
   }
 }
 
-class _MobileTimetableListPanel extends StatelessWidget {
-  const _MobileTimetableListPanel({
-    required this.title,
-    required this.slots,
-  });
 
-  final String title;
-  final List<TimetableSlot> slots;
-
-  @override
-  Widget build(BuildContext context) {
-    final recent = slots.toList()..sort(_compareSlotsBySchedule);
-
-    return AppPanel(
-      title: title,
-      subtitle: 'Ringkasan lima slot pertama untuk sesi akademik dipilih.',
-      child: recent.isEmpty
-          ? const _CleanEmptyState(
-              icon: Icons.event_note_outlined,
-              message: 'Tiada slot jadual aktif untuk sesi akademik ini.',
-            )
-          : Column(
-              children: [
-                for (final slot in recent.take(5)) ...[
-                  _MobileTimetableSlotCard(slot: slot),
-                  if (slot != recent.take(5).last) const SizedBox(height: 10),
-                ],
-              ],
-            ),
-    );
-  }
-}
-
-class _MobileTimetableSlotCard extends StatelessWidget {
-  const _MobileTimetableSlotCard({required this.slot});
-
-  final TimetableSlot slot;
-
-  @override
-  Widget build(BuildContext context) {
-    return MobileInfoCard(
-      leadingIcon: Icons.event_note_outlined,
-      title: slot.subjectName,
-      subtitle: slot.lecturerName.isEmpty ? slot.section : slot.lecturerName,
-      chips: [StatusChip(_statusLabel(slot.status))],
-      metadata: [
-        MobileMetaPill(icon: Icons.calendar_today_outlined, label: slot.day),
-        MobileMetaPill(
-          icon: Icons.schedule_outlined,
-          label: '${slot.startTime}-${slot.endTime}',
-        ),
-        MobileMetaPill(icon: Icons.groups_outlined, label: slot.section),
-        MobileMetaPill(
-          icon: Icons.meeting_room_outlined,
-          label: slot.roomName ?? slot.roomId ?? '-',
-        ),
-      ],
-    );
-  }
-}
 
 class _ActionRequiredPanel extends StatelessWidget {
   const _ActionRequiredPanel({
@@ -1528,12 +1435,14 @@ class _ActionRequiredPanel extends StatelessWidget {
     required this.pendingDiscipline,
     required this.riskStudents,
     required this.timetableConflicts,
+    this.onNavigateToLabel,
   });
 
   final int pendingBookings;
   final int pendingDiscipline;
   final int riskStudents;
   final int timetableConflicts;
+  final ValueChanged<String>? onNavigateToLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1541,48 +1450,76 @@ class _ActionRequiredPanel extends StatelessWidget {
       if (pendingBookings > 0)
         _ActionItemData(
           icon: Icons.meeting_room_outlined,
-          title: 'Tempahan bilik menunggu kelulusan',
+          title: context.isMobile
+              ? 'Tempahan menunggu'
+              : 'Tempahan bilik menunggu kelulusan',
           count: pendingBookings,
           description:
               'Semak permohonan bilik dan kelas ganti dalam skop anda.',
+          actionLabel: 'Tempahan Bilik',
         ),
       if (pendingDiscipline > 0)
         _ActionItemData(
           icon: Icons.gavel_outlined,
-          title: 'Laporan disiplin menunggu semakan',
+          title: context.isMobile
+              ? 'Disiplin menunggu'
+              : 'Laporan disiplin menunggu semakan',
           count: pendingDiscipline,
           description: 'Tentukan tindakan lanjut untuk laporan baharu.',
+          actionLabel: 'Laporan Disiplin',
         ),
       if (riskStudents > 0)
         _ActionItemData(
           icon: Icons.trending_down_outlined,
-          title: 'Pelajar bawah had kehadiran',
+          title: context.isMobile
+              ? 'Pelajar bawah had'
+              : 'Pelajar bawah had kehadiran',
           count: riskStudents,
           description: 'Pantau pelajar yang memerlukan intervensi kehadiran.',
+          actionLabel: 'Laporan',
         ),
       if (timetableConflicts > 0)
         _ActionItemData(
           icon: Icons.event_busy_outlined,
-          title: 'Konflik jadual dikesan',
+          title: context.isMobile ? 'Konflik jadual' : 'Konflik jadual dikesan',
           count: timetableConflicts,
           description:
               'Semak konflik bilik, kelas atau pensyarah dalam jadual.',
+          actionLabel: 'Pengurusan Jadual',
         ),
     ];
+
+    if (items.isEmpty) return const SizedBox.shrink();
 
     return AppPanel(
       title: 'Tindakan Diperlukan',
       subtitle: 'Ringkasan perkara yang memerlukan perhatian segera.',
-      child: items.isEmpty
-          ? const _CleanEmptyState(
-              icon: Icons.check_circle_outline,
-              message: 'Tiada tindakan segera diperlukan.',
+      child: context.isMobile
+          ? Column(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  _ActionItemCard(
+                    item: items[i],
+                    onTap: items[i].actionLabel != null
+                        ? () =>
+                            onNavigateToLabel?.call(items[i].actionLabel!)
+                        : null,
+                  ),
+                  if (i < items.length - 1) const SizedBox(height: 8),
+                ],
+              ],
             )
           : Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final item in items) _ActionItemCard(item: item),
+                for (final item in items)
+                  _ActionItemCard(
+                    item: item,
+                    onTap: item.actionLabel != null
+                        ? () => onNavigateToLabel?.call(item.actionLabel!)
+                        : null,
+                  ),
               ],
             ),
     );
@@ -1595,81 +1532,71 @@ class _ActionItemData {
     required this.title,
     required this.count,
     required this.description,
+    this.actionLabel,
   });
 
   final IconData icon;
   final String title;
   final int count;
   final String description;
+  final String? actionLabel;
 }
 
 class _ActionItemCard extends StatelessWidget {
-  const _ActionItemCard({required this.item});
+  const _ActionItemCard({required this.item, this.onTap});
 
   final _ActionItemData item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warning.withValues(alpha: .24)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: AppColors.warning.withValues(alpha: .14),
-            child: Icon(item.icon, color: const Color(0xffc2410c), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${item.count}',
-                      style: const TextStyle(
-                        color: Color(0xffc2410c),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: context.isMobile ? double.infinity : 260,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Icon(item.icon, color: AppColors.warning, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  item.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 12,
-                    height: 1.25,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.warningSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${item.count}',
+                style: const TextStyle(
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, color: AppColors.muted, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -1736,23 +1663,25 @@ class _AttendanceSummaryPanel extends StatelessWidget {
             total: total,
             color: AppColors.danger,
           ),
-          const Divider(height: 24),
-          _SummaryRow(
-            label: 'Pelajar <95%',
-            value: '$below95',
-          ),
-          _SummaryRow(
-            label: 'Pelajar <90%',
-            value: '$below90',
-          ),
-          _SummaryRow(
-            label: 'Pelajar <85%',
-            value: '$below85',
-          ),
-          _SummaryRow(
-            label: 'Pelajar <80%',
-            value: '$below80',
-          ),
+          if (!context.isMobile) ...[
+            const Divider(height: 24),
+            _SummaryRow(
+              label: 'Pelajar <95%',
+              value: '$below95',
+            ),
+            _SummaryRow(
+              label: 'Pelajar <90%',
+              value: '$below90',
+            ),
+            _SummaryRow(
+              label: 'Pelajar <85%',
+              value: '$below85',
+            ),
+            _SummaryRow(
+              label: 'Pelajar <80%',
+              value: '$below80',
+            ),
+          ],
         ],
       ),
     );
@@ -1933,37 +1862,10 @@ class _CleanEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (context.isMobile) {
-      return MobileEmptyState(
-        icon: icon,
-        title: message,
-        subtitle:
-            'Semakan ini akan dikemas kini apabila data baharu dimuatkan.',
-      );
-    }
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceTint,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.success),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return AppEmptyState(
+      icon: icon,
+      title: 'Selesai',
+      message: message,
     );
   }
 }
@@ -1995,15 +1897,7 @@ class _AdminStatGrid extends StatelessWidget {
             for (final tile in tiles)
               SizedBox(
                 width: tileWidth,
-                child: mobile && tile is StatTile
-                    ? MobileStatCard(
-                        icon: tile.icon,
-                        value: tile.value,
-                        label: tile.label,
-                        helper: tile.helper,
-                        color: tile.color ?? AppColors.primary,
-                      )
-                    : tile,
+                child: tile,
               ),
           ],
         );

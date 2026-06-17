@@ -10,9 +10,11 @@ import '../widgets/mobile_components.dart';
 import '../widgets/responsive.dart';
 import '../widgets/status_chip.dart';
 
+import '../widgets/app_components.dart';
+import '../widgets/app_theme.dart';
+
 // ─── Colour tokens ────────────────────────────────────────────────────────────
 
-const _kBg = Color(0xFFF7F9FB);
 const _kCard = Colors.white;
 const _kBorder = Color(0xFFE2E8EF);
 const _kText = Color(0xFF1A2E3F);
@@ -136,7 +138,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (user.role != UserRole.ketua_jabatan &&
         user.role != UserRole.ketua_program &&
         user.role != UserRole.pensyarah) {
-      return const PageHeader(
+      return const AppPageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
             'Hanya Ketua Jabatan, Ketua Program dan Pensyarah boleh menyemak laporan.',
@@ -270,8 +272,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     }
 
-    return ColoredBox(
-      color: _kBg,
+    return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -283,9 +284,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             averageAttendance: avg,
             onExport: exportCurrentView,
           ),
+          const SizedBox(height: 24),
           // ── Filters ─────────────────────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: const EdgeInsets.only(bottom: 24),
             child: _FilterSection(
               search: _search,
               selectedThreshold: _selectedThresholdFilter,
@@ -480,43 +482,39 @@ class _MobileReportsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _kBg,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _MobileReportsHeader(
-              totalStudents: totalStudents,
-              frequencyLabel: frequencyLabel,
-              onExport: onExport,
+    return AppPage(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MobileReportsHeader(
+            totalStudents: totalStudents,
+            frequencyLabel: frequencyLabel,
+            onExport: onExport,
+          ),
+          const SizedBox(height: 12),
+          filterSection,
+          const SizedBox(height: 12),
+          _MobileReportStats(
+            totalStudents: totalStudents,
+            belowThreshold: belowThreshold,
+            threshold: threshold,
+            averageAttendance: averageAttendance,
+            completedSessions: completedSessions,
+          ),
+          const SizedBox(height: 12),
+          MobileSection(
+            title: 'Senarai Pelajar',
+            subtitle:
+                '${selectedWeek == null ? 'Semua Minggu' : 'Minggu $selectedWeek'} - paparan kad dioptimumkan untuk telefon.',
+            child: _MobileReportsList(
+              students: students,
+              summaries: summaries,
+              state: state,
+              selectedWeek: selectedWeek,
+              onExportStudent: onExportStudent,
             ),
-            const SizedBox(height: 12),
-            filterSection,
-            const SizedBox(height: 12),
-            _MobileReportStats(
-              totalStudents: totalStudents,
-              belowThreshold: belowThreshold,
-              threshold: threshold,
-              averageAttendance: averageAttendance,
-              completedSessions: completedSessions,
-            ),
-            const SizedBox(height: 12),
-            MobileSection(
-              title: 'Senarai Pelajar',
-              subtitle:
-                  '${selectedWeek == null ? 'Semua Minggu' : 'Minggu $selectedWeek'} - paparan kad dioptimumkan untuk telefon.',
-              child: _MobileReportsList(
-                students: students,
-                summaries: summaries,
-                state: state,
-                selectedWeek: selectedWeek,
-                onExportStudent: onExportStudent,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -600,7 +598,7 @@ class _MobileReportStats extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 10.0;
-        final columns = constraints.maxWidth >= 380 ? 2 : 1;
+        const columns = 2;
         final width =
             (constraints.maxWidth - (spacing * (columns - 1))) / columns;
         return Wrap(
@@ -640,11 +638,44 @@ class _MobileMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MobileStatCard(
-      icon: data.icon,
-      value: data.value,
-      label: data.label,
-      color: data.color,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(data.icon, color: data.color, size: 24),
+          const SizedBox(height: 10),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            data.label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -865,131 +896,62 @@ class _PageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: _kCard,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.assessment_outlined, size: 26, color: _kTeal),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Laporan',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: _kText)),
-                    SizedBox(height: 3),
-                    Text(
-                      'Semakan kehadiran mingguan pelajar. MC dan CK dikecualikan daripada peratus kehadiran.',
-                      style: TextStyle(fontSize: 13, color: _kMuted),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: onExport,
-                icon: const Icon(Icons.download, size: 16),
-                label: const Text('Eksport PDF'),
-                style: FilledButton.styleFrom(backgroundColor: _kTeal),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppPageHeader(
+          title: 'Laporan',
+          subtitle:
+              'Semakan kehadiran mingguan pelajar. MC dan CK dikecualikan daripada peratus kehadiran.',
+          trailing: FilledButton.icon(
+            onPressed: onExport,
+            icon: const Icon(Icons.download, size: 16),
+            label: const Text('Eksport PDF'),
           ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _StatCard(
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: AppStatCard(
                 icon: Icons.people_outline,
                 label: 'Jumlah Pelajar',
                 value: '$totalStudents',
-                color: _kTeal,
+                color: AppColors.primary,
               ),
-              const SizedBox(width: 12),
-              _StatCard(
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppStatCard(
                 icon: Icons.warning_amber_rounded,
                 label: 'Bawah Had Kehadiran',
                 value: '$belowThreshold',
-                color: belowThreshold > 0 ? _kRed : _kGreen,
+                color:
+                    belowThreshold > 0 ? AppColors.danger : AppColors.success,
               ),
-              const SizedBox(width: 12),
-              _StatCard(
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppStatCard(
                 icon: Icons.bar_chart_rounded,
                 label: 'Had Kehadiran',
                 value: '$threshold%',
-                color: _kAmber,
+                color: AppColors.warning,
               ),
-              const SizedBox(width: 12),
-              _StatCard(
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppStatCard(
                 icon: Icons.percent_rounded,
                 label: 'Purata Kehadiran',
                 value: '$averageAttendance%',
-                color: averageAttendance >= threshold ? _kGreen : _kRed,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Stat card (banner) ───────────────────────────────────────────────────────
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: color,
-                          letterSpacing: 0.3)),
-                  Text(value,
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                          height: 1.1)),
-                ],
+                color: averageAttendance >= threshold
+                    ? AppColors.success
+                    : AppColors.danger,
               ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -1037,141 +999,139 @@ class _FilterSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: search + clear button
-          if (context.isMobile)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _ReportsSearchField(onChanged: onSearchChanged),
-                if (hasActiveFilter) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: onClear,
-                    icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
-                    label: const Text('Padam Penapis'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _kMuted,
-                      side: const BorderSide(color: _kBorder),
-                    ),
-                  ),
-                ],
-              ],
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                    child: _ReportsSearchField(onChanged: onSearchChanged)),
-                if (hasActiveFilter) ...[
-                  const SizedBox(width: 10),
-                  TextButton.icon(
-                    onPressed: onClear,
-                    icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
-                    label: const Text('Padam Penapis',
-                        style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(foregroundColor: _kMuted),
-                  ),
-                ],
-              ],
-            ),
-          const SizedBox(height: 12),
-          // Row 2: threshold chips
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
+    return AppFilterPanel(
+      children: [
+        SizedBox(
+          width: context.isMobile ? double.infinity : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final t in [95, 90, 85, 80])
-                _ThresholdChip(
-                  label: 'Bawah $t%',
-                  selected: selectedThreshold == t,
-                  onTap: () => onThresholdChanged(t),
+              // Row 1: search + clear button
+              if (context.isMobile)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ReportsSearchField(onChanged: onSearchChanged),
+                    if (hasActiveFilter) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: onClear,
+                        icon:
+                            const Icon(Icons.filter_alt_off_outlined, size: 15),
+                        label: const Text('Padam Penapis'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _kMuted,
+                          side: const BorderSide(color: _kBorder),
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                        child: _ReportsSearchField(onChanged: onSearchChanged)),
+                    if (hasActiveFilter) ...[
+                      const SizedBox(width: 10),
+                      TextButton.icon(
+                        onPressed: onClear,
+                        icon:
+                            const Icon(Icons.filter_alt_off_outlined, size: 15),
+                        label: const Text('Padam Penapis',
+                            style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(foregroundColor: _kMuted),
+                      ),
+                    ],
+                  ],
                 ),
-              _ThresholdChip(
-                label: 'Tunjuk Semua',
-                selected: selectedThreshold == null,
-                onTap: () => onThresholdChanged(null),
+              const SizedBox(height: 12),
+              // Row 2: threshold chips
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final t in [95, 90, 85, 80])
+                    _ThresholdChip(
+                      label: 'Bawah $t%',
+                      selected: selectedThreshold == t,
+                      onTap: () => onThresholdChanged(t),
+                    ),
+                  _ThresholdChip(
+                    label: 'Tunjuk Semua',
+                    selected: selectedThreshold == null,
+                    onTap: () => onThresholdChanged(null),
+                  ),
+                ],
               ),
+              const SizedBox(height: 12),
+              // Row 3: dropdowns
+              LayoutBuilder(builder: (context, c) {
+                final isWide = c.maxWidth > 560;
+                final drops = <Widget>[
+                  _FilterDropdown(
+                    label: 'Program / Kelas',
+                    value: selectedGroup,
+                    items: availableGroups,
+                    labelFor: groupLabel,
+                    onChanged: onGroupChanged,
+                  ),
+                  _FilterDropdown(
+                    label: 'Minggu',
+                    value: selectedWeek?.toString() ?? 'all',
+                    items: ['all', ...List.generate(18, (i) => '${i + 1}')],
+                    labelFor: (v) => v == 'all' ? 'Semua Minggu' : 'Minggu $v',
+                    onChanged: (v) =>
+                        onWeekChanged(v == 'all' ? null : int.parse(v)),
+                  ),
+                  _FilterDropdown(
+                    label: 'Status Disiplin',
+                    value: selectedDiscipline,
+                    items: [
+                      allDisciplineKey,
+                      hasDisciplineKey,
+                      noDisciplineKey
+                    ],
+                    labelFor: (v) {
+                      if (v == hasDisciplineKey) return 'Ada Disiplin';
+                      if (v == noDisciplineKey) return 'Tiada Disiplin';
+                      return 'Semua';
+                    },
+                    onChanged: onDisciplineChanged,
+                  ),
+                ];
+                if (context.isMobile) {
+                  return Column(
+                    children: [
+                      for (final dropdown in drops) ...[
+                        dropdown,
+                        if (dropdown != drops.last) const SizedBox(height: 10),
+                      ],
+                    ],
+                  );
+                }
+                if (isWide) {
+                  return Row(
+                    children: drops
+                        .map((w) => Expanded(
+                              child: Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: w),
+                            ))
+                        .toList(),
+                  );
+                }
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children:
+                      drops.map((w) => SizedBox(width: 200, child: w)).toList(),
+                );
+              }),
             ],
           ),
-          const SizedBox(height: 12),
-          // Row 3: dropdowns
-          LayoutBuilder(builder: (context, c) {
-            final isWide = c.maxWidth > 560;
-            final drops = <Widget>[
-              _FilterDropdown(
-                label: 'Program / Kelas',
-                value: selectedGroup,
-                items: availableGroups,
-                labelFor: groupLabel,
-                onChanged: onGroupChanged,
-              ),
-              _FilterDropdown(
-                label: 'Minggu',
-                value: selectedWeek?.toString() ?? 'all',
-                items: ['all', ...List.generate(18, (i) => '${i + 1}')],
-                labelFor: (v) => v == 'all' ? 'Semua Minggu' : 'Minggu $v',
-                onChanged: (v) =>
-                    onWeekChanged(v == 'all' ? null : int.parse(v)),
-              ),
-              _FilterDropdown(
-                label: 'Status Disiplin',
-                value: selectedDiscipline,
-                items: [allDisciplineKey, hasDisciplineKey, noDisciplineKey],
-                labelFor: (v) {
-                  if (v == hasDisciplineKey) return 'Ada Disiplin';
-                  if (v == noDisciplineKey) return 'Tiada Disiplin';
-                  return 'Semua';
-                },
-                onChanged: onDisciplineChanged,
-              ),
-            ];
-            if (context.isMobile) {
-              return Column(
-                children: [
-                  for (final dropdown in drops) ...[
-                    dropdown,
-                    if (dropdown != drops.last) const SizedBox(height: 10),
-                  ],
-                ],
-              );
-            }
-            if (isWide) {
-              return Row(
-                children: drops
-                    .map((w) => Expanded(
-                          child: Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: w),
-                        ))
-                    .toList(),
-              );
-            }
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children:
-                  drops.map((w) => SizedBox(width: 200, child: w)).toList(),
-            );
-          }),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

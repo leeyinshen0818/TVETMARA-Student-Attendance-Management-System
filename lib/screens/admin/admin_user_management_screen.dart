@@ -111,59 +111,55 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
     return DefaultTabController(
       length: 3,
-      child: Container(
-        color: Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: AppPanel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const PageHeader(
-                  title: 'Pengurusan Pengguna',
-                  subtitle:
-                      'Pantau dan uruskan pengguna sistem, senarai pelajar, dan penugasan subjek pensyarah.',
+      child: AppPage(
+        child: AppPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppPageHeader(
+                title: 'Pengurusan Pengguna',
+                subtitle:
+                    'Pantau dan uruskan pengguna sistem, senarai pelajar, dan penugasan subjek pensyarah.',
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceTint,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceTint,
+                child: TabBar(
+                  labelColor: AppColors.primaryDark,
+                  unselectedLabelColor: AppColors.muted,
+                  indicator: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: TabBar(
-                    labelColor: AppColors.primaryDark,
-                    unselectedLabelColor: AppColors.muted,
-                    indicator: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w900),
-                    tabs: const [
-                      Tab(text: 'Pengguna Sistem'),
-                      Tab(text: 'Senarai Pelajar'),
-                      Tab(text: 'Kursus Pensyarah'),
-                    ],
-                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  tabs: const [
+                    Tab(text: 'Pengguna Sistem'),
+                    Tab(text: 'Senarai Pelajar'),
+                    Tab(text: 'Kursus Pensyarah'),
+                  ],
                 ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: (MediaQuery.sizeOf(context).height - 300)
-                      .clamp(620.0, 860.0),
-                  child: TabBarView(
-                    children: [
-                      _buildSystemUsersTab(),
-                      _buildStudentsTab(),
-                      _buildLecturerCoursesTab(),
-                    ],
-                  ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: (MediaQuery.sizeOf(context).height - 300)
+                    .clamp(620.0, 860.0),
+                child: TabBarView(
+                  children: [
+                    _buildSystemUsersTab(),
+                    _buildStudentsTab(),
+                    _buildLecturerCoursesTab(),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -172,8 +168,7 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
   Widget _buildMobileAdminView() {
     const tabs = ['Pengguna', 'Pelajar', 'Tugasan'];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 104),
+    return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

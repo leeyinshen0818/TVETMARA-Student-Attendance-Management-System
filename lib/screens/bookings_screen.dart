@@ -53,7 +53,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: isApprover
               ? 'Kelulusan Tempahan & Disiplin'
               : 'Tempahan & Laporan Saya',

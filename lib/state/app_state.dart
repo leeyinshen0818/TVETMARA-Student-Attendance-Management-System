@@ -1439,14 +1439,22 @@ class AppState extends ChangeNotifier {
       try {
         final parsedDate = DateTime.parse(dateStr);
         switch (parsedDate.weekday) {
-          case 1: return 'Isnin';
-          case 2: return 'Selasa';
-          case 3: return 'Rabu';
-          case 4: return 'Khamis';
-          case 5: return 'Jumaat';
-          case 6: return 'Sabtu';
-          case 7: return 'Ahad';
-          default: return '';
+          case 1:
+            return 'Isnin';
+          case 2:
+            return 'Selasa';
+          case 3:
+            return 'Rabu';
+          case 4:
+            return 'Khamis';
+          case 5:
+            return 'Jumaat';
+          case 6:
+            return 'Sabtu';
+          case 7:
+            return 'Ahad';
+          default:
+            return '';
         }
       } catch (_) {
         return '';

@@ -32,6 +32,7 @@ class MobileHeroCard extends StatelessWidget {
     required this.subtitle,
     this.chips = const [],
     this.primaryAction,
+    this.accentColor = AppColors.primary,
   });
 
   final IconData icon;
@@ -39,6 +40,7 @@ class MobileHeroCard extends StatelessWidget {
   final String subtitle;
   final List<Widget> chips;
   final Widget? primaryAction;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +54,7 @@ class MobileHeroCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              MobileIconBadge(icon: icon),
+              MobileIconBadge(icon: icon, color: accentColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

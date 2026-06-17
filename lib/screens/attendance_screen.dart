@@ -28,6 +28,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? _autoSelectionReason;
   String _studentSearch = '';
   AttendanceStatus? _statusFilter;
+  bool _editingSubmittedSession = false;
 
   @override
   void didChangeDependencies() {
@@ -49,6 +50,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _requestedExistingSessionKey = null;
       _checkedMissingSessionKey = null;
       _loadedExistingSession = null;
+      _editingSubmittedSession = false;
     } else {
       sessionDate ??= selection?.sessionDate;
       weekNo = selection?.weekNo ?? _weekNoForDate(state, sessionDate);
@@ -61,7 +63,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final state = AppScope.of(context);
     final user = state.currentUser!;
     if (user.role != UserRole.pensyarah) {
-      return const PageHeader(
+      return const AppPageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle: 'Hanya Pensyarah boleh mengambil kehadiran kelas.',
       );
@@ -115,6 +117,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final currentRecords = _recordsForStudents(slot, students);
     final summary = _summaryFor(currentRecords);
     final isEditingSubmitted = existingSession != null;
+    final canEditAttendance =
+        existingSession == null || _editingSubmittedSession;
     final selectionReason =
         isEditingSubmitted ? 'Kehadiran telah dihantar' : _autoSelectionReason;
     final visibleStudents = students.where((student) {
@@ -152,204 +156,227 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   : 'Hantar'),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PageHeader(
-          title: 'Ambil Kehadiran',
-          subtitle:
-              'Tanda kehadiran kelas dengan MC dan CK sebagai status pengecualian.',
-          trailing: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              StatusChip(slot.status),
-            ],
-          ),
-        ),
-        AppPanel(
-          title: 'Sesi Kehadiran',
-          subtitle: '${slot.subjectCode} - ${slot.subjectName}',
-          trailing: mobile ? null : submitButton,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectedClassHeader(
-                slot: slot,
-                sessionDate: resolvedSessionDate,
-                weekNo: weekNo,
-                reason: selectionReason,
-                onChangeClass: () => _showChangeSessionDialog(
-                  state: state,
-                  slots: slots,
-                  currentSlot: slot,
-                ),
-              ),
-              if (existingSession != null) ...[
-                const SizedBox(height: 12),
-                _SubmittedAttendanceBanner(
-                  editCount: existingSession.editHistory.length,
-                ),
+    return AppPage(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppPageHeader(
+            title: 'Ambil Kehadiran',
+            subtitle: mobile
+                ? 'Tanda kehadiran kelas.'
+                : 'Tanda kehadiran kelas dengan MC dan CK sebagai status pengecualian.',
+            trailing: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                StatusChip(slot.status),
               ],
-              if (existingSession?.editReason != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xfff8fafc),
-                    border: Border.all(color: const Color(0xffe2e8f0)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Pembetulan terakhir: ${existingSession!.editReason}',
-                    style: const TextStyle(color: Color(0xff475569)),
+            ),
+          ),
+          AppPanel(
+            title: 'Sesi Kehadiran',
+            subtitle: '${slot.subjectCode} - ${slot.subjectName}',
+            trailing: mobile || !canEditAttendance ? null : submitButton,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SelectedClassHeader(
+                  slot: slot,
+                  sessionDate: resolvedSessionDate,
+                  weekNo: weekNo,
+                  reason: selectionReason,
+                  onChangeClass: () => _showChangeSessionDialog(
+                    state: state,
+                    slots: slots,
+                    currentSlot: slot,
                   ),
                 ),
-              ],
-              const SizedBox(height: 12),
-              _AttendanceSummaryStrip(
-                summary: summary,
-                totalStudents: students.length,
-              ),
-              if (mobile) ...[
-                const SizedBox(height: 12),
-                SizedBox(width: double.infinity, child: submitButton),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppPanel(
-          title: 'Kehadiran Pelajar',
-          subtitle:
-              '${visibleStudents.length} dipaparkan daripada ${students.length} pelajar',
-          trailing: mobile
-              ? null
-              : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _setAllStatus(
-                        slot,
-                        students,
-                        AttendanceStatus.present,
-                      ),
-                      icon: const Icon(Icons.done_all),
-                      label: const Text('Semua Hadir'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _setAllStatus(
-                        slot,
-                        students,
-                        AttendanceStatus.absent,
-                      ),
-                      icon: const Icon(Icons.block),
-                      label: const Text('Semua Tidak Hadir'),
-                    ),
-                  ],
-                ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (mobile) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => _setAllStatus(
-                        slot,
-                        students,
-                        AttendanceStatus.present,
-                      ),
-                      icon: const Icon(Icons.done_all),
-                      label: const Text('Semua Hadir'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _setAllStatus(
-                        slot,
-                        students,
-                        AttendanceStatus.absent,
-                      ),
-                      icon: const Icon(Icons.block),
-                      label: const Text('Semua Tidak Hadir'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-              ],
-              _StudentAttendanceFilters(
-                statusFilter: _statusFilter,
-                onSearchChanged: (value) =>
-                    setState(() => _studentSearch = value),
-                onStatusChanged: (value) =>
-                    setState(() => _statusFilter = value),
-              ),
-              const SizedBox(height: 12),
-              if (mobile)
-                Column(
-                  children: visibleStudents.map((student) {
-                    final index = records
-                        .indexWhere((record) => record.studentId == student.id);
-                    final record = _recordForStudent(slot, student);
-                    return _MobileAttendanceStudentCard(
-                      student: student,
-                      percentage: state.attendancePercentageForStudent(student),
-                      status: record.status,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        _updateRecordStatus(slot, record, index, value);
-                      },
-                    );
-                  }).toList(),
-                )
-              else
-                AppDataTable(
-                  columns: const [
-                    DataColumn(label: Text('ID Pelajar')),
-                    DataColumn(label: Text('Nama')),
-                    DataColumn(label: Text('Status')),
-                    DataColumn(label: Text('Kehadiran %')),
-                  ],
-                  rows: visibleStudents.map((student) {
-                    final index = records
-                        .indexWhere((record) => record.studentId == student.id);
-                    final record = _recordForStudent(slot, student);
-                    return DataRow(cells: [
-                      DataCell(Text(student.id)),
-                      DataCell(Text(student.name)),
-                      DataCell(_AttendanceStatusSelector(
-                        value: record.status,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          _updateRecordStatus(slot, record, index, value);
-                        },
-                      )),
-                      DataCell(Text(
-                          '${state.attendancePercentageForStudent(student)}%')),
-                    ]);
-                  }).toList(),
-                ),
-              if (visibleStudents.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text(
-                    'Tiada pelajar sepadan dengan carian atau tapisan.',
-                    style: TextStyle(color: Color(0xff64748b)),
+                if (existingSession != null) ...[
+                  const SizedBox(height: 12),
+                  _SubmittedAttendanceBanner(
+                    editCount: existingSession.editHistory.length,
+                    isEditing: _editingSubmittedSession,
+                    summary: summary,
+                    onEdit: () =>
+                        setState(() => _editingSubmittedSession = true),
                   ),
+                ],
+                if (existingSession?.editReason != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xfff8fafc),
+                      border: Border.all(color: const Color(0xffe2e8f0)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Pembetulan terakhir: ${existingSession!.editReason}',
+                      style: const TextStyle(color: Color(0xff475569)),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                _AttendanceSummaryStrip(
+                  summary: summary,
+                  totalStudents: students.length,
                 ),
-            ],
+                if (mobile && canEditAttendance) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(width: double.infinity, child: submitButton),
+                ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        _AttendanceHistoryPanel(
-          students: students,
-          state: state,
-        ),
-      ],
+          const SizedBox(height: 16),
+          AppPanel(
+            title: 'Kehadiran Pelajar',
+            subtitle: canEditAttendance
+                ? '${visibleStudents.length} dipaparkan daripada ${students.length} pelajar'
+                : 'Senarai pelajar disembunyikan selepas kehadiran dihantar.',
+            trailing: mobile || !canEditAttendance
+                ? null
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _setAllStatus(
+                          slot,
+                          students,
+                          AttendanceStatus.present,
+                        ),
+                        icon: const Icon(Icons.done_all),
+                        label: const Text('Semua Hadir'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _setAllStatus(
+                          slot,
+                          students,
+                          AttendanceStatus.absent,
+                        ),
+                        icon: const Icon(Icons.block),
+                        label: const Text('Semua Tidak Hadir'),
+                      ),
+                    ],
+                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!canEditAttendance)
+                  _SubmittedStudentListPlaceholder(
+                    studentCount: students.length,
+                    onEdit: () =>
+                        setState(() => _editingSubmittedSession = true),
+                  )
+                else ...[
+                  if (mobile) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _setAllStatus(
+                                slot, students, AttendanceStatus.present),
+                            icon: const Icon(Icons.done_all, size: 16),
+                            label: const Text('Semua Hadir',
+                                style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 8)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _setAllStatus(
+                                slot, students, AttendanceStatus.absent),
+                            icon: const Icon(Icons.block, size: 16),
+                            label: const Text('Semua Tak Hadir',
+                                style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _StudentAttendanceFilters(
+                    statusFilter: _statusFilter,
+                    onSearchChanged: (value) =>
+                        setState(() => _studentSearch = value),
+                    onStatusChanged: (value) =>
+                        setState(() => _statusFilter = value),
+                  ),
+                  const SizedBox(height: 12),
+                  if (mobile)
+                    Column(
+                      children: visibleStudents.map((student) {
+                        final index = records.indexWhere(
+                            (record) => record.studentId == student.id);
+                        final record = _recordForStudent(slot, student);
+                        return _MobileAttendanceStudentCard(
+                          student: student,
+                          percentage:
+                              state.attendancePercentageForStudent(student),
+                          status: record.status,
+                          onChanged: (value) {
+                            if (value == null) return;
+                            _updateRecordStatus(slot, record, index, value);
+                          },
+                        );
+                      }).toList(),
+                    )
+                  else
+                    AppDataTable(
+                      columns: const [
+                        DataColumn(label: Text('ID Pelajar')),
+                        DataColumn(label: Text('Nama')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Kehadiran %')),
+                      ],
+                      rows: visibleStudents.map((student) {
+                        final index = records.indexWhere(
+                            (record) => record.studentId == student.id);
+                        final record = _recordForStudent(slot, student);
+                        return DataRow(cells: [
+                          DataCell(Text(student.id)),
+                          DataCell(Text(student.name)),
+                          DataCell(_AttendanceStatusSelector(
+                            value: record.status,
+                            onChanged: (value) {
+                              if (value == null) return;
+                              _updateRecordStatus(slot, record, index, value);
+                            },
+                          )),
+                          DataCell(Text(
+                              '${state.attendancePercentageForStudent(student)}%')),
+                        ]);
+                      }).toList(),
+                    ),
+                  if (visibleStudents.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'Tiada pelajar sepadan dengan carian atau tapisan.',
+                        style: TextStyle(color: Color(0xff64748b)),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _AttendanceHistoryPanel(
+            students: students,
+            state: state,
+          ),
+          if (mobile) const SizedBox(height: 80),
+        ],
+      ),
     );
   }
 
@@ -385,10 +412,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _requestedExistingSessionKey = sessionKey;
     state
         .loadAttendanceSessionForSlotDateWeek(
-          slotId: slot.id,
-          sessionDate: sessionDate,
-          weekNo: weekNo,
-        )
+      slotId: slot.id,
+      sessionDate: sessionDate,
+      weekNo: weekNo,
+    )
         .then((session) {
       if (!mounted) return;
       if (session == null) {
@@ -405,6 +432,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _requestedExistingSessionKey = null;
         loadedSessionKey = null;
         _autoSelectionReason = 'Kehadiran telah dihantar';
+        _editingSubmittedSession = false;
       });
     }).catchError((_) {
       if (!mounted) return;
@@ -556,6 +584,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _requestedExistingSessionKey = null;
       _checkedMissingSessionKey = null;
       loadedSessionKey = null;
+      _editingSubmittedSession = false;
     });
   }
 
@@ -600,6 +629,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _checkedMissingSessionKey = null;
           _autoSelectionReason = 'Kehadiran telah dihantar';
           loadedSessionKey = null;
+          _editingSubmittedSession = false;
         });
         messenger.showSnackBar(const SnackBar(
           content: Text(
@@ -647,12 +677,33 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         );
       }
       if (!mounted) return;
+
+      AttendanceSession? submittedSessionForUi =
+          state.attendanceSessionForSlotDateWeek(
+        slotId: slot.id,
+        sessionDate: resolvedSessionDate,
+        weekNo: weekNo,
+      );
+      if (!isEditingSubmitted && submittedSessionForUi == null) {
+        submittedSessionForUi = state.markAttendanceSessionSubmittedLocally(
+          slot.id,
+          records,
+          sessionDate: resolvedSessionDate,
+          weekNo: weekNo,
+        );
+      }
+
       setState(() {
         _manualSlotOverride = true;
+        _loadedExistingSession =
+            submittedSessionForUi ?? _loadedExistingSession;
+        _requestedExistingSessionKey = null;
+        _checkedMissingSessionKey = null;
         _autoSelectionReason = isEditingSubmitted
             ? 'Pembetulan telah disimpan'
             : 'Kehadiran telah dihantar';
         loadedSessionKey = null;
+        _editingSubmittedSession = false;
       });
       messenger.showSnackBar(SnackBar(
         content: Text(isEditingSubmitted
@@ -715,6 +766,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _checkedMissingSessionKey = null;
       _autoSelectionReason = 'Kehadiran telah dihantar';
       loadedSessionKey = null;
+      _editingSubmittedSession = false;
     });
     messenger.showSnackBar(const SnackBar(
       content: Text(
@@ -1013,9 +1065,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     TimetableSlot slot,
     List<Student> students,
   ) {
-    return students
-        .map((student) => _recordForStudent(slot, student))
-        .toList();
+    return students.map((student) => _recordForStudent(slot, student)).toList();
   }
 
   AttendanceSummary _summaryFor(List<AttendanceRecord> records) {
@@ -1072,83 +1122,147 @@ class _SelectedClassHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mobile = MediaQuery.sizeOf(context).width < 600;
+
+    if (mobile) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${slot.subjectCode} - ${slot.subjectName}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${slot.section} • ${slot.startTime}-${slot.endTime}',
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${slot.room} · $sessionDate · M$weekNo',
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: onChangeClass,
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: AppColors.surfaceTint,
+                  ),
+                  child: const Text('Tukar',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                ),
+                if (reason != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: .1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      reason!,
+                      style: const TextStyle(
+                          color: AppColors.success,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(mobile ? 12 : 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(mobile ? 12 : 8),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flex(
-            direction: mobile ? Axis.vertical : Axis.horizontal,
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!mobile) ...[
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceTint,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.fact_check_outlined,
-                    color: AppColors.muted,
-                  ),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceTint,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 12),
-              ],
-              if (mobile)
-                Column(
+                child: const Icon(
+                  Icons.fact_check_outlined,
+                  color: AppColors.muted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       slot.subjectCode,
                       style: const TextStyle(
                         color: AppColors.primaryDark,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       slot.subjectName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: AppColors.muted),
                     ),
                   ],
-                )
-              else
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        slot.subjectCode,
-                        style: const TextStyle(
-                          color: AppColors.primaryDark,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        slot.subjectName,
-                        style: const TextStyle(color: AppColors.muted),
-                      ),
-                    ],
-                  ),
                 ),
-              if (mobile) const SizedBox(height: 10),
+              ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                alignment: mobile ? WrapAlignment.start : WrapAlignment.end,
+                alignment: WrapAlignment.end,
                 children: [
                   if (reason != null)
                     _InfoPill(
@@ -1166,7 +1280,7 @@ class _SelectedClassHeader extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: mobile ? 10 : 12),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1205,12 +1319,28 @@ class _SelectedClassHeader extends StatelessWidget {
 }
 
 class _SubmittedAttendanceBanner extends StatelessWidget {
-  const _SubmittedAttendanceBanner({required this.editCount});
+  const _SubmittedAttendanceBanner({
+    required this.editCount,
+    required this.isEditing,
+    required this.summary,
+    required this.onEdit,
+  });
 
   final int editCount;
+  final bool isEditing;
+  final AttendanceSummary summary;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+    final action = isEditing
+        ? const StatusChip('Sedang Edit')
+        : OutlinedButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_note, size: 18),
+            label: const Text('Edit Kehadiran'),
+          );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -1219,28 +1349,196 @@ class _SubmittedAttendanceBanner extends StatelessWidget {
         border: Border.all(color: const Color(0xffdcfce7)),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Flex(
+        direction: mobile ? Axis.vertical : Axis.horizontal,
+        crossAxisAlignment:
+            mobile ? CrossAxisAlignment.start : CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle_outline, color: Color(0xff16a34a)),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Kehadiran telah dihantar untuk sesi ini. Ubah status pelajar dan simpan pembetulan jika perlu.',
-              style: TextStyle(
-                color: Color(0xff166534),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          if (!mobile) ...[
+            const Icon(Icons.check_circle_outline, color: Color(0xff16a34a)),
+            const SizedBox(width: 10),
+          ],
+          if (mobile)
+            _SubmittedBannerText(summary: summary)
+          else
+            Expanded(child: _SubmittedBannerText(summary: summary)),
+          SizedBox(width: mobile ? 0 : 10, height: mobile ? 12 : 0),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (editCount > 0)
+                _InfoPill(
+                  icon: Icons.history,
+                  label: 'Pembetulan: $editCount',
+                  tone: const Color(0xff16a34a),
+                  tinted: true,
+                ),
+              action,
+            ],
           ),
-          if (editCount > 0)
-            _InfoPill(
-              icon: Icons.history,
-              label: 'Pembetulan: $editCount',
-              tone: const Color(0xff16a34a),
-              tinted: true,
-            ),
         ],
       ),
+    );
+  }
+}
+
+class _SubmittedStudentListPlaceholder extends StatelessWidget {
+  const _SubmittedStudentListPlaceholder({
+    required this.studentCount,
+    required this.onEdit,
+  });
+
+  final int studentCount;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+
+    if (mobile) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xfff8fafc),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.lock_outline, color: AppColors.primary, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Senarai pelajar diringkaskan',
+                    style: TextStyle(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$studentCount pelajar telah dihantar. Klik Edit Kehadiran untuk membuat pembetulan.',
+              style: const TextStyle(
+                  color: AppColors.muted, fontSize: 11, height: 1.3),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_note, size: 16),
+                label: const Text('Edit Kehadiran',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.lock_outline, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SubmittedStudentListText(studentCount: studentCount),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_note, size: 18),
+            label: const Text('Edit Kehadiran'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubmittedBannerText extends StatelessWidget {
+  const _SubmittedBannerText({required this.summary});
+
+  final AttendanceSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Kehadiran telah dihantar',
+          style: TextStyle(
+            color: Color(0xff166534),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${summary.present} hadir, ${summary.late} lewat, ${summary.absent} tidak hadir, ${summary.mc + summary.ck} MC/CK.',
+          style: const TextStyle(
+            color: Color(0xff166534),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SubmittedStudentListText extends StatelessWidget {
+  const _SubmittedStudentListText({required this.studentCount});
+
+  final int studentCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Senarai pelajar telah diringkaskan',
+          style: TextStyle(
+            color: AppColors.primaryDark,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$studentCount pelajar telah dihantar. Klik Edit Kehadiran untuk membuka semula senarai dan membuat pembetulan.',
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 12,
+            height: 1.35,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1274,42 +1572,52 @@ class _StudentAttendanceFilters extends StatelessWidget {
           children: [
             SizedBox(
               width: mobile ? double.infinity : 300,
+              height: mobile ? 44 : null,
               child: TextField(
                 onChanged: onSearchChanged,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, size: 20),
                   labelText: 'Cari pelajar',
                   hintText: 'ID atau nama pelajar',
+                  contentPadding: mobile
+                      ? const EdgeInsets.symmetric(horizontal: 12)
+                      : null,
                 ),
+                style: const TextStyle(fontSize: 14),
               ),
             ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final status in statuses)
-                  ChoiceChip(
-                    label: Text(status?.label ?? 'Semua'),
-                    selected: statusFilter == status,
-                    onSelected: (_) => onStatusChanged(status),
-                    backgroundColor: AppColors.surface,
-                    selectedColor: AppColors.primary.withValues(alpha: .1),
-                    side: BorderSide(
-                      color: statusFilter == status
-                          ? AppColors.primary.withValues(alpha: .28)
-                          : AppColors.border,
+            SizedBox(height: mobile ? 8 : 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Wrap(
+                spacing: 6,
+                children: [
+                  for (final status in statuses)
+                    ChoiceChip(
+                      label: Text(status?.label ?? 'Semua'),
+                      selected: statusFilter == status,
+                      onSelected: (_) => onStatusChanged(status),
+                      backgroundColor: AppColors.surface,
+                      selectedColor: AppColors.primary.withValues(alpha: .1),
+                      side: BorderSide(
+                        color: statusFilter == status
+                            ? AppColors.primary.withValues(alpha: .28)
+                            : AppColors.border,
+                      ),
+                      padding: mobile ? const EdgeInsets.all(4) : null,
+                      visualDensity: mobile ? VisualDensity.compact : null,
+                      labelStyle: TextStyle(
+                        color: statusFilter == status
+                            ? AppColors.primary
+                            : AppColors.muted,
+                        fontSize: mobile ? 12 : 14,
+                        fontWeight: statusFilter == status
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
                     ),
-                    labelStyle: TextStyle(
-                      color: statusFilter == status
-                          ? AppColors.primary
-                          : AppColors.muted,
-                      fontWeight: statusFilter == status
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ],
         );
@@ -1390,99 +1698,53 @@ class _MobileAttendanceStudentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _statusColor(status);
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.primaryDark,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      student.id,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                '$percentage%',
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _AttendanceStatusSelector(
-                  value: status,
-                  onChanged: onChanged,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: color.withValues(alpha: .22)),
-                ),
-                child: Text(
-                  status.label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  student.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  '${student.id} · $percentage%',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 125,
+            child: _AttendanceStatusSelector(
+              value: status,
+              onChanged: onChanged,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Color _statusColor(AttendanceStatus status) {
-    return switch (status) {
-      AttendanceStatus.present => AppColors.success,
-      AttendanceStatus.late => AppColors.warning,
-      AttendanceStatus.absent => AppColors.danger,
-      AttendanceStatus.mc => AppColors.muted,
-      AttendanceStatus.ck => AppColors.muted,
-    };
   }
 }
 
@@ -1497,6 +1759,57 @@ class _AttendanceSummaryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+
+    if (mobile) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xfff8fafc),
+          border: Border.all(color: const Color(0xffe2e8f0)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _MobileSummaryItem(
+                  label: 'Pelajar',
+                  value: '$totalStudents',
+                  color: const Color(0xff334155)),
+              const SizedBox(width: 20),
+              _MobileSummaryItem(
+                  label: 'Hadir',
+                  value: '${summary.present}',
+                  color: const Color(0xff16a34a)),
+              const SizedBox(width: 20),
+              _MobileSummaryItem(
+                  label: 'Lewat',
+                  value: '${summary.late}',
+                  color: const Color(0xfff59e0b)),
+              const SizedBox(width: 20),
+              _MobileSummaryItem(
+                  label: 'Tak Hadir',
+                  value: '${summary.absent}',
+                  color: const Color(0xffdc2626)),
+              const SizedBox(width: 20),
+              _MobileSummaryItem(
+                  label: 'MC/CK',
+                  value: '${summary.mc + summary.ck}',
+                  color: const Color(0xff64748b)),
+              const SizedBox(width: 24),
+              _MobileSummaryItem(
+                  label: 'Kehadiran',
+                  value: '${summary.percentage}%',
+                  color: const Color(0xff2563eb),
+                  isEmphasized: true),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -1548,6 +1861,46 @@ class _AttendanceSummaryStrip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MobileSummaryItem extends StatelessWidget {
+  const _MobileSummaryItem({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.isEmphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final bool isEmphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: isEmphasized ? 16 : 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1617,7 +1970,7 @@ class _SummaryTile extends StatelessWidget {
   }
 }
 
-class _AttendanceHistoryPanel extends StatefulWidget {
+class _AttendanceHistoryPanel extends StatelessWidget {
   const _AttendanceHistoryPanel({
     required this.students,
     required this.state,
@@ -1627,43 +1980,71 @@ class _AttendanceHistoryPanel extends StatefulWidget {
   final AppState state;
 
   @override
-  State<_AttendanceHistoryPanel> createState() =>
-      _AttendanceHistoryPanelState();
-}
-
-class _AttendanceHistoryPanelState extends State<_AttendanceHistoryPanel> {
-  String? _expandedStudentId;
-
-  @override
   Widget build(BuildContext context) {
     return AppPanel(
       title: 'Kehadiran Pelajar',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 900;
-          final cardWidth =
-              isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: widget.students.map((student) {
-              return SizedBox(
-                width: cardWidth,
-                child: _StudentAttendanceSummaryCard(
-                  student: student,
-                  summary:
-                      widget.state.sessionAttendanceSummaryForStudent(student),
-                  weekly: widget.state.weeklyAttendanceForStudent(student),
-                  expanded: _expandedStudentId == student.id,
-                  onToggleWeekly: () {
-                    setState(() {
-                      _expandedStudentId =
-                          _expandedStudentId == student.id ? null : student.id;
-                    });
-                  },
-                ),
-              );
-            }).toList(),
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
+                headingRowHeight: 40,
+                dataRowMinHeight: 52,
+                dataRowMaxHeight: 52,
+                horizontalMargin: 12,
+                columns: const [
+                  DataColumn(
+                      label: Text('Nama',
+                          style: TextStyle(fontWeight: FontWeight.w800))),
+                  DataColumn(
+                      label: Text('ID Pelajar',
+                          style: TextStyle(fontWeight: FontWeight.w800))),
+                  DataColumn(
+                      label: Text('Kehadiran',
+                          style: TextStyle(fontWeight: FontWeight.w800))),
+                  DataColumn(
+                      label: Text('Status',
+                          style: TextStyle(fontWeight: FontWeight.w800))),
+                  DataColumn(
+                      label: Text('Tindakan',
+                          style: TextStyle(fontWeight: FontWeight.w800))),
+                ],
+                rows: students.map((student) {
+                  final summary =
+                      state.sessionAttendanceSummaryForStudent(student);
+                  final weekly = state.weeklyAttendanceForStudent(student);
+                  final risk = _attendanceRiskFor(summary);
+                  final attendanceText = _attendanceTextFor(summary);
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(student.name,
+                          style: const TextStyle(fontWeight: FontWeight.w900))),
+                      DataCell(Text(student.id,
+                          style: const TextStyle(color: Color(0xff64748b)))),
+                      DataCell(Text(attendanceText,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, color: risk.color))),
+                      DataCell(_RiskChip(risk: risk)),
+                      DataCell(
+                        TextButton.icon(
+                          onPressed: () =>
+                              _showWeeklyDetailsModal(context, student, weekly),
+                          icon: const Icon(Icons.calendar_view_week_outlined,
+                              size: 16),
+                          label: const Text('Lihat Mingguan',
+                              style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8)),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
           );
         },
       ),
@@ -1714,146 +2095,97 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
-class _StudentAttendanceSummaryCard extends StatelessWidget {
-  const _StudentAttendanceSummaryCard({
-    required this.student,
-    required this.summary,
-    required this.weekly,
-    required this.expanded,
-    required this.onToggleWeekly,
-  });
-
-  final Student student;
-  final AttendanceSummary summary;
-  final List<AttendanceSummary> weekly;
-  final bool expanded;
-  final VoidCallback onToggleWeekly;
-
-  @override
-  Widget build(BuildContext context) {
-    final risk = _riskFor(summary);
-    final attendanceText = _attendanceText(summary);
-    final progressValue =
-        summary.denominator == 0 ? 0.0 : summary.percentage.clamp(0, 100) / 100;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+void _showWeeklyDetailsModal(
+    BuildContext context, Student student, List<AttendanceSummary> weekly) {
+  final isMobile = MediaQuery.sizeOf(context).width < 600;
+  final child = SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(24.0),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xff0f172a),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      student.id,
-                      style: const TextStyle(color: Color(0xff64748b)),
-                    ),
-                  ],
-                ),
-              ),
-              _RiskChip(risk: risk),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 8,
-                    value: progressValue,
-                    color: risk.color,
-                    backgroundColor: const Color(0xffe5e7eb),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                attendanceText,
-                style: TextStyle(
-                  color: risk.color,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           Text(
-            '${summary.attended} Hadir · ${summary.absent} Tidak Hadir · ${summary.mc + summary.ck} MC/CK',
+            student.name,
             style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xff64748b),
-              fontWeight: FontWeight.w600,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppColors.primaryDark),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            student.id,
+            style: const TextStyle(
+                color: AppColors.muted, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Kehadiran Mingguan',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          _WeeklyMiniGrid(weekly: weekly),
+          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
             ),
           ),
-          const SizedBox(height: 6),
-          TextButton.icon(
-            onPressed: onToggleWeekly,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            icon: Icon(
-              expanded ? Icons.expand_less : Icons.calendar_view_week_outlined,
-              size: 18,
-            ),
-            label: Text(expanded ? 'Tutup Mingguan' : 'Lihat Mingguan'),
-          ),
-          if (expanded) ...[
-            const SizedBox(height: 4),
-            _WeeklyMiniGrid(weekly: weekly),
-          ],
         ],
+      ),
+    ),
+  );
+
+  if (isMobile) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => child,
+    );
+  } else {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: child,
+        ),
       ),
     );
   }
+}
 
-  _AttendanceRisk _riskFor(AttendanceSummary summary) {
-    if (summary.denominator == 0 && (summary.mc + summary.ck) > 0) {
-      return const _AttendanceRisk('Pengecualian Sah', Color(0xff64748b));
-    }
-    if (summary.denominator == 0) {
-      return const _AttendanceRisk('Tiada Sesi Layak', Color(0xff64748b));
-    }
-    if (summary.denominator < 3) {
-      return const _AttendanceRisk('Data Awal', Color(0xff64748b));
-    }
-    if (summary.percentage >= 90) {
-      return const _AttendanceRisk('Baik', Color(0xff16a34a));
-    }
-    if (summary.percentage >= 80) {
-      return const _AttendanceRisk('Perhatian', Color(0xffd97706));
-    }
-    return const _AttendanceRisk('Kritikal', Color(0xffdc2626));
+_AttendanceRisk _attendanceRiskFor(AttendanceSummary summary) {
+  if (summary.denominator == 0 && (summary.mc + summary.ck) > 0) {
+    return const _AttendanceRisk('Pengecualian Sah', Color(0xff64748b));
   }
+  if (summary.denominator == 0) {
+    return const _AttendanceRisk('Tiada Sesi Layak', Color(0xff64748b));
+  }
+  if (summary.denominator < 3) {
+    return const _AttendanceRisk('Data Awal', Color(0xff64748b));
+  }
+  if (summary.percentage >= 90) {
+    return const _AttendanceRisk('Baik', Color(0xff16a34a));
+  }
+  if (summary.percentage >= 80) {
+    return const _AttendanceRisk('Perhatian', Color(0xffd97706));
+  }
+  return const _AttendanceRisk('Kritikal', Color(0xffdc2626));
+}
 
-  String _attendanceText(AttendanceSummary summary) {
-    if (summary.denominator == 0 && (summary.mc + summary.ck) > 0) {
-      return 'Pengecualian Sah';
-    }
-    if (summary.denominator == 0) return 'Tiada Sesi Layak';
-    return '${summary.percentage}%';
+String _attendanceTextFor(AttendanceSummary summary) {
+  if (summary.denominator == 0 && (summary.mc + summary.ck) > 0) {
+    return 'Pengecualian Sah';
   }
+  if (summary.denominator == 0) return 'Tiada Sesi Layak';
+  return '${summary.percentage}%';
 }
 
 class _AttendanceRisk {

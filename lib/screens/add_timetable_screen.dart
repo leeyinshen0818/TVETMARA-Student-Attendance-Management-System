@@ -197,6 +197,8 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
       _selectedLecturerId = lecturers.first.id;
     }
 
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tambah Jadual Baru'),
@@ -205,7 +207,11 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
         elevation: 1,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.paddingOf(context).bottom + 48),
         child: Form(
           key: _formKey,
           child: Column(
@@ -216,12 +222,19 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _selectedProgramId,
+                isExpanded: true,
                 decoration: const InputDecoration(
                     labelText: 'Program (Course)',
                     border: OutlineInputBorder()),
                 items: visiblePrograms
-                    .map((p) =>
-                        DropdownMenuItem(value: p.id, child: Text(p.name)))
+                    .map((p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text(
+                            isMobile ? '${p.id} - ${p.name}' : p.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ))
                     .toList(),
                 onChanged: (val) {
                   setState(() {
@@ -234,12 +247,19 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _selectedLecturerId,
+                isExpanded: true,
                 decoration: const InputDecoration(
                     labelText: 'Pensyarah (Lecturer)',
                     border: OutlineInputBorder()),
                 items: lecturers
-                    .map((l) =>
-                        DropdownMenuItem(value: l.id, child: Text(l.name)))
+                    .map((l) => DropdownMenuItem(
+                          value: l.id,
+                          child: Text(
+                            l.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ))
                     .toList(),
                 onChanged: (val) {
                   setState(() {
@@ -272,81 +292,132 @@ class _AddTimetableScreenState extends State<AddTimetableScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _subjectCodeCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Kod Subjek',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+              if (isMobile) ...[
+                TextFormField(
+                  controller: _subjectCodeCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Kod Subjek', border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _subjectNameCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Nama Subjek', border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _subjectCodeCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Kod Subjek',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 2,
-                    child: TextFormField(
-                      controller: _subjectNameCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Nama Subjek',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _subjectNameCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Nama Subjek',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 32),
               const Text('Maklumat Sesi & Masa',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _sessionCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Sesi (Terma)',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+              if (isMobile) ...[
+                TextFormField(
+                  controller: _sessionCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Sesi (Terma)', border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _roomCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Bilik / Makmal',
+                      border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _sessionCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Sesi (Terma)',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _roomCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Bilik / Makmal',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _roomCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Bilik / Makmal',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _dayCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Hari (Cth: Isnin)',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+              if (isMobile) ...[
+                TextFormField(
+                  controller: _dayCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Hari (Cth: Isnin)',
+                      border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _dateCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Tarikh (YYYY-MM-DD)',
+                      border: OutlineInputBorder()),
+                  validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _dayCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Hari (Cth: Isnin)',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _dateCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Tarikh (YYYY-MM-DD)',
-                          border: OutlineInputBorder()),
-                      validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _dateCtrl,
+                        decoration: const InputDecoration(
+                            labelText: 'Tarikh (YYYY-MM-DD)',
+                            border: OutlineInputBorder()),
+                        validator: (val) => val!.isEmpty ? 'Diperlukan' : null,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [

@@ -87,7 +87,7 @@ class SettingsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PageHeader(
+        AppPageHeader(
           title: 'Tetapan',
           subtitle:
               'Peraturan akademik dan tetapan laporan yang digunakan dalam sistem.',

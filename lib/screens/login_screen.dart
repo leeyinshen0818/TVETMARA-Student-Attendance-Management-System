@@ -343,66 +343,64 @@ class _LoginIntro extends StatelessWidget {
         ),
         borderRadius: mobile ? BorderRadius.circular(24) : null,
       ),
-      padding: EdgeInsets.all(mobile ? 20 : (compact ? 28 : 42)),
-      child: ConstrainedBox(
-        constraints:
-            BoxConstraints(minHeight: mobile ? 180 : (compact ? 320 : 560)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: mobile ? 42 : 50,
-                  height: mobile ? 42 : 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.school, color: AppColors.primary),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'TVETMARA',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: mobile ? 18 : 20,
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: mobile ? 18 : 34),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sistem Kehadiran TVETMARA',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: mobile ? 26 : (compact ? 36 : 48),
-                      fontWeight: FontWeight.w900,
-                      height: 1.08,
+      padding: EdgeInsets.all(mobile ? 24 : 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: mobile ? 40 : 48,
+                height: mobile ? 40 : 48,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Pengurusan kehadiran, jadual dan laporan pelajar dalam satu platform.',
-                    maxLines: mobile ? 2 : 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: .85),
-                      fontSize: mobile ? 14 : 18,
-                      height: 1.38,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+                child: const Icon(Icons.school,
+                    color: AppColors.primary, size: 24),
               ),
+              const SizedBox(width: 14),
+              Text(
+                'TVETMARA',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: mobile ? 18 : 22,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: mobile ? 32 : 56),
+          Text(
+            'Sistem Kehadiran TVETMARA',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: mobile ? 28 : (compact ? 36 : 46),
+              fontWeight: FontWeight.w900,
+              height: 1.15,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Pengurusan kehadiran, jadual dan laporan pelajar dalam satu platform.',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .85),
+              fontSize: mobile ? 14 : 17,
+              height: 1.45,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -580,7 +578,7 @@ class _DemoAccountsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceTint,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -588,17 +586,15 @@ class _DemoAccountsPanel extends StatelessWidget {
           key: const ValueKey('demo-accounts-expansion'),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          leading: const Icon(Icons.science_outlined, color: AppColors.primary),
+          leading: const Icon(Icons.science_outlined,
+              color: AppColors.primary, size: 20),
           title: const Text(
             'Demo Accounts',
             style: TextStyle(
               color: AppColors.primaryDark,
-              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
             ),
-          ),
-          subtitle: const Text(
-            'Pilihan akaun ujian disembunyikan supaya halaman kekal kemas.',
-            maxLines: 2,
           ),
           children: [
             _DemoLoginSection(
@@ -669,7 +665,7 @@ class _DemoAccountsPanel extends StatelessWidget {
               buttons: [
                 _DemoLoginButton(
                   label: 'SYARIFAH BINTI ABDUL RAHIM',
-                  subtitle: 'Pensyarah Elektrik - akaun sebenar demo',
+                  subtitle: 'Pensyarah Elektrik - akaun sebenar',
                   icon: Icons.menu_book,
                   email: 'lecturer046@tvetmara.edu.my',
                   onPressed: () =>
@@ -677,32 +673,11 @@ class _DemoAccountsPanel extends StatelessWidget {
                 ),
                 _DemoLoginButton(
                   label: 'Zabhin bin Mohd Arbai',
-                  subtitle: 'Pensyarah DGS - akaun sebenar demo',
+                  subtitle: 'Pensyarah DGS - akaun sebenar',
                   icon: Icons.menu_book,
                   email: 'lecturer001@tvetmara.edu.my',
                   onPressed: () =>
                       onFillDemo('lecturer001@tvetmara.edu.my', 'password123'),
-                ),
-              ],
-            ),
-            _DemoLoginSection(
-              title: 'Legacy Demo Pensyarah',
-              buttons: [
-                _DemoLoginButton(
-                  label: 'Demo Pensyarah DED',
-                  subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
-                  icon: Icons.person_outline,
-                  email: 'pensyarah_ded@tvetmara.edu.my',
-                  onPressed: () => onFillDemo(
-                      'pensyarah_ded@tvetmara.edu.my', 'password123'),
-                ),
-                _DemoLoginButton(
-                  label: 'Demo Pensyarah DGS',
-                  subtitle: 'Akaun demo lama - bukan pensyarah sebenar',
-                  icon: Icons.person_outline,
-                  email: 'pensyarah_dgs@tvetmara.edu.my',
-                  onPressed: () => onFillDemo(
-                      'pensyarah_dgs@tvetmara.edu.my', 'password123'),
                 ),
               ],
             ),
@@ -725,21 +700,23 @@ class _DemoLoginSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: const Color(0xff475569),
-                  fontWeight: FontWeight.w800,
-                ),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: AppColors.muted,
+              letterSpacing: 0.5,
+            ),
           ),
           const SizedBox(height: 6),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: buttons,
           ),
         ],
@@ -770,26 +747,17 @@ class _DemoLoginButton extends StatelessWidget {
       child: OutlinedButton.icon(
         key: ValueKey('demo-login-$email'),
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 210),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                subtitle,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: const Color(0xff64748b),
-                    ),
-              ),
-            ],
-          ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          minimumSize: const Size(0, 32),
+          visualDensity: VisualDensity.compact,
+        ),
+        icon: Icon(icon, size: 14),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
         ),
       ),
     );

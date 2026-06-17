@@ -18,13 +18,15 @@ import '../state/lecturer_timetable_controller.dart';
 import '../services/lecturer_timetable_service.dart';
 import '../services/lecturer_export_service.dart';
 
+import '../widgets/app_components.dart';
+import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Colour tokens
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Color _kTeal = Color(0xFF1B8CA6);
 const Color _kTableHead = Color(0xFFF5F0E8);
-const Color _kPageBg = Color(0xFFF7F9FB);
 const Color _kCardBg = Colors.white;
 const Color _kBorder = Color(0xFFE2E8EF);
 const Color _kText = Color(0xFF1A2E3F);
@@ -229,17 +231,38 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
     ];
     final uniqueSections = {...allSlots.map((s) => s.section)}.length;
 
-    return ColoredBox(
-      color: _kPageBg,
+    return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _PageHeader(week: week, controller: widget.controller),
-          _StatCardRow(
-            totalSlots: allSlots.length,
-            sections: uniqueSections,
+          const AppPageHeader(
+            title: 'Jadual Waktu Pensyarah',
+            subtitle: 'Paparan jadual waktu rasmi.',
           ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppStatCard(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Kelas',
+                  value: '${allSlots.length}',
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppStatCard(
+                  icon: Icons.people_outline,
+                  label: 'Seksyen',
+                  value: '$uniqueSections',
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           _FilterBar(
             course: _filterCourse,
             section: _filterSection,
@@ -276,103 +299,6 @@ class _LecturerTimetableBodyState extends State<_LecturerTimetableBody> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page header  (title + week selector)
 // ─────────────────────────────────────────────────────────────────────────────
-
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.week, required this.controller});
-  final String week;
-  final LecturerTimetableController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _kCardBg,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Jadual Waktu Pensyarah',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: _kText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stat card row
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _StatCardRow extends StatelessWidget {
-  const _StatCardRow({required this.totalSlots, required this.sections});
-  final int totalSlots;
-  final int sections;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _kCardBg,
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Row(
-        children: [
-          Expanded(child: _StatCard(label: 'KELAS', value: '$totalSlots')),
-          const SizedBox(width: 12),
-          const Expanded(child: _StatCard(label: 'KELAS GANTI', value: '6')),
-          const SizedBox(width: 12),
-          Expanded(child: _StatCard(label: 'SEKSYEN', value: '$sections')),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: _kCardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _kMuted,
-                  letterSpacing: 0.4)),
-          const SizedBox(height: 6),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: _kText,
-                  height: 1)),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Filter bar
@@ -549,7 +475,7 @@ class _SearchField extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(7),
-                borderSide: const BorderSide(color: _kTeal),
+                borderSide: const BorderSide(color: AppColors.primary),
               ),
             ),
           ),
@@ -653,7 +579,8 @@ class _OfficialTableState extends State<_OfficialTable> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             child: Row(
               children: [
-                const Icon(Icons.table_chart_outlined, size: 16, color: _kTeal),
+                const Icon(Icons.table_chart_outlined,
+                    size: 16, color: AppColors.primary),
                 const SizedBox(width: 8),
                 const Text('Jadual waktu rasmi',
                     style: TextStyle(
@@ -796,7 +723,8 @@ class _MobileOfficialTable extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                const Icon(Icons.table_chart_outlined, size: 16, color: _kTeal),
+                const Icon(Icons.table_chart_outlined,
+                    size: 16, color: AppColors.primary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -1024,7 +952,7 @@ class _DataTable extends StatelessWidget {
         _td(Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
           decoration: BoxDecoration(
-            color: _kTeal.withValues(alpha: 0.10),
+            color: AppColors.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(5),
           ),
           child: Text(slot.subjectCode,
@@ -1049,7 +977,8 @@ class _DataTable extends StatelessWidget {
                 style: _cellStyle.copyWith(color: _kMuted, fontSize: 11)),
             if (slot.roomId.isNotEmpty)
               Text(slot.roomId,
-                  style: _cellStyle.copyWith(color: _kTeal, fontSize: 10)),
+                  style: _cellStyle.copyWith(
+                      color: AppColors.primary, fontSize: 10)),
           ],
         )),
         _td(_JenisChip(
@@ -1182,7 +1111,7 @@ class _ActionButtonsState extends State<_ActionButtons>
           child: _OutlineBtn(
             icon: Icons.check_circle_outline_rounded,
             label: 'Ambil Kehadiran',
-            color: _kTeal,
+            color: AppColors.primary,
             onTap: _onTake,
           ),
         ),
@@ -1249,7 +1178,7 @@ class _LoadingState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(_kTeal),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 strokeWidth: 3,
               ),
               SizedBox(height: 16),
@@ -1278,11 +1207,11 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: _kTeal.withValues(alpha: 0.08),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.calendar_today_outlined,
-                  color: _kTeal, size: 28),
+                  color: AppColors.primary, size: 28),
             ),
             const SizedBox(height: 14),
             const Text('Tiada Slot Dijumpai',

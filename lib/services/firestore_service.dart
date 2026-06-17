@@ -391,9 +391,8 @@ class FirestoreService {
       return _docToAttendanceSession(byDuplicateKey.docs.first);
     }
 
-    final bySlot = await _attendanceSessionsCol
-        .where('slotId', isEqualTo: slotId)
-        .get();
+    final bySlot =
+        await _attendanceSessionsCol.where('slotId', isEqualTo: slotId).get();
     for (final doc in bySlot.docs) {
       final session = _docToAttendanceSession(doc);
       if (session.sessionDate == sessionDate && session.weekNo == weekNo) {

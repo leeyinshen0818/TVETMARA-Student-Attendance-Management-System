@@ -49,7 +49,7 @@ class _TimetableSlotsScreenState extends State<TimetableSlotsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PageHeader(
+              const AppPageHeader(
                 title: 'Papar Slot Jadual',
                 subtitle:
                     'Tapis slot mengikut sesi akademik, program, kelas, pensyarah, subjek dan ruang.',

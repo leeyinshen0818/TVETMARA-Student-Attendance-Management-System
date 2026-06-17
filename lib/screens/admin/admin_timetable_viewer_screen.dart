@@ -284,7 +284,7 @@ class _AdminTimetableViewerScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const PageHeader(
+              const AppPageHeader(
                 title: 'Master Admin Timetable Viewer',
                 subtitle:
                     'Pilih peranan dan pensyarah untuk melihat jadual minggu terperinci mengikut sesi akademik.',

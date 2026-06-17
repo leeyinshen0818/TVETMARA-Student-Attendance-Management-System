@@ -38,7 +38,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
     final canReviewDiscipline = user.role == UserRole.ketua_jabatan ||
         user.role == UserRole.ketua_program;
     if (!isPensyarah && !canReviewDiscipline) {
-      return const PageHeader(
+      return const AppPageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
             'Hanya Pensyarah boleh melapor disiplin. Ketua Jabatan dan Ketua Program boleh membuat semakan mengikut skop.',
@@ -75,28 +75,120 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               _normalizeDisciplineStatus(report.status) == 'action_taken' ||
               _normalizeDisciplineStatus(report.status) == 'closed')
           .length;
-      return Column(
+      return AppPage(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MobileHeroCard(
+              icon: Icons.report_problem_outlined,
+              title: isPensyarah ? 'Laporan Disiplin Saya' : 'Laporan Disiplin',
+              subtitle: isPensyarah
+                  ? 'Hantar dan semak laporan disiplin pelajar anda.'
+                  : 'Semak kes disiplin dan rekod tindakan mengikut skop.',
+              accentColor: AppColors.danger,
+              chips: [
+                StatusChip('${actionRequiredReports.length} Menunggu'),
+                StatusChip('$reviewedCount Disemak'),
+                StatusChip('${visibleReports.length} Laporan'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            MobileSegmentedControl(
+              labels: tabLabels,
+              selectedIndex: _selectedTab,
+              onChanged: (index) => setState(() => _selectedTab = index),
+            ),
+            const SizedBox(height: 14),
+            if (isPensyarah && _selectedTab == 0)
+              _NewDisciplineReportPanel(
+                slots: slots,
+                studentsList: studentsList,
+                selectedSlot: selectedSlot,
+                selectedStudentId: selectedStudentId,
+                issueType: issueType,
+                severity: severity,
+                descriptionController: _descCtrl,
+                submitting: _submitting,
+                onSlotChanged: (value) => setState(() {
+                  selectedSlotId = value;
+                  selectedStudentId = null;
+                }),
+                onStudentChanged: (value) =>
+                    setState(() => selectedStudentId = value),
+                onIssueTypeChanged: (value) =>
+                    setState(() => issueType = value ?? issueType),
+                onSeverityChanged: (value) =>
+                    setState(() => severity = value ?? severity),
+                onSubmit: () => _submitReport(
+                  state: state,
+                  user: user,
+                  studentsList: studentsList,
+                  selectedSlot: selectedSlot,
+                ),
+              )
+            else if (isPensyarah)
+              _DisciplineReportListPanel(
+                title: 'Semua Laporan Saya',
+                subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
+                reports: visibleReports,
+                canReview: false,
+                emptyText: 'Tiada laporan disiplin ditemui.',
+                onViewDetails: (report) => _showReportDetails(report),
+                onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onReject: (report) => _showRejectDialog(state, report),
+                onClose: (report) => _showCloseDialog(state, report),
+              )
+            else if (_selectedTab == 0)
+              _DisciplineReportListPanel(
+                title: 'Tindakan Diperlukan',
+                subtitle:
+                    'Laporan baharu atau menunggu semakan dalam skop anda.',
+                reports: actionRequiredReports,
+                canReview: canReviewDiscipline,
+                emptyText: 'Tiada laporan yang memerlukan tindakan.',
+                onViewDetails: (report) => _showReportDetails(report),
+                onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onReject: (report) => _showRejectDialog(state, report),
+                onClose: (report) => _showCloseDialog(state, report),
+              )
+            else
+              _DisciplineReportListPanel(
+                title: 'Semua Laporan',
+                subtitle:
+                    'Semua laporan disiplin dalam skop peranan dan program anda.',
+                reports: visibleReports,
+                canReview: canReviewDiscipline,
+                emptyText: 'Tiada laporan disiplin ditemui.',
+                onViewDetails: (report) => _showReportDetails(report),
+                onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onReject: (report) => _showRejectDialog(state, report),
+                onClose: (report) => _showCloseDialog(state, report),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return AppPage(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MobileHeroCard(
-            icon: Icons.report_problem_outlined,
-            title: isPensyarah ? 'Laporan Disiplin Saya' : 'Laporan Disiplin',
+          AppPageHeader(
+            title: isPensyarah
+                ? 'Laporan Disiplin Saya'
+                : 'Semakan Laporan Disiplin',
             subtitle: isPensyarah
-                ? 'Hantar dan semak laporan disiplin pelajar anda.'
-                : 'Semak kes disiplin dan rekod tindakan mengikut skop.',
-            chips: [
-              StatusChip('${actionRequiredReports.length} Menunggu'),
-              StatusChip('$reviewedCount Disemak'),
-              StatusChip('${visibleReports.length} Laporan'),
-            ],
+                ? 'Laporkan masalah kehadiran atau tingkah laku pelajar anda.'
+                : 'Semak dan ambil tindakan ke atas laporan disiplin.',
+            trailing: StatusChip('${visibleReports.length} laporan'),
           ),
-          const SizedBox(height: 14),
-          MobileSegmentedControl(
-            labels: tabLabels,
+          const SizedBox(height: 12),
+          _DisciplineTabSelector(
             selectedIndex: _selectedTab,
+            labels: tabLabels,
             onChanged: (index) => setState(() => _selectedTab = index),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           if (isPensyarah && _selectedTab == 0)
             _NewDisciplineReportPanel(
               slots: slots,
@@ -162,93 +254,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               onClose: (report) => _showCloseDialog(state, report),
             ),
         ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PageHeader(
-          title: isPensyarah
-              ? 'Laporan Disiplin Saya'
-              : 'Semakan Laporan Disiplin',
-          subtitle: isPensyarah
-              ? 'Laporkan masalah kehadiran atau tingkah laku pelajar anda.'
-              : 'Semak dan ambil tindakan ke atas laporan disiplin.',
-          trailing: StatusChip('${visibleReports.length} laporan'),
-        ),
-        const SizedBox(height: 12),
-        _DisciplineTabSelector(
-          selectedIndex: _selectedTab,
-          labels: tabLabels,
-          onChanged: (index) => setState(() => _selectedTab = index),
-        ),
-        const SizedBox(height: 16),
-        if (isPensyarah && _selectedTab == 0)
-          _NewDisciplineReportPanel(
-            slots: slots,
-            studentsList: studentsList,
-            selectedSlot: selectedSlot,
-            selectedStudentId: selectedStudentId,
-            issueType: issueType,
-            severity: severity,
-            descriptionController: _descCtrl,
-            submitting: _submitting,
-            onSlotChanged: (value) => setState(() {
-              selectedSlotId = value;
-              selectedStudentId = null;
-            }),
-            onStudentChanged: (value) =>
-                setState(() => selectedStudentId = value),
-            onIssueTypeChanged: (value) =>
-                setState(() => issueType = value ?? issueType),
-            onSeverityChanged: (value) =>
-                setState(() => severity = value ?? severity),
-            onSubmit: () => _submitReport(
-              state: state,
-              user: user,
-              studentsList: studentsList,
-              selectedSlot: selectedSlot,
-            ),
-          )
-        else if (isPensyarah)
-          _DisciplineReportListPanel(
-            title: 'Semua Laporan Saya',
-            subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
-            reports: visibleReports,
-            canReview: false,
-            emptyText: 'Tiada laporan disiplin ditemui.',
-            onViewDetails: (report) => _showReportDetails(report),
-            onTakeAction: (report) => _showTakeActionDialog(state, report),
-            onReject: (report) => _showRejectDialog(state, report),
-            onClose: (report) => _showCloseDialog(state, report),
-          )
-        else if (_selectedTab == 0)
-          _DisciplineReportListPanel(
-            title: 'Tindakan Diperlukan',
-            subtitle: 'Laporan baharu atau menunggu semakan dalam skop anda.',
-            reports: actionRequiredReports,
-            canReview: canReviewDiscipline,
-            emptyText: 'Tiada laporan yang memerlukan tindakan.',
-            onViewDetails: (report) => _showReportDetails(report),
-            onTakeAction: (report) => _showTakeActionDialog(state, report),
-            onReject: (report) => _showRejectDialog(state, report),
-            onClose: (report) => _showCloseDialog(state, report),
-          )
-        else
-          _DisciplineReportListPanel(
-            title: 'Semua Laporan',
-            subtitle:
-                'Semua laporan disiplin dalam skop peranan dan program anda.',
-            reports: visibleReports,
-            canReview: canReviewDiscipline,
-            emptyText: 'Tiada laporan disiplin ditemui.',
-            onViewDetails: (report) => _showReportDetails(report),
-            onTakeAction: (report) => _showTakeActionDialog(state, report),
-            onReject: (report) => _showRejectDialog(state, report),
-            onClose: (report) => _showCloseDialog(state, report),
-          ),
-      ],
+      ),
     );
   }
 
@@ -932,69 +938,11 @@ class _DisciplineReportItem extends StatelessWidget {
         : report.assignedReviewerRoles.join(', ');
     final severityTone = _severityTone(report.severity);
     final statusTone = _statusTone(status);
-    if (context.isMobile) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: MobileInfoCard(
-          leadingIcon: Icons.report_problem_outlined,
-          title: report.studentName,
-          subtitle:
-              '${report.studentId} - ${report.section} - ${report.issueType}',
-          chips: [
-            _DisciplineToneChip(
-              label: _statusLabel(status),
-              tone: statusTone,
-            ),
-            _DisciplineToneChip(
-              label: _severityLabel(report.severity),
-              tone: severityTone,
-              icon: Icons.priority_high_rounded,
-            ),
-          ],
-          metadata: [
-            MobileMetaPill(
-              icon: Icons.school_outlined,
-              label: report.programId ?? report.programName ?? '-',
-            ),
-            MobileMetaPill(
-              icon: Icons.calendar_today_outlined,
-              label: report.createdAt ?? report.date,
-            ),
-            MobileMetaPill(
-              icon: Icons.person_outline,
-              label: report.createdByName ?? report.lecturer,
-            ),
-          ],
-          actions: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                report.description.isEmpty ? '-' : report.description,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppColors.muted, fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-              _DisciplineCardActions(
-                status: status,
-                canReview: canApprove,
-                onViewDetails: onViewDetails,
-                onTakeAction: onTakeAction,
-                onReject: onReject,
-                onClose: onClose,
-              ),
-            ],
-          ),
-          onTap: onViewDetails,
-        ),
-      );
-    }
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: severityTone.border),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1004,26 +952,91 @@ class _DisciplineReportItem extends StatelessWidget {
           ),
         ],
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
           children: [
             Container(
-              width: 5,
               decoration: BoxDecoration(
-                color: severityTone.color.withValues(alpha: .72),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              padding: context.isMobile
+                  ? const EdgeInsets.fromLTRB(16, 12, 12, 12)
+                  : const EdgeInsets.fromLTRB(18, 14, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (context.isMobile) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            report.studentName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _DisciplineToneChip(
+                          label: _statusLabel(status),
+                          tone: statusTone,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${report.programId ?? '-'}  ·  ${report.section}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Subjek: $subject',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.report_problem_outlined,
+                            size: 14, color: severityTone.color),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${report.issueType} · ${_severityLabel(report.severity)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: severityTone.color,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _DisciplineCardActions(
+                      status: status,
+                      canReview: canApprove,
+                      onViewDetails: onViewDetails,
+                      onTakeAction: onTakeAction,
+                      onReject: onReject,
+                      onClose: onClose,
+                    ),
+                  ] else ...[
+                    // Desktop layout
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1036,6 +1049,7 @@ class _DisciplineReportItem extends StatelessWidget {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w900,
                                   color: AppColors.primaryDark,
+                                  fontSize: 14,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -1133,8 +1147,15 @@ class _DisciplineReportItem extends StatelessWidget {
                       onClose: onClose,
                     ),
                   ],
-                ),
+                ],
               ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: Container(color: severityTone.color),
             ),
           ],
         ),

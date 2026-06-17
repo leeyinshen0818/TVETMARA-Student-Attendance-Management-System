@@ -17,20 +17,10 @@ import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
+import '../widgets/app_components.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
-
-// ─── Colour tokens (match existing app palette) ──────────────────────────────
-
-const _kBg = Color(0xFFF7F9FB);
-const _kCard = Colors.white;
-const _kBorder = Color(0xFFE2E8EF);
-const _kText = Color(0xFF1A2E3F);
-const _kMuted = Color(0xFF5C7A8A);
-const _kTeal = Color(0xFF1B8CA6);
-const _kGreen = Color(0xFF16A34A);
-const _kAmber = Color(0xFFD97706);
-const _kRed = Color(0xFFDC2626);
 
 // ─── Entry point ─────────────────────────────────────────────────────────────
 
@@ -49,14 +39,14 @@ class _RecordsScreenState extends State<RecordsScreen> {
   String _filterStatus = 'Semua Status';
   String _filterRisk = 'Semua Risiko';
 
-  static const _riskDropdownItems = [
+  static final _riskDropdownItems = [
     'Semua Risiko',
     'Selamat',
     'Amaran',
     'Kritikal',
   ];
 
-  static const _riskToInternal = {
+  static final _riskToInternal = {
     'Selamat': 'Safe',
     'Amaran': 'Warning',
     'Kritikal': 'Critical',
@@ -69,9 +59,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
       };
 
   static Color _riskColour(String internal) => switch (internal) {
-        'Critical' => _kRed,
-        'Warning' => _kAmber,
-        _ => _kGreen,
+        'Critical' => AppColors.danger,
+        'Warning' => AppColors.warning,
+        _ => AppColors.success,
       };
 
   List<Student> _applyFilters(List<Student> all, AppState state) {
@@ -137,7 +127,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
         user.role == UserRole.ketua_program;
 
     if (!isAdmin && !isManagement) {
-      return const PageHeader(
+      return const AppPageHeader(
         title: 'Akses Tidak Dibenarkan',
         subtitle:
             'Hanya Pentadbir, Ketua Jabatan dan Ketua Program boleh melihat rekod pelajar.',
@@ -169,19 +159,50 @@ class _RecordsScreenState extends State<RecordsScreen> {
         .where((s) => state.attendanceRiskForStudent(s) == 'Critical')
         .length;
 
-    return ColoredBox(
-      color: _kBg,
+    return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PageBanner(
-            scopeLabel: scopeLabel,
-            totalStudents: allStudents.length,
-            criticalCount: criticalCount,
-            threshold: state.attendanceThreshold,
+          AppPageHeader(
+            title: 'Rekod Pelajar',
+            subtitle:
+                'Paparan kehadiran dan status pelajar — $scopeLabel sahaja.',
           ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppStatCard(
+                  icon: Icons.group_outlined,
+                  label: 'Jumlah Pelajar',
+                  value: '${allStudents.length}',
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppStatCard(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Risiko Kritikal',
+                  value: '$criticalCount',
+                  color:
+                      criticalCount > 0 ? AppColors.danger : AppColors.success,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppStatCard(
+                  icon: Icons.bar_chart_rounded,
+                  label: 'Had Kehadiran',
+                  value: '${state.attendanceThreshold}%',
+                  color: AppColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            padding: const EdgeInsets.only(bottom: 24),
             child: _FilterBar(
               search: _search,
               filterProgram: _filterProgram,
@@ -224,135 +245,6 @@ class _RecordsScreenState extends State<RecordsScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Page banner ─────────────────────────────────────────────────────────────
-
-class _PageBanner extends StatelessWidget {
-  const _PageBanner({
-    required this.scopeLabel,
-    required this.totalStudents,
-    required this.criticalCount,
-    required this.threshold,
-  });
-  final String scopeLabel;
-  final int totalStudents;
-  final int criticalCount;
-  final int threshold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: _kCard,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.people_outline_rounded, size: 26, color: _kTeal),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Rekod Pelajar',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: _kText)),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Paparan kehadiran dan status pelajar — $scopeLabel sahaja.',
-                      style: const TextStyle(fontSize: 13, color: _kMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              _StatCard(
-                icon: Icons.group_outlined,
-                label: 'Jumlah Pelajar',
-                value: '$totalStudents',
-                color: _kTeal,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                icon: Icons.warning_amber_rounded,
-                label: 'Risiko Kritikal',
-                value: '$criticalCount',
-                color: criticalCount > 0 ? _kRed : _kGreen,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                icon: Icons.bar_chart_rounded,
-                label: 'Had Kehadiran',
-                value: '$threshold%',
-                color: _kAmber,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: color,
-                          letterSpacing: 0.3)),
-                  Text(value,
-                      style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                          height: 1.1)),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -406,9 +298,9 @@ class _FilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -430,7 +322,7 @@ class _FilterBar extends StatelessWidget {
                   icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
                   label: const Text('Padam Penapis',
                       style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(foregroundColor: _kMuted),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.muted),
                 ),
               ],
             ],
@@ -500,22 +392,22 @@ class _SearchField extends StatelessWidget {
       height: 38,
       child: TextField(
         onChanged: onChanged,
-        style: const TextStyle(fontSize: 13, color: _kText),
+        style: const TextStyle(fontSize: 13, color: AppColors.primaryDark),
         decoration: InputDecoration(
           hintText: 'Cari nama atau ID pelajar…',
           hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
-          prefixIcon:
-              const Icon(Icons.search_rounded, size: 17, color: _kMuted),
+          prefixIcon: const Icon(Icons.search_rounded,
+              size: 17, color: AppColors.muted),
           contentPadding: EdgeInsets.zero,
           filled: true,
-          fillColor: _kCard,
+          fillColor: AppColors.surface,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: _kBorder),
+            borderSide: const BorderSide(color: AppColors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: _kTeal),
+            borderSide: const BorderSide(color: AppColors.primary),
           ),
         ),
       ),
@@ -543,15 +435,17 @@ class _Dropdown extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-                fontSize: 11, color: _kMuted, fontWeight: FontWeight.w600)),
+                fontSize: 11,
+                color: AppColors.muted,
+                fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Container(
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: _kCard,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: _kBorder),
+            border: Border.all(color: AppColors.border),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -559,7 +453,9 @@ class _Dropdown extends StatelessWidget {
               isExpanded: true,
               isDense: true,
               style: const TextStyle(
-                  fontSize: 12, color: _kText, fontWeight: FontWeight.w500),
+                  fontSize: 12,
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w500),
               items: options
                   .map((o) => DropdownMenuItem(value: o, child: Text(o)))
                   .toList(),
@@ -610,16 +506,23 @@ class _StudentTable extends StatelessWidget {
         return DataRow(cells: [
           DataCell(Text(s.id,
               style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w600, color: _kMuted))),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.muted))),
           DataCell(Text(s.name,
               style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600, color: _kText))),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryDark))),
           DataCell(Text(s.program,
-              style: const TextStyle(fontSize: 12, color: _kText))),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.primaryDark))),
           DataCell(Text(s.section,
-              style: const TextStyle(fontSize: 12, color: _kText))),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.primaryDark))),
           DataCell(Text('${s.semester}',
-              style: const TextStyle(fontSize: 12, color: _kText))),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.primaryDark))),
           // Attendance progress bar + fraction
           DataCell(SizedBox(
             width: 130,
@@ -636,7 +539,8 @@ class _StudentTable extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: colour)),
                     Text('${summary.attended}/${summary.denominator}',
-                        style: const TextStyle(fontSize: 10, color: _kMuted)),
+                        style: const TextStyle(
+                            fontSize: 10, color: AppColors.muted)),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -679,18 +583,21 @@ class _LihatButiranButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: _kTeal.withValues(alpha: 0.08),
+          color: AppColors.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: _kTeal.withValues(alpha: 0.35)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_search_outlined, size: 13, color: _kTeal),
+            Icon(Icons.person_search_outlined,
+                size: 13, color: AppColors.primary),
             SizedBox(width: 5),
             Text('Lihat Butiran',
                 style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: _kTeal)),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary)),
           ],
         ),
       ),
@@ -734,7 +641,7 @@ class _StudentDetailDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 780, maxHeight: 720),
         child: Container(
           decoration: BoxDecoration(
-            color: _kCard,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
@@ -788,14 +695,15 @@ class _StudentDetailDialog extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: _kBorder)),
+                  border: Border(top: BorderSide(color: AppColors.border)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: TextButton.styleFrom(foregroundColor: _kMuted),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppColors.muted),
                       child: const Text('Tutup'),
                     ),
                   ],
@@ -870,7 +778,7 @@ class _DialogHeader extends StatelessWidget {
                         style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            color: _kText),
+                            color: AppColors.primaryDark),
                       ),
                     ),
                     StatusChip(riskMalay),
@@ -901,9 +809,9 @@ class _DialogHeader extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: riskColour)),
               const Text('Kehadiran',
-                  style: TextStyle(fontSize: 11, color: _kMuted)),
+                  style: TextStyle(fontSize: 11, color: AppColors.muted)),
               Text('${summary.attended}/${summary.denominator} sesi',
-                  style: const TextStyle(fontSize: 10, color: _kMuted)),
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted)),
             ],
           ),
         ],
@@ -932,12 +840,12 @@ class _InfoPill extends StatelessWidget {
             alignment: PlaceholderAlignment.middle,
             child: Padding(
               padding: const EdgeInsets.only(right: 4),
-              child: Icon(icon, size: 12, color: _kMuted),
+              child: Icon(icon, size: 12, color: AppColors.muted),
             ),
           ),
           TextSpan(
             text: text,
-            style: const TextStyle(fontSize: 12, color: _kMuted),
+            style: const TextStyle(fontSize: 12, color: AppColors.muted),
           ),
         ],
       ),
@@ -961,18 +869,21 @@ class _WarningBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _kRed.withValues(alpha: 0.06),
+        color: AppColors.danger.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _kRed.withValues(alpha: 0.25)),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 16, color: _kRed),
+          const Icon(Icons.warning_amber_rounded,
+              size: 16, color: AppColors.danger),
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
                 style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w600, color: _kRed)),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.danger)),
           ),
         ],
       ),
@@ -991,11 +902,13 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: _kTeal),
+        Icon(icon, size: 15, color: AppColors.primary),
         const SizedBox(width: 7),
         Text(label,
             style: const TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w700, color: _kText)),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryDark)),
       ],
     );
   }
@@ -1019,10 +932,10 @@ class _WeeklyGrid extends StatelessWidget {
         final colour = !hasData
             ? const Color(0xFFE2E8EF)
             : pct >= 80
-                ? _kGreen
+                ? AppColors.success
                 : pct >= 75
-                    ? _kAmber
-                    : _kRed;
+                    ? AppColors.warning
+                    : AppColors.danger;
 
         return Tooltip(
           message: hasData
@@ -1044,12 +957,12 @@ class _WeeklyGrid extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: hasData ? colour : _kMuted)),
+                        color: hasData ? colour : AppColors.muted)),
                 Text(hasData ? '$pct%' : '—',
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: hasData ? colour : _kMuted)),
+                        color: hasData ? colour : AppColors.muted)),
               ],
             ),
           ),
@@ -1073,13 +986,14 @@ class _EmptyInSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
           const Icon(Icons.inbox_outlined, size: 28, color: Color(0xFF94A3B8)),
           const SizedBox(height: 6),
-          Text(message, style: const TextStyle(fontSize: 12, color: _kMuted)),
+          Text(message,
+              style: const TextStyle(fontSize: 12, color: AppColors.muted)),
         ],
       ),
     );
@@ -1093,9 +1007,9 @@ class _DisciplineTile extends StatelessWidget {
   final DisciplineReport report;
 
   Color get _sevColour => switch (report.severity.toLowerCase()) {
-        'high' || 'tinggi' => _kRed,
-        'medium' || 'sederhana' => _kAmber,
-        _ => _kTeal,
+        'high' || 'tinggi' => AppColors.danger,
+        'medium' || 'sederhana' => AppColors.warning,
+        _ => AppColors.primary,
       };
 
   String get _sevMalay => switch (report.severity.toLowerCase()) {
@@ -1121,9 +1035,9 @@ class _DisciplineTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _kCard,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1149,7 +1063,7 @@ class _DisciplineTile extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: _kText)),
+                              color: AppColors.primaryDark)),
                     ),
                     StatusChip(_statusMalay),
                   ],
@@ -1170,7 +1084,8 @@ class _DisciplineTile extends StatelessWidget {
                 if (report.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(report.description,
-                      style: const TextStyle(fontSize: 12, color: _kMuted),
+                      style:
+                          const TextStyle(fontSize: 12, color: AppColors.muted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],

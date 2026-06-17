@@ -102,17 +102,30 @@ class StatusChip extends StatelessWidget {
       _ => label,
     };
 
+    final surfaceColor = switch (color) {
+      AppColors.success => AppColors.successSurface,
+      AppColors.danger => AppColors.dangerSurface,
+      AppColors.warning => AppColors.warningSurface,
+      AppColors.info => AppColors.infoSurface,
+      AppColors.muted => const Color(0xffF1F5F9), // Slate 100
+      _ => color.withValues(alpha: .12),
+    };
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .11),
+        color: surfaceColor,
         border: Border.all(color: color.withValues(alpha: .24)),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         displayLabel,
-        style:
-            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
