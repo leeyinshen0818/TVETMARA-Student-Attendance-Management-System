@@ -898,6 +898,10 @@ class BookingRequest {
     required this.status,
     this.createdAt,
     this.updatedAt,
+    this.reviewedBy,
+    this.reviewedByName,
+    this.reviewedAt,
+    this.rejectionReason,
   });
 
   final String id;
@@ -920,8 +924,18 @@ class BookingRequest {
   final String status;
   final String? createdAt;
   final String? updatedAt;
+  final String? reviewedBy;
+  final String? reviewedByName;
+  final String? reviewedAt;
+  final String? rejectionReason;
 
-  BookingRequest copyWith({String? status}) {
+  BookingRequest copyWith({
+    String? status,
+    String? reviewedBy,
+    String? reviewedByName,
+    String? reviewedAt,
+    String? rejectionReason,
+  }) {
     return BookingRequest(
       id: id,
       lecturerId: lecturerId,
@@ -943,6 +957,10 @@ class BookingRequest {
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedByName: reviewedByName ?? this.reviewedByName,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      rejectionReason: rejectionReason ?? this.rejectionReason,
     );
   }
 }

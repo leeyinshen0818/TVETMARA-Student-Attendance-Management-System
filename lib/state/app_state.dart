@@ -982,12 +982,28 @@ class AppState extends ChangeNotifier {
     await _fs.addBooking(booking);
   }
 
-  Future<void> updateBooking(String id, String status) async {
+  Future<void> updateBooking(
+    String id,
+    String status, {
+    String? rejectionReason,
+  }) async {
     final index = bookings.indexWhere((booking) => booking.id == id);
     if (index == -1) return;
-    bookings[index] = bookings[index].copyWith(status: status);
+
+    final reviewer = currentUser;
+    final now = DateTime.now().toIso8601String();
+
+    bookings[index] = bookings[index].copyWith(
+      status: status,
+      reviewedBy: reviewer?.uid,
+      reviewedByName: reviewer?.name,
+      reviewedAt: now,
+      rejectionReason: status == 'Rejected' ? rejectionReason : null,
+    );
+
     if (status == 'Approved') {
       final booking = bookings[index];
+      // Booking conflict helper: re-check room availability before approving
       if (!isRoomAvailable(
         room: booking.room,
         date: booking.replacementDate,
@@ -995,11 +1011,25 @@ class AppState extends ChangeNotifier {
         end: booking.replacementEnd,
         ignoreBookingId: booking.id,
       )) {
-        bookings[index] = booking.copyWith(status: 'Rejected');
+        // Auto-reject if room no longer available
+        bookings[index] = booking.copyWith(
+          status: 'Rejected',
+          reviewedBy: reviewer?.uid,
+          reviewedByName: reviewer?.name,
+          reviewedAt: now,
+          rejectionReason: 'Bilik tidak lagi tersedia pada masa ini.',
+        );
         notifyListeners();
-        await _fs.updateBookingStatus(id, 'Rejected');
+        await _fs.updateBookingStatus(
+          id,
+          'Rejected',
+          reviewedBy: reviewer?.uid,
+          reviewedByName: reviewer?.name,
+          rejectionReason: 'Bilik tidak lagi tersedia pada masa ini.',
+        );
         return;
       }
+      // Replacement slot helper: create normalized Kelas Ganti timetable slot
       final source = timetable
           .where((slot) => slot.section == booking.section)
           .firstOrNull;
@@ -1029,8 +1059,15 @@ class AppState extends ChangeNotifier {
       timetable.add(newSlot);
       await _fs.addTimetableSlot(newSlot);
     }
+
     notifyListeners();
-    await _fs.updateBookingStatus(id, status);
+    await _fs.updateBookingStatus(
+      id,
+      status,
+      reviewedBy: reviewer?.uid,
+      reviewedByName: reviewer?.name,
+      rejectionReason: status == 'Rejected' ? rejectionReason : null,
+    );
   }
 
   void updateAttendanceThreshold(int value) {

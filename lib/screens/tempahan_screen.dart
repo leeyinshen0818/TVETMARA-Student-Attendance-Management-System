@@ -4,8 +4,6 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
-import '../widgets/mobile_components.dart';
-import '../widgets/responsive.dart';
 import '../widgets/status_chip.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,48 +54,6 @@ class _TempahanScreenState extends State<TempahanScreen>
     final visibleBookings = state.scopedBookings;
     final pendingCount =
         visibleBookings.where((b) => b.status == 'Pending').length;
-
-    if (context.isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MobileHeroCard(
-            icon: Icons.meeting_room_outlined,
-            title: isPensyarah ? 'Tempahan Bilik' : 'Kelulusan Tempahan Bilik',
-            subtitle: isPensyarah
-                ? 'Mohon bilik kelas ganti dan semak status permohonan anda.'
-                : 'Semak permohonan kelas ganti dan ambil tindakan mengikut skop.',
-            chips: [
-              StatusChip('$pendingCount Menunggu'),
-              StatusChip('${visibleBookings.length} Permohonan'),
-            ],
-          ),
-          const SizedBox(height: 14),
-          MobileSegmentedControl(
-            labels: [
-              isPensyarah ? 'Permohonan Baharu' : 'Tindakan Diperlukan',
-              'Semua Permohonan',
-            ],
-            selectedIndex: _tabCtrl.index,
-            onChanged: (index) => setState(() => _tabCtrl.index = index),
-          ),
-          const SizedBox(height: 14),
-          if (_tabCtrl.index == 0)
-            isPensyarah
-                ? _NewRequestTab(onSubmitted: () => _tabCtrl.animateTo(1))
-                : _ApproverActionTab(
-                    filterStatus: _filterStatus,
-                    onFilterChanged: (v) => setState(() => _filterStatus = v),
-                  )
-          else
-            _AllBookingsTab(
-              filterStatus: _filterStatus,
-              onFilterChanged: (v) => setState(() => _filterStatus = v),
-              isApprover: isApprover,
-            ),
-        ],
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,24 +631,6 @@ class _ApproverActionTab extends StatelessWidget {
     final pending =
         state.scopedBookings.where((b) => b.status == 'Pending').toList();
 
-    if (context.isMobile) {
-      if (pending.isEmpty) {
-        return const MobileEmptyState(
-          icon: Icons.check_circle_outline,
-          title: 'Tiada tindakan diperlukan',
-          subtitle: 'Semua permohonan dalam skop anda telah disemak.',
-        );
-      }
-      return MobileSection(
-        title: 'Tindakan Diperlukan',
-        subtitle: '${pending.length} permohonan memerlukan keputusan.',
-        child: Column(
-          children:
-              pending.map((b) => _BookingApprovalCard(booking: b)).toList(),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -710,7 +648,10 @@ class _ApproverActionTab extends StatelessWidget {
               subtitle: '${pending.length} permohonan memerlukan tindakan.',
               child: Column(
                 children: pending
-                    .map((b) => _BookingApprovalCard(booking: b))
+                    .map((b) => _BookingApprovalCard(
+                          booking: b,
+                          showActions: b.status == 'Pending',
+                        ))
                     .toList(),
               ),
             ),
@@ -745,53 +686,6 @@ class _AllBookingsTab extends StatelessWidget {
     final filtered = filterStatus == 'Semua'
         ? all
         : all.where((b) => b.status == filterStatus).toList();
-
-    if (context.isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MobileFilterCard(
-            title: 'Status Permohonan',
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(_filterValues.length, (i) {
-                  final val = _filterValues[i];
-                  final label = _filterLabels[i];
-                  final active = filterStatus == val;
-                  return ChoiceChip(
-                    label: Text(label),
-                    selected: active,
-                    onSelected: (_) => onFilterChanged(val),
-                  );
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (filtered.isEmpty)
-            const MobileEmptyState(
-              icon: Icons.inbox_outlined,
-              title: 'Tiada rekod ditemui',
-              subtitle: 'Cuba pilih status lain untuk melihat permohonan.',
-            )
-          else
-            MobileSection(
-              title: 'Senarai Permohonan',
-              subtitle: '${filtered.length} rekod ditemui.',
-              child: Column(
-                children: filtered
-                    .map((b) => _BookingApprovalCard(
-                          booking: b,
-                          showActions: isApprover && b.status == 'Pending',
-                        ))
-                    .toList(),
-              ),
-            ),
-        ],
-      );
-    }
 
     return SingleChildScrollView(
       child: Column(
@@ -841,7 +735,7 @@ class _AllBookingsTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Booking card
+// Booking card — with Lihat Butiran (Phase 1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BookingApprovalCard extends StatelessWidget {
@@ -867,64 +761,26 @@ class _BookingApprovalCard extends StatelessWidget {
       _ => booking.status,
     };
 
-    if (context.isMobile) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: MobileInfoCard(
-          leadingIcon: Icons.meeting_room_outlined,
-          title: booking.subject,
-          subtitle: '${booking.section} - ${booking.lecturerName}',
-          chips: [StatusChip(statusLabel)],
-          metadata: [
-            MobileMetaPill(
-              icon: Icons.event_outlined,
-              label: '${booking.originalDate} ${booking.originalTime}',
-            ),
-            MobileMetaPill(
-              icon: Icons.swap_horiz,
-              label:
-                  '${booking.replacementDate} ${booking.replacementStart}-${booking.replacementEnd}',
-            ),
-            MobileMetaPill(
-              icon: Icons.door_front_door_outlined,
-              label: booking.room,
-            ),
-            MobileMetaPill(
-              icon: Icons.circle_outlined,
-              label: avail ? 'Tersedia' : 'Tidak tersedia',
-              color: avail ? AppColors.success : AppColors.warning,
-            ),
-            MobileMetaPill(icon: Icons.info_outline, label: booking.reason),
-          ],
-          actions: showActions || !avail
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!avail) const _BookingConflictNote(),
-                    if (showActions) ...[
-                      if (!avail) const SizedBox(height: 8),
-                      _ApproveRejectButtons(bookingId: booking.id),
-                    ],
-                  ],
-                )
-              : null,
-          onTap: () => _showMobileBookingDetails(
-            context,
-            booking,
-            statusLabel,
-            avail,
-            showActions,
-          ),
-        ),
-      );
-    }
+    // Left border colour reflects status
+    final leftBorderColor = switch (booking.status) {
+      'Approved' => AppColors.success,
+      'Rejected' => AppColors.danger,
+      _ => AppColors.warning,
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        // NOTE: borderRadius lives here only, with no border on this layer.
+        // A `Border` with mixed per-side colours (the old `leftBorderColor`
+        // vs `AppColors.border`) cannot be combined with `borderRadius` —
+        // Flutter requires every BorderSide to share the same colour and
+        // width when borderRadius is set, otherwise it throws "A
+        // borderRadius can only be given on borders with uniform colors.".
+        // The coloured left edge is rendered as a separate Positioned strip
+        // below (a Stack, not Row+IntrinsicHeight — IntrinsicHeight's
+        // measured height can come out a couple pixels short of what Wrap
+        // children actually need once laid out, causing a bottom overflow).
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -934,135 +790,401 @@ class _BookingApprovalCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.meeting_room_outlined,
-                  size: 18, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${booking.subject}  ·  ${booking.section}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    color: AppColors.primaryDark,
-                  ),
-                ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
               ),
-              StatusChip(statusLabel),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 24,
-            runSpacing: 6,
-            children: [
-              _DetailItem(
-                  icon: Icons.person_outline,
-                  label: 'Pensyarah',
-                  value: booking.lecturerName),
-              _DetailItem(
-                  icon: Icons.event_outlined,
-                  label: 'Kelas Asal',
-                  value: '${booking.originalDate}  ${booking.originalTime}'),
-              _DetailItem(
-                  icon: Icons.swap_horiz,
-                  label: 'Ganti',
-                  value:
-                      '${booking.replacementDate}  ${booking.replacementStart}–${booking.replacementEnd}'),
-              _DetailItem(
-                  icon: Icons.door_front_door_outlined,
-                  label: 'Bilik',
-                  value: booking.room),
-              _DetailItem(
-                  icon: Icons.info_outline,
-                  label: 'Sebab',
-                  value: booking.reason),
-              _DetailItem(
-                  icon: Icons.circle_outlined,
-                  label: 'Ketersediaan',
-                  value: avail ? '✓ Tersedia' : '✗ Tidak Tersedia'),
-              if (booking.remarks.isNotEmpty)
-                _DetailItem(
-                    icon: Icons.notes_outlined,
-                    label: 'Catatan',
-                    value: booking.remarks),
-            ],
-          ),
-          if (!avail) const _BookingConflictNote(),
-          if (showActions) ...[
-            const SizedBox(height: 12),
-            _ApproveRejectButtons(bookingId: booking.id),
+              padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Header row ──
+                  Row(
+                    children: [
+                      const Icon(Icons.meeting_room_outlined,
+                          size: 18, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${booking.subject}  ·  ${booking.section}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ),
+                      StatusChip(statusLabel),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Key details ──
+                  Wrap(
+                    spacing: 24,
+                    runSpacing: 6,
+                    children: [
+                      _DetailItem(
+                          icon: Icons.person_outline,
+                          label: 'Pensyarah',
+                          value: booking.lecturerName),
+                      _DetailItem(
+                          icon: Icons.event_outlined,
+                          label: 'Kelas Asal',
+                          value:
+                              '${booking.originalDate}  ${booking.originalTime}'),
+                      _DetailItem(
+                          icon: Icons.swap_horiz,
+                          label: 'Ganti',
+                          value:
+                              '${booking.replacementDate}  ${booking.replacementStart}–${booking.replacementEnd}'),
+                      _DetailItem(
+                          icon: Icons.door_front_door_outlined,
+                          label: 'Bilik',
+                          value: booking.room),
+                      _DetailItem(
+                          icon: Icons.circle_outlined,
+                          label: 'Ketersediaan',
+                          value: avail ? '✓ Tersedia' : '✗ Tidak Tersedia'),
+                    ],
+                  ),
+
+                  // ── Conflict warning ──
+                  if (!avail)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded,
+                              color: AppColors.warning, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Bilik telah ditempah pada masa ini.',
+                            style: TextStyle(
+                                color: AppColors.warning, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // ── Reviewer metadata (if already reviewed) ──
+                  if (booking.reviewedBy != null ||
+                      booking.reviewedByName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_user_outlined,
+                              size: 13, color: Color(0xff64748b)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Disemak oleh \${booking.reviewedByName ?? booking.reviewedBy}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xff64748b)),
+                          ),
+                          if (booking.rejectionReason != null &&
+                              booking.status == 'Rejected') ...[
+                            const Text('  ·  ',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xff64748b))),
+                            Expanded(
+                              child: Text(
+                                'Sebab: \${booking.rejectionReason}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppColors.danger),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // ── Action row ──
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      // Lihat Butiran — always visible
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                        onPressed: () => BookingDetailsDialog.show(
+                          context,
+                          booking: booking,
+                          avail: avail,
+                          showActions: showActions,
+                        ),
+                        icon: const Icon(Icons.info_outline, size: 16),
+                        label: const Text('Lihat Butiran'),
+                      ),
+                      if (showActions)
+                        _ApproveRejectButtons(bookingId: booking.id),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: Container(color: leftBorderColor),
+            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lihat Butiran dialog (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class BookingDetailsDialog extends StatelessWidget {
+  const BookingDetailsDialog({
+    super.key,
+    required this.booking,
+    required this.avail,
+    required this.showActions,
+  });
+
+  final BookingRequest booking;
+  final bool avail;
+  final bool showActions;
+
+  static void show(
+    BuildContext context, {
+    required BookingRequest booking,
+    required bool avail,
+    required bool showActions,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => BookingDetailsDialog(
+        booking: booking,
+        avail: avail,
+        showActions: showActions,
       ),
     );
   }
 
-  void _showMobileBookingDetails(
-    BuildContext context,
-    BookingRequest booking,
-    String statusLabel,
-    bool available,
-    bool allowActions,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => MobileBottomSheet(
-        title: 'Butiran Permohonan',
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * .72,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                MobileInfoCard(
-                  leadingIcon: Icons.meeting_room_outlined,
-                  title: booking.subject,
-                  subtitle: '${booking.section} - ${booking.lecturerName}',
-                  chips: [StatusChip(statusLabel)],
-                  metadata: [
-                    MobileMetaPill(
-                      icon: Icons.event_outlined,
-                      label:
-                          'Asal: ${booking.originalDate} ${booking.originalTime}',
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+
+    // Booking conflict helper: collect all overlapping items for this room+date
+    // We use isRoomAvailable per-slot to identify conflicts without accessing private methods
+    final allSlotsOnDate = (state.timetable as List<TimetableSlot>)
+        .where((s) => s.room == booking.room && s.date == booking.replacementDate)
+        .toList();
+    final conflictSlots = allSlotsOnDate.where((s) {
+      // A slot conflicts if checking availability without it would still pass,
+      // but it overlaps with our requested time window — use time string compare
+      final aS = booking.replacementStart;
+      final aE = booking.replacementEnd;
+      final bS = s.startTime;
+      final bE = s.endTime;
+      // Overlap: aStart < bEnd AND bStart < aEnd
+      return aS.compareTo(bE) < 0 && bS.compareTo(aE) < 0;
+    }).toList();
+
+    final conflictBookings = (state.bookings as List<BookingRequest>)
+        .where((b) {
+          if (b.id == booking.id) return false;
+          if (b.room != booking.room) return false;
+          if (b.replacementDate != booking.replacementDate) return false;
+          if (b.status != 'Approved') return false;
+          final aS = booking.replacementStart;
+          final aE = booking.replacementEnd;
+          final bS = b.replacementStart;
+          final bE = b.replacementEnd;
+          return aS.compareTo(bE) < 0 && bS.compareTo(aE) < 0;
+        })
+        .toList();
+
+    final statusLabel = switch (booking.status) {
+      'Pending' => 'Menunggu Kelulusan',
+      'Approved' => 'Diluluskan',
+      'Rejected' => 'Ditolak',
+      _ => booking.status,
+    };
+
+    final statusColor = switch (booking.status) {
+      'Approved' => AppColors.success,
+      'Rejected' => AppColors.danger,
+      _ => AppColors.warning,
+    };
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 580),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Dialog title ──
+              Row(
+                children: [
+                  const Icon(Icons.meeting_room_outlined,
+                      color: AppColors.primary, size: 22),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Butiran Permohonan Tempahan',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                        color: AppColors.primaryDark,
+                      ),
                     ),
-                    MobileMetaPill(
-                      icon: Icons.swap_horiz,
-                      label:
-                          'Ganti: ${booking.replacementDate} ${booking.replacementStart}-${booking.replacementEnd}',
-                    ),
-                    MobileMetaPill(
-                      icon: Icons.door_front_door_outlined,
-                      label: booking.room,
-                    ),
-                    MobileMetaPill(
-                      icon: Icons.info_outline,
-                      label: booking.reason,
-                    ),
-                    MobileMetaPill(
-                      icon: Icons.circle_outlined,
-                      label: available ? 'Bilik tersedia' : 'Tidak tersedia',
-                      color: available ? AppColors.success : AppColors.warning,
-                    ),
-                  ],
-                  actions: booking.remarks.isEmpty
-                      ? null
-                      : Text(
-                          booking.remarks,
-                          style: const TextStyle(color: AppColors.muted),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 20),
+                    tooltip: 'Tutup',
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+
+              // ── Scrollable body ──
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Status banner
+                      _StatusBanner(
+                          label: statusLabel, color: statusColor),
+                      const SizedBox(height: 16),
+
+                      // Section: Pemohon
+                      _DetailSection(
+                        title: 'Maklumat Pemohon',
+                        icon: Icons.person_outline,
+                        rows: [
+                          _Row('Nama', booking.lecturerName),
+                          _Row('Program', booking.programId ?? '-'),
+                          _Row('Sebab Permohonan', booking.reason),
+                          if (booking.remarks.isNotEmpty)
+                            _Row('Catatan', booking.remarks),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Section: Kelas Asal
+                      _DetailSection(
+                        title: 'Kelas Asal',
+                        icon: Icons.class_outlined,
+                        rows: [
+                          _Row('Subjek', booking.subject),
+                          _Row('Seksyen', booking.section),
+                          _Row('Tarikh Asal', booking.originalDate),
+                          _Row('Masa Asal', booking.originalTime),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Section: Slot Ganti
+                      _DetailSection(
+                        title: 'Slot Ganti Yang Dimohon',
+                        icon: Icons.swap_horiz,
+                        rows: [
+                          _Row('Tarikh Ganti', booking.replacementDate),
+                          _Row('Masa',
+                              '${booking.replacementStart} – ${booking.replacementEnd}'),
+                          _Row('Bilik', booking.room),
+                          _Row(
+                            'Ketersediaan Bilik',
+                            avail
+                                ? '✓ Tersedia pada masa ini'
+                                : '✗ Bilik tidak tersedia',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Section: Konflik (Booking conflict helper results)
+                      if (conflictSlots.isNotEmpty ||
+                          conflictBookings.isNotEmpty) ...[
+                        _DetailSection(
+                          title: 'Konflik Dikesan',
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: AppColors.danger,
+                          rows: [
+                            ...conflictSlots.map((s) => _Row(
+                                  'Jadual Tetap',
+                                  '${s.section} · ${s.startTime}–${s.endTime} · ${s.room}',
+                                )),
+                            ...conflictBookings.map((b) => _Row(
+                                  'Tempahan Diluluskan',
+                                  '${b.section} · ${b.replacementStart}–${b.replacementEnd} · ${b.room}',
+                                )),
+                          ],
                         ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      // Section: Maklumat Semakan (if reviewed)
+                      if (booking.reviewedBy != null ||
+                          booking.reviewedByName != null) ...[
+                        _DetailSection(
+                          title: 'Maklumat Semakan',
+                          icon: Icons.verified_user_outlined,
+                          rows: [
+                            _Row('Disemak Oleh',
+                                booking.reviewedByName ??
+                                    booking.reviewedBy ??
+                                    '-'),
+                            if (booking.reviewedAt != null)
+                              _Row('Tarikh Semakan', booking.reviewedAt!),
+                            if (booking.rejectionReason != null)
+                              _Row('Sebab Penolakan',
+                                  booking.rejectionReason!),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                if (allowActions) _ApproveRejectButtons(bookingId: booking.id),
-              ],
-            ),
+              ),
+
+              const Divider(height: 24),
+
+              // ── Footer buttons ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (showActions) ...[
+                    _ApproveRejectButtons(bookingId: booking.id,
+                        onDone: () => Navigator.of(context).pop()),
+                    const SizedBox(width: 8),
+                  ],
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Tutup'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1071,24 +1193,34 @@ class _BookingApprovalCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Approve / Reject button pair
+// Dialog sub-widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _BookingConflictNote extends StatelessWidget {
-  const _BookingConflictNote();
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.label, required this.color});
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 10),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        border: Border.all(color: color.withValues(alpha: .25)),
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 16),
-          SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'Bilik telah ditempah pada masa ini.',
-              style: TextStyle(color: AppColors.warning, fontSize: 12),
+          Icon(Icons.circle, size: 9, color: color),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: color,
             ),
           ),
         ],
@@ -1097,9 +1229,104 @@ class _BookingConflictNote extends StatelessWidget {
   }
 }
 
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({
+    required this.title,
+    required this.icon,
+    required this.rows,
+    this.iconColor = AppColors.primary,
+  });
+  final String title;
+  final IconData icon;
+  final List<_Row> rows;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+                color: iconColor,
+                letterSpacing: .3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xfff8fafc),
+            border: Border.all(color: const Color(0xffe2e8f0)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            children: rows,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value);
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xff64748b),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff0f172a),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Approve / Reject buttons — with mandatory rejection reason (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ApproveRejectButtons extends StatelessWidget {
-  const _ApproveRejectButtons({required this.bookingId});
+  const _ApproveRejectButtons({
+    required this.bookingId,
+    this.onDone,
+  });
   final String bookingId;
+  final VoidCallback? onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -1115,10 +1342,13 @@ class _ApproveRejectButtons extends StatelessWidget {
           onPressed: () async {
             await state.updateBooking(bookingId, 'Approved');
             if (context.mounted) {
+              onDone?.call();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                    content: Text('✓ Permohonan telah diluluskan.'),
-                    backgroundColor: Colors.green),
+                  content: Text(
+                      '✓ Permohonan diluluskan. Slot kelas ganti telah dicipta.'),
+                  backgroundColor: Colors.green,
+                ),
               );
             }
           },
@@ -1132,16 +1362,22 @@ class _ApproveRejectButtons extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           ),
           onPressed: () async {
-            final confirmed = await _confirmReject(context);
-            if (confirmed == true && context.mounted) {
-              await state.updateBooking(bookingId, 'Rejected');
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Permohonan telah ditolak.'),
-                      backgroundColor: Colors.red),
-                );
-              }
+            final reason = await _showRejectionDialog(context);
+            if (reason == null) return; // user cancelled
+            if (!context.mounted) return;
+            await state.updateBooking(
+              bookingId,
+              'Rejected',
+              rejectionReason: reason,
+            );
+            if (context.mounted) {
+              onDone?.call();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Permohonan telah ditolak.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
             }
           },
           icon: const Icon(Icons.close, size: 16),
@@ -1151,21 +1387,76 @@ class _ApproveRejectButtons extends StatelessWidget {
     );
   }
 
-  Future<bool?> _confirmReject(BuildContext ctx) {
-    return showDialog<bool>(
+  /// Shows rejection reason dialog. Returns the reason string, or null if cancelled.
+  Future<String?> _showRejectionDialog(BuildContext ctx) async {
+    final ctrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<String>(
       context: ctx,
       builder: (_) => AlertDialog(
-        title: const Text('Tolak Permohonan'),
-        content: const Text('Adakah anda pasti ingin menolak permohonan ini?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: AppColors.danger, size: 20),
+            SizedBox(width: 8),
+            Text('Tolak Permohonan',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Sila nyatakan sebab penolakan. Maklumat ini akan disimpan dan '
+                  'dipaparkan kepada Pensyarah.',
+                  style: TextStyle(fontSize: 13, color: Color(0xff475569)),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: ctrl,
+                  maxLines: 3,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Sebab Penolakan',
+                    hintText:
+                        'Contoh: Bilik telah ditempah, masa bertindih dengan kelas lain...',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Sebab penolakan wajib diisi.';
+                    }
+                    if (v.trim().length < 10) {
+                      return 'Sila berikan sebab yang lebih terperinci (minimum 10 aksara).';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal')),
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Batal'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xffdc2626)),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Tolak'),
+                backgroundColor: AppColors.danger),
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(ctx, ctrl.text.trim());
+              }
+            },
+            child: const Text('Sahkan Tolak'),
           ),
         ],
       ),

@@ -682,11 +682,22 @@ class FirestoreService {
     });
   }
 
-  Future<void> updateBookingStatus(String id, String status) async {
-    await _bookingsCol.doc(id).update({
+  Future<void> updateBookingStatus(
+    String id,
+    String status, {
+    String? reviewedBy,
+    String? reviewedByName,
+    String? rejectionReason,
+  }) async {
+    final updates = <String, dynamic>{
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+      'reviewedAt': FieldValue.serverTimestamp(),
+    };
+    if (reviewedBy != null) updates['reviewedBy'] = reviewedBy;
+    if (reviewedByName != null) updates['reviewedByName'] = reviewedByName;
+    if (rejectionReason != null) updates['rejectionReason'] = rejectionReason;
+    await _bookingsCol.doc(id).update(updates);
   }
 
   // ---------------------------------------------------------------------------
@@ -1253,6 +1264,10 @@ class FirestoreService {
       status: d['status'] as String,
       createdAt: _readTimestamp(d['createdAt']),
       updatedAt: _readTimestamp(d['updatedAt']),
+      reviewedBy: d['reviewedBy'] as String?,
+      reviewedByName: d['reviewedByName'] as String?,
+      reviewedAt: _readTimestamp(d['reviewedAt']),
+      rejectionReason: d['rejectionReason'] as String?,
     );
   }
 
