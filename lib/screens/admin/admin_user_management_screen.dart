@@ -204,24 +204,75 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
   }) {
-    return DropdownButtonHideUnderline(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceTint,
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: DropdownButton<T>(
-          value: value,
-          hint: Text(hint,
-              style: const TextStyle(fontSize: 13, color: Color(0xff64748b))),
-          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-          items: items,
-          onChanged: onChanged,
+    // Cause of the overflow: DropdownButton (without isExpanded) sizes its
+    // closed/collapsed width to the WIDEST item in `items`, not to the
+    // hint or the currently-selected value. When `items` contains long
+    // values (e.g. full programme names from Firestore), the button's
+    // intrinsic width can exceed what the parent Wrap has available at
+    // narrow viewports, producing "RIGHT OVERFLOWED BY N PIXELS".
+    //
+    // Fix: cap the whole control with a fixed-but-reasonable max width via
+    // ConstrainedBox, set isExpanded: true so the DropdownButton fills that
+    // bounded width instead of measuring its children, and ellipsize any
+    // text that's still too long to fit.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 180),
+      child: DropdownButtonHideUnderline(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceTint,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            hint: Text(
+              hint,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, color: Color(0xff64748b)),
+            ),
+            icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+            items: [
+              for (final item in items)
+                DropdownMenuItem<T>(
+                  value: item.value,
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(
+                        fontSize: 13, overflow: TextOverflow.ellipsis),
+                    child: item.child,
+                  ),
+                ),
+            ],
+            selectedItemBuilder: (context) => [
+              for (final item in items)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _dropdownItemText(item) ?? hint,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style:
+                        const TextStyle(fontSize: 13, color: Color(0xff0f172a)),
+                  ),
+                ),
+            ],
+            onChanged: onChanged,
+          ),
         ),
       ),
     );
+  }
+
+  /// Best-effort extraction of plain text from a DropdownMenuItem's child,
+  /// used so the closed (selected) button can render a single-line,
+  /// ellipsized label via [selectedItemBuilder] without re-deriving the
+  /// original label string at every call site.
+  String? _dropdownItemText(DropdownMenuItem<dynamic> item) {
+    final child = item.child;
+    if (child is Text) return child.data;
+    return null;
   }
 
   // ===========================================================================
@@ -907,62 +958,72 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
 
         return Column(
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 320,
-                  child: _buildSearchBar(
-                    controller: _studentSearchController,
-                    hint: 'Nama, ID, kelas...',
-                  ),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedProgramFilter,
-                  hint: 'Semua Kursus',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Kursus',
-                            style: TextStyle(fontSize: 13))),
-                    ...programs.map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(p, style: const TextStyle(fontSize: 13)))),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 480;
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: isNarrow ? constraints.maxWidth : 320,
+                      child: _buildSearchBar(
+                        controller: _studentSearchController,
+                        hint: 'Nama, ID, kelas...',
+                      ),
+                    ),
+                    _buildFilterDropdown<String?>(
+                      value: _selectedProgramFilter,
+                      hint: 'Semua Kursus',
+                      items: [
+                        const DropdownMenuItem(
+                            value: null,
+                            child: Text('Semua Kursus',
+                                style: TextStyle(fontSize: 13))),
+                        ...programs.map((p) => DropdownMenuItem(
+                            value: p,
+                            child:
+                                Text(p, style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _selectedProgramFilter = v),
+                    ),
+                    _buildFilterDropdown<String?>(
+                      value: _selectedClassFilter,
+                      hint: 'Semua Kelas',
+                      items: [
+                        const DropdownMenuItem(
+                            value: null,
+                            child: Text('Semua Kelas',
+                                style: TextStyle(fontSize: 13))),
+                        ...classes.map((c) => DropdownMenuItem(
+                            value: c,
+                            child:
+                                Text(c, style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _selectedClassFilter = v),
+                    ),
+                    _buildFilterDropdown<String?>(
+                      value: _selectedSemesterFilter,
+                      hint: 'Semua Semester',
+                      items: [
+                        const DropdownMenuItem(
+                            value: null,
+                            child: Text('Semua Semester',
+                                style: TextStyle(fontSize: 13))),
+                        ...semesters.map((s) => DropdownMenuItem(
+                            value: s,
+                            child: Text('Sem $s',
+                                style: const TextStyle(fontSize: 13)))),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _selectedSemesterFilter = v),
+                    ),
                   ],
-                  onChanged: (v) => setState(() => _selectedProgramFilter = v),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedClassFilter,
-                  hint: 'Semua Kelas',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Kelas',
-                            style: TextStyle(fontSize: 13))),
-                    ...classes.map((c) => DropdownMenuItem(
-                        value: c,
-                        child: Text(c, style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (v) => setState(() => _selectedClassFilter = v),
-                ),
-                _buildFilterDropdown<String?>(
-                  value: _selectedSemesterFilter,
-                  hint: 'Semua Semester',
-                  items: [
-                    const DropdownMenuItem(
-                        value: null,
-                        child: Text('Semua Semester',
-                            style: TextStyle(fontSize: 13))),
-                    ...semesters.map((s) => DropdownMenuItem(
-                        value: s,
-                        child: Text('Sem $s',
-                            style: const TextStyle(fontSize: 13)))),
-                  ],
-                  onChanged: (v) => setState(() => _selectedSemesterFilter = v),
-                ),
-              ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             Align(
