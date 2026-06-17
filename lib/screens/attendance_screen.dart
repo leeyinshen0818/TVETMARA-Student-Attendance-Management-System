@@ -1426,7 +1426,7 @@ class _AttendanceHistoryPanelState extends State<_AttendanceHistoryPanel> {
   @override
   Widget build(BuildContext context) {
     return AppPanel(
-      title: 'Ringkasan Kehadiran Pelajar',
+      title: 'Kehadiran Pelajar',
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 900;
@@ -1586,15 +1586,13 @@ class _StudentAttendanceSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MiniMetric(label: 'Sesi Hadir', value: '${summary.attended}'),
-              _MiniMetric(
-                  label: 'Sesi Tidak Hadir', value: '${summary.absent}'),
-              _MiniMetric(label: 'MC/CK', value: '${summary.mc + summary.ck}'),
-            ],
+          Text(
+            '${summary.attended} Hadir · ${summary.absent} Tidak Hadir · ${summary.mc + summary.ck} MC/CK',
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xff64748b),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           TextButton.icon(
@@ -1675,49 +1673,6 @@ class _RiskChip extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
-      ),
-    );
-  }
-}
-
-class _MiniMetric extends StatelessWidget {
-  const _MiniMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 106,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xff64748b),
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xff0f172a),
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -94,22 +94,19 @@ class _PentadbirDashboard extends StatelessWidget {
           _AdminStatGrid(
             tiles: [
               StatTile(
-                label: 'Jumlah Pengguna',
+                label: 'Pengguna',
                 value: '${users.length}',
                 icon: Icons.people_alt_outlined,
-                helper: 'Semua akaun pengguna sistem',
               ),
               StatTile(
-                label: 'Pelajar Berdaftar',
+                label: 'Pelajar',
                 value: '${students.length}',
                 icon: Icons.school_outlined,
-                helper: 'Jumlah rekod pelajar dalam sistem',
               ),
               StatTile(
                 label: 'Pensyarah',
                 value: '${lecturerEmails.length}',
                 icon: Icons.badge_outlined,
-                helper: 'Akaun dan profil pensyarah unik',
               ),
               StatTile(
                 label: 'Akaun Tidak Aktif',
@@ -118,7 +115,6 @@ class _PentadbirDashboard extends StatelessWidget {
                 color: inactiveAccounts > 0
                     ? AppColors.warning
                     : AppColors.success,
-                helper: 'Akaun yang perlu disemak',
               ),
             ],
           ),
@@ -169,28 +165,24 @@ class _PentadbirDashboard extends StatelessWidget {
         _AdminStatGrid(
           tiles: [
             StatTile(
-              label: 'Jumlah Pengguna',
+              label: 'Pengguna',
               value: '${users.length}',
               icon: Icons.people_alt_outlined,
-              helper: 'Semua akaun pengguna sistem',
             ),
             StatTile(
-              label: 'Pelajar Berdaftar',
+              label: 'Pelajar',
               value: '${students.length}',
               icon: Icons.school_outlined,
-              helper: 'Jumlah rekod pelajar dalam sistem',
             ),
             StatTile(
               label: 'Pensyarah',
               value: '${lecturerEmails.length}',
               icon: Icons.badge_outlined,
-              helper: 'Akaun dan profil pensyarah unik',
             ),
             StatTile(
-              label: 'Akaun Pengurusan',
+              label: 'Pengurusan',
               value: '$managementAccounts',
               icon: Icons.admin_panel_settings_outlined,
-              helper: 'Pentadbir, Ketua Jabatan dan Ketua Program',
             ),
             StatTile(
               label: 'Akaun Tidak Aktif',
@@ -198,14 +190,11 @@ class _PentadbirDashboard extends StatelessWidget {
               icon: Icons.person_off_outlined,
               color:
                   inactiveAccounts > 0 ? AppColors.warning : AppColors.success,
-              helper: 'Akaun yang perlu disemak atau diaktifkan semula',
             ),
             StatTile(
               label: 'Program / Kelas Aktif',
               value: '${programs.length} / $activeClasses',
               icon: Icons.account_tree_outlined,
-              helper:
-                  'Program master dan kelas aktif berdasarkan rekod pelajar',
             ),
           ],
         ),
@@ -302,13 +291,13 @@ class _AdminQuickActionsPanel extends StatelessWidget {
         _DashboardQuickAction(
           icon: Icons.person_add_alt_1_outlined,
           label: 'Daftar Akaun',
-          description: 'Cipta akaun pengguna baharu',
+          description: 'Cipta akaun baharu',
           onPressed: () => onNavigateToLabel?.call('Daftar Akaun'),
         ),
         _DashboardQuickAction(
           icon: Icons.manage_accounts_outlined,
           label: 'Pengurusan Pengguna',
-          description: 'Semak, aktifkan dan kemas kini akaun',
+          description: 'Urus akaun sistem',
           onPressed: () => onNavigateToLabel?.call('Pengurusan Pengguna'),
         ),
         _DashboardQuickAction(
@@ -392,41 +381,31 @@ class _KetuaDashboard extends StatelessWidget {
           _AdminStatGrid(
             tiles: [
               StatTile(
-                label: isKj ? 'Pelajar Dalam Jabatan' : 'Pelajar Program',
+                label: 'Pelajar',
                 value: hasStudentData
                     ? '${scopedStudents.length}'
                     : '${studentSummary.totalStudents}',
                 icon: Icons.school_outlined,
-                helper: hasStudentData
-                    ? 'Jumlah pelajar dalam skop $scopeWord'
-                    : 'Ringkasan ringan tanpa memuatkan jadual rekod penuh',
               ),
               StatTile(
-                label: isKj ? 'Slot Jadual Aktif' : 'Slot Jadual Program',
+                label: 'Slot Aktif',
                 value: '${activeSlots.length}',
                 icon: Icons.calendar_month_outlined,
-                helper: 'Slot aktif untuk sesi akademik dipilih',
               ),
               StatTile(
-                label: 'Pelajar Bawah Had',
+                label: 'Bawah Had',
                 value: '$riskStudentCount',
                 icon: Icons.warning_amber_outlined,
                 color: riskStudentCount == 0
                     ? AppColors.success
                     : AppColors.danger,
-                helper: hasStudentData
-                    ? 'Pelajar di bawah had ${state.attendanceThreshold}%'
-                    : 'Ringkasan berdasarkan medan kehadiran pelajar',
               ),
               StatTile(
-                label:
-                    isKj ? 'Tindakan Menunggu' : 'Laporan / Tindakan Program',
+                label: 'Tindakan',
                 value: '$pendingActions',
                 icon: Icons.pending_actions_outlined,
                 color:
                     pendingActions == 0 ? AppColors.success : AppColors.warning,
-                helper:
-                    'Tempahan, disiplin dan konflik jadual yang perlu disemak',
               ),
             ],
           ),
@@ -439,21 +418,21 @@ class _KetuaDashboard extends StatelessWidget {
                 _DashboardQuickAction(
                   icon: Icons.calendar_month_outlined,
                   label: 'Pengurusan Jadual',
-                  description: 'Urus jadual, konflik dan import CSV',
+                  description: 'Urus jadual & tempahan',
                   onPressed: () => onNavigateToLabel?.call('Pengurusan Jadual'),
                 )
               else
                 _DashboardQuickAction(
                   icon: Icons.calendar_month_outlined,
                   label: 'Jadual Program',
-                  description: 'Lihat slot jadual program sendiri',
+                  description: 'Lihat slot program',
                   onPressed: () => onNavigateToLabel?.call('Jadual Program'),
                 ),
               _DashboardQuickAction(
-                icon: Icons.bar_chart_outlined,
-                label: 'Laporan Kehadiran',
-                description: 'Semak ringkasan dan analisis scoped',
-                onPressed: () => onNavigateToLabel?.call('Laporan'),
+                icon: Icons.gavel_outlined,
+                label: 'Disiplin',
+                description: 'Laporan disiplin',
+                onPressed: () => onNavigateToLabel?.call('Laporan Disiplin'),
               ),
               _DashboardQuickAction(
                 icon: Icons.meeting_room_outlined,
@@ -462,15 +441,9 @@ class _KetuaDashboard extends StatelessWidget {
                 onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
               ),
               _DashboardQuickAction(
-                icon: Icons.warning_amber_outlined,
-                label: 'Semak Disiplin',
-                description: 'Lihat laporan disiplin dalam skop',
-                onPressed: () => onNavigateToLabel?.call('Laporan Disiplin'),
-              ),
-              _DashboardQuickAction(
                 icon: Icons.people_alt_outlined,
                 label: 'Rekod Pelajar',
-                description: 'Semak pelajar dan tugasan pensyarah',
+                description: 'Semak pelajar',
                 onPressed: () => onNavigateToLabel?.call('Rekod Pelajar'),
               ),
             ],
@@ -519,39 +492,30 @@ class _KetuaDashboard extends StatelessWidget {
         _AdminStatGrid(
           tiles: [
             StatTile(
-              label: isKj ? 'Pelajar Dalam Jabatan' : 'Pelajar Program',
+              label: 'Pelajar',
               value: hasStudentData
                   ? '${scopedStudents.length}'
                   : '${studentSummary.totalStudents}',
               icon: Icons.school_outlined,
-              helper: hasStudentData
-                  ? 'Jumlah pelajar dalam skop $scopeWord'
-                  : 'Ringkasan ringan tanpa memuatkan jadual rekod penuh',
             ),
             StatTile(
-              label: isKj ? 'Slot Jadual Aktif' : 'Slot Jadual Program',
+              label: 'Slot Aktif',
               value: '${activeSlots.length}',
               icon: Icons.calendar_month_outlined,
-              helper: 'Slot aktif untuk sesi akademik dipilih',
             ),
             StatTile(
-              label: 'Pelajar Bawah Had',
+              label: 'Bawah Had',
               value: '$riskStudentCount',
               icon: Icons.warning_amber_outlined,
               color:
                   riskStudentCount == 0 ? AppColors.success : AppColors.danger,
-              helper: hasStudentData
-                  ? 'Pelajar di bawah had ${state.attendanceThreshold}%'
-                  : 'Ringkasan berdasarkan medan kehadiran pelajar',
             ),
             StatTile(
-              label: isKj ? 'Tindakan Menunggu' : 'Laporan / Tindakan Program',
+              label: 'Tindakan',
               value: '$pendingActions',
               icon: Icons.pending_actions_outlined,
               color:
                   pendingActions == 0 ? AppColors.success : AppColors.warning,
-              helper:
-                  'Tempahan, disiplin dan konflik jadual yang perlu disemak',
             ),
           ],
         ),
@@ -709,34 +673,29 @@ class _PensyarahDashboard extends StatelessWidget {
           _AdminStatGrid(
             tiles: [
               StatTile(
-                label: 'Kelas Ditugaskan',
+                label: 'Kelas',
                 value: '${assignedClasses.length}',
                 icon: Icons.groups_outlined,
-                helper: 'Bilangan kelas atau seksyen yang ditugaskan',
               ),
               StatTile(
-                label: 'Slot Jadual Saya',
+                label: 'Slot Saya',
                 value: '${slots.length}',
                 icon: Icons.calendar_month_outlined,
-                helper: 'Slot mengajar aktif untuk sesi akademik dipilih',
               ),
               StatTile(
-                label: 'Kehadiran Belum Diambil',
+                label: 'Belum Diambil',
                 value: '${pendingAttendanceSlots.length}',
                 icon: Icons.fact_check_outlined,
                 color: pendingAttendanceSlots.isEmpty
                     ? AppColors.success
                     : AppColors.warning,
-                helper: 'Slot aktif tanpa rekod kehadiran selesai',
               ),
               StatTile(
-                label: 'Pelajar Bawah Had',
+                label: 'Bawah Had',
                 value: '${riskStudents.length}',
                 icon: Icons.report_problem_outlined,
                 color:
                     riskStudents.isEmpty ? AppColors.success : AppColors.danger,
-                helper:
-                    'Pelajar kelas anda di bawah ${state.attendanceThreshold}%',
               ),
             ],
           ),
@@ -748,25 +707,25 @@ class _PensyarahDashboard extends StatelessWidget {
               _DashboardQuickAction(
                 icon: Icons.calendar_view_week_outlined,
                 label: 'Jadual Saya',
-                description: 'Lihat slot mengajar yang ditugaskan',
+                description: 'Lihat slot mengajar',
                 onPressed: () => onNavigateToLabel?.call('Jadual Saya'),
               ),
               _DashboardQuickAction(
                 icon: Icons.fact_check_outlined,
-                label: 'Ambil Kehadiran',
-                description: 'Lengkapkan rekod kehadiran kelas',
+                label: 'Kehadiran',
+                description: 'Rekod kehadiran pelajar',
                 onPressed: () => onNavigateToLabel?.call('Kehadiran'),
               ),
               _DashboardQuickAction(
                 icon: Icons.meeting_room_outlined,
-                label: 'Tempah Bilik',
-                description: 'Mohon bilik atau kelas ganti',
+                label: 'Tempahan',
+                description: 'Mohon bilik',
                 onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
               ),
               _DashboardQuickAction(
                 icon: Icons.warning_amber_outlined,
-                label: 'Lapor Disiplin',
-                description: 'Hantar laporan disiplin pelajar',
+                label: 'Disiplin',
+                description: 'Lapor salah laku',
                 onPressed: () =>
                     onNavigateToLabel?.call('Laporan Disiplin Saya'),
               ),
@@ -803,34 +762,29 @@ class _PensyarahDashboard extends StatelessWidget {
         _AdminStatGrid(
           tiles: [
             StatTile(
-              label: 'Kelas Ditugaskan',
+              label: 'Kelas',
               value: '${assignedClasses.length}',
               icon: Icons.groups_outlined,
-              helper: 'Bilangan kelas atau seksyen yang ditugaskan',
             ),
             StatTile(
-              label: 'Slot Jadual Saya',
+              label: 'Slot Saya',
               value: '${slots.length}',
               icon: Icons.calendar_month_outlined,
-              helper: 'Slot mengajar aktif untuk sesi akademik dipilih',
             ),
             StatTile(
-              label: 'Kehadiran Belum Diambil',
+              label: 'Belum Diambil',
               value: '${pendingAttendanceSlots.length}',
               icon: Icons.fact_check_outlined,
               color: pendingAttendanceSlots.isEmpty
                   ? AppColors.success
                   : AppColors.warning,
-              helper: 'Slot aktif tanpa rekod kehadiran selesai',
             ),
             StatTile(
-              label: 'Pelajar Bawah Had',
+              label: 'Bawah Had',
               value: '${riskStudents.length}',
               icon: Icons.report_problem_outlined,
               color:
                   riskStudents.isEmpty ? AppColors.success : AppColors.danger,
-              helper:
-                  'Pelajar kelas anda di bawah ${state.attendanceThreshold}%',
             ),
           ],
         ),
@@ -842,25 +796,25 @@ class _PensyarahDashboard extends StatelessWidget {
             _DashboardQuickAction(
               icon: Icons.calendar_view_week_outlined,
               label: 'Jadual Saya',
-              description: 'Lihat slot mengajar yang ditugaskan',
+              description: 'Lihat slot mengajar',
               onPressed: () => onNavigateToLabel?.call('Jadual Saya'),
             ),
             _DashboardQuickAction(
               icon: Icons.fact_check_outlined,
-              label: 'Ambil Kehadiran',
-              description: 'Lengkapkan rekod kehadiran kelas',
+              label: 'Kehadiran',
+              description: 'Rekod kehadiran pelajar',
               onPressed: () => onNavigateToLabel?.call('Kehadiran'),
             ),
             _DashboardQuickAction(
               icon: Icons.meeting_room_outlined,
-              label: 'Tempah Bilik',
-              description: 'Mohon bilik atau kelas ganti',
+              label: 'Tempahan',
+              description: 'Mohon bilik',
               onPressed: () => onNavigateToLabel?.call('Tempahan Bilik'),
             ),
             _DashboardQuickAction(
               icon: Icons.warning_amber_outlined,
-              label: 'Lapor Disiplin',
-              description: 'Hantar laporan disiplin pelajar',
+              label: 'Disiplin',
+              description: 'Lapor salah laku',
               onPressed: () => onNavigateToLabel?.call('Laporan Disiplin Saya'),
             ),
           ],
@@ -2029,7 +1983,7 @@ class _AdminStatGrid extends StatelessWidget {
         final columns = mobile
             ? 2
             : width >= 1180
-                ? 3
+                ? 4
                 : width >= 760
                     ? 2
                     : 1;

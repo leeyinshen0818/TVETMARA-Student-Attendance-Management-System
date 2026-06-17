@@ -109,7 +109,8 @@ class AppPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(mobile ? 12 : 18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryDark.withValues(alpha: mobile ? .028 : .045),
+            color:
+                AppColors.primaryDark.withValues(alpha: mobile ? .028 : .045),
             blurRadius: mobile ? 12 : 22,
             offset: Offset(0, mobile ? 4 : 10),
           ),
