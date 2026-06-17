@@ -266,6 +266,278 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
+class _MobileLecturerSchedule extends StatelessWidget {
+  const _MobileLecturerSchedule({
+    required this.slots,
+    required this.week,
+    required this.onSlotSelected,
+    required this.onNavigateToAttendance,
+    required this.onNavigateToTempahan,
+  });
+
+  final List<LecturerSlot> slots;
+  final String week;
+  final void Function(String slotId, String week)? onSlotSelected;
+  final VoidCallback? onNavigateToAttendance;
+  final VoidCallback? onNavigateToTempahan;
+
+  @override
+  Widget build(BuildContext context) {
+    if (slots.isEmpty) {
+      return const _MobileScheduleEmpty();
+    }
+    final sorted = [...slots]..sort(_compareMobileSlots);
+    final highlighted = _highlightSlot(sorted);
+    final remaining =
+        sorted.where((slot) => slot.slotId != highlighted.slotId).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MobileScheduleCard(
+          slot: highlighted,
+          week: week,
+          highlighted: true,
+          onSlotSelected: onSlotSelected,
+          onNavigateToAttendance: onNavigateToAttendance,
+          onNavigateToTempahan: onNavigateToTempahan,
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Kelas Akan Datang',
+          style: TextStyle(
+            color: _kText,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final slot in remaining)
+          _MobileScheduleCard(
+            slot: slot,
+            week: week,
+            onSlotSelected: onSlotSelected,
+            onNavigateToAttendance: onNavigateToAttendance,
+            onNavigateToTempahan: onNavigateToTempahan,
+          ),
+      ],
+    );
+  }
+
+  LecturerSlot _highlightSlot(List<LecturerSlot> sorted) {
+    final now = DateTime.now();
+    final todayName = _weekdayMalay(now.weekday).toUpperCase();
+    final todaySlots = sorted.where((slot) => slot.day == todayName).toList();
+    final upcomingToday = todaySlots.where((slot) {
+      final minutes = _timeMinutes(slot.startTime);
+      if (minutes == null) return false;
+      return minutes >= now.hour * 60 + now.minute;
+    }).firstOrNull;
+    return upcomingToday ?? todaySlots.firstOrNull ?? sorted.first;
+  }
+}
+
+class _MobileScheduleCard extends StatelessWidget {
+  const _MobileScheduleCard({
+    required this.slot,
+    required this.week,
+    required this.onSlotSelected,
+    required this.onNavigateToAttendance,
+    required this.onNavigateToTempahan,
+    this.highlighted = false,
+  });
+
+  final LecturerSlot slot;
+  final String week;
+  final void Function(String slotId, String week)? onSlotSelected;
+  final VoidCallback? onNavigateToAttendance;
+  final VoidCallback? onNavigateToTempahan;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: highlighted ? 0 : 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: highlighted ? _kTeal.withValues(alpha: .08) : _kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: highlighted ? _kTeal.withValues(alpha: .25) : _kBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (highlighted) ...[
+            const Text(
+              'Kelas Seterusnya',
+              style: TextStyle(
+                color: _kTeal,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      slot.subjectCode,
+                      style: const TextStyle(
+                        color: _kText,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      slot.subjectName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _kMuted,
+                        fontSize: 12,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _JenisChip(
+                label:
+                    slot.classType.isNotEmpty ? slot.classType : 'Normal Class',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MobileScheduleMeta(Icons.groups_outlined, slot.section),
+              _MobileScheduleMeta(Icons.schedule,
+                  '${_normalDay(slot.day)} ${slot.startTime}-${slot.endTime}'),
+              if (slot.roomId.isNotEmpty)
+                _MobileScheduleMeta(Icons.meeting_room_outlined, slot.roomId),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ActionButtons(
+            slot: slot,
+            week: week,
+            onTake: onSlotSelected,
+            onNavigateToAttendance: onNavigateToAttendance,
+            onNavigateToTempahan: onNavigateToTempahan,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileScheduleMeta extends StatelessWidget {
+  const _MobileScheduleMeta(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _kBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: _kMuted),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _kText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileScheduleEmpty extends StatelessWidget {
+  const _MobileScheduleEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _kCardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+      ),
+      child: const Text(
+        'Tiada slot jadual ditemui untuk penapis semasa.',
+        style: TextStyle(color: _kMuted, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+int _compareMobileSlots(LecturerSlot a, LecturerSlot b) {
+  final day = _mobileDayOrder(a.day).compareTo(_mobileDayOrder(b.day));
+  if (day != 0) return day;
+  return a.startTime.compareTo(b.startTime);
+}
+
+int _mobileDayOrder(String day) {
+  return switch (_normalDay(day).toLowerCase()) {
+    'isnin' => 1,
+    'selasa' => 2,
+    'rabu' => 3,
+    'khamis' => 4,
+    'jumaat' => 5,
+    'sabtu' => 6,
+    'ahad' => 7,
+    _ => 99,
+  };
+}
+
+String _weekdayMalay(int weekday) {
+  return switch (weekday) {
+    DateTime.monday => 'Isnin',
+    DateTime.tuesday => 'Selasa',
+    DateTime.wednesday => 'Rabu',
+    DateTime.thursday => 'Khamis',
+    DateTime.friday => 'Jumaat',
+    DateTime.saturday => 'Sabtu',
+    _ => 'Ahad',
+  };
+}
+
+int? _timeMinutes(String value) {
+  final parts = value.split(':');
+  if (parts.length < 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return hour * 60 + minute;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Stat card row
 // ─────────────────────────────────────────────────────────────────────────────
@@ -580,6 +852,15 @@ class _OfficialTableState extends State<_OfficialTable> {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return _MobileLecturerSchedule(
+        slots: slots,
+        week: week,
+        onSlotSelected: onSlotSelected,
+        onNavigateToAttendance: onNavigateToAttendance,
+        onNavigateToTempahan: onNavigateToTempahan,
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: _kCardBg,

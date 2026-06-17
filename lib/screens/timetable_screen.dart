@@ -3902,14 +3902,15 @@ class _GroupedTimetableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(mobile ? 12 : 8),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(mobile ? 10 : 12),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final cardWidth = constraints.maxWidth >= 980
@@ -3926,7 +3927,8 @@ class _GroupedTimetableCard extends StatelessWidget {
                       mode == _TimetableViewMode.room
                           ? Icons.meeting_room_outlined
                           : Icons.person_outline,
-                      color: const Color(0xff334155),
+                      color: AppColors.primaryDark,
+                      size: mobile ? 18 : 24,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -3936,9 +3938,9 @@ class _GroupedTimetableCard extends StatelessWidget {
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xff0f172a),
-                            fontSize: 15,
+                          style: TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: mobile ? 14 : 15,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -3948,10 +3950,10 @@ class _GroupedTimetableCard extends StatelessWidget {
                     StatusChip('${slots.length} slot'),
                   ],
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: mobile ? 8 : 10),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: mobile ? 8 : 10,
+                  runSpacing: mobile ? 8 : 10,
                   children: [
                     for (final slot in slots)
                       SizedBox(
@@ -3989,89 +3991,87 @@ class _MiniTimetableSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     final contextLine = trailingRoom
-        ? '${_slotClassValue(slot)} - ${_slotRoomValue(slot)}'
-        : '${_slotClassValue(slot)} - ${slot.lecturerName}';
+        ? '${_slotClassValue(slot)} - ${slot.day} ${slot.startTime}-${slot.endTime}'
+        : '${_slotClassValue(slot)} - ${slot.day} ${slot.startTime}-${slot.endTime}';
     final supportingLine =
         trailingRoom ? slot.lecturerName : _slotRoomValue(slot);
+    final active = slot.status.toLowerCase() == 'active';
     return Tooltip(
       message:
           '${slot.subjectCode}\n${slot.subjectName}\n$contextLine\n$supportingLine',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(mobile ? 12 : 8),
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(mobile ? 10 : 10),
           decoration: BoxDecoration(
-            color: slot.status.toLowerCase() == 'active'
-                ? const Color(0xfff8fafc)
-                : const Color(0xfff1f5f9),
+            color: active ? AppColors.surface : AppColors.surfaceTint,
             border: Border.all(
-              color: slot.status.toLowerCase() == 'active'
-                  ? const Color(0xffcbd5e1)
-                  : const Color(0xff94a3b8),
+              color: active ? AppColors.border : AppColors.muted.withValues(alpha: .35),
             ),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(mobile ? 12 : 8),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showDayTime) ...[
-                Text(
-                  '${slot.day} - ${slot.startTime}-${slot.endTime}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xff475569),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      slot.subjectCode,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-              ],
+                  if (!active)
+                    Text(
+                      _statusLabel(slot.status),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 3),
               Text(
-                slot.subjectCode,
-                maxLines: 1,
+                slot.subjectName,
+                maxLines: mobile ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xff0f172a),
-                  fontWeight: FontWeight.w900,
+                style: TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: mobile ? 12 : 13,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: mobile ? 7 : 6),
               Text(
                 contextLine,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xff334155),
+                  color: AppColors.muted,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
-                supportingLine,
+                trailingRoom
+                    ? 'Pensyarah: $supportingLine'
+                    : 'Bilik: $supportingLine',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xff64748b), fontSize: 12),
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
-              if (!showDayTime) ...[
-                const SizedBox(height: 2),
-                Text(
-                  slot.subjectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xff64748b),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-              if (slot.status.toLowerCase() != 'active') ...[
-                const SizedBox(height: 8),
-                StatusChip(_statusLabel(slot.status)),
-              ],
             ],
           ),
         ),

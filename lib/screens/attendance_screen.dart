@@ -4,6 +4,7 @@ import '../models/app_models.dart';
 import '../state/app_scope.dart';
 import '../state/app_state.dart';
 import '../widgets/app_layout.dart';
+import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -96,6 +97,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           _statusFilter == null || record.status == _statusFilter;
       return matchesSearch && matchesStatus;
     }).toList();
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+    final submitButton = FilledButton.icon(
+      onPressed: _saving
+          ? null
+          : () => _saveAttendance(
+                state: state,
+                slot: slot,
+                isEditingSubmitted: isEditingSubmitted,
+              ),
+      icon: _saving
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(isEditingSubmitted ? Icons.edit_note : Icons.send),
+      label: Text(_saving
+          ? 'Menyimpan...'
+          : isEditingSubmitted
+              ? 'Simpan Pembetulan'
+              : 'Hantar'),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,27 +139,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         AppPanel(
           title: 'Sesi Kehadiran',
           subtitle: '${slot.subjectCode} - ${slot.subjectName}',
-          trailing: FilledButton.icon(
-            onPressed: _saving
-                ? null
-                : () => _saveAttendance(
-                      state: state,
-                      slot: slot,
-                      isEditingSubmitted: isEditingSubmitted,
-                    ),
-            icon: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(isEditingSubmitted ? Icons.edit_note : Icons.send),
-            label: Text(_saving
-                ? 'Menyimpan...'
-                : isEditingSubmitted
-                    ? 'Simpan Pembetulan'
-                    : 'Hantar'),
-          ),
+          trailing: mobile ? null : submitButton,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -178,6 +181,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 summary: summary,
                 totalStudents: students.length,
               ),
+              if (mobile) ...[
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: submitButton),
+              ],
             ],
           ),
         ),
@@ -186,24 +193,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           title: 'Kehadiran Pelajar',
           subtitle:
               '${visibleStudents.length} dipaparkan daripada ${students.length} pelajar',
-          trailing: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _setAllStatus(slot, AttendanceStatus.present),
-                icon: const Icon(Icons.done_all),
-                label: const Text('Semua Hadir'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _setAllStatus(slot, AttendanceStatus.absent),
-                icon: const Icon(Icons.block),
-                label: const Text('Semua Tidak Hadir'),
-              ),
-            ],
-          ),
+          trailing: mobile
+              ? null
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _setAllStatus(slot, AttendanceStatus.present),
+                      icon: const Icon(Icons.done_all),
+                      label: const Text('Semua Hadir'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _setAllStatus(slot, AttendanceStatus.absent),
+                      icon: const Icon(Icons.block),
+                      label: const Text('Semua Tidak Hadir'),
+                    ),
+                  ],
+                ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (mobile) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _setAllStatus(slot, AttendanceStatus.present),
+                      icon: const Icon(Icons.done_all),
+                      label: const Text('Semua Hadir'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _setAllStatus(slot, AttendanceStatus.absent),
+                      icon: const Icon(Icons.block),
+                      label: const Text('Semua Tidak Hadir'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               _StudentAttendanceFilters(
                 statusFilter: _statusFilter,
                 onSearchChanged: (value) =>
@@ -212,32 +245,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     setState(() => _statusFilter = value),
               ),
               const SizedBox(height: 12),
-              AppDataTable(
-                columns: const [
-                  DataColumn(label: Text('ID Pelajar')),
-                  DataColumn(label: Text('Nama')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Kehadiran %')),
-                ],
-                rows: visibleStudents.map((student) {
-                  final index = records
-                      .indexWhere((record) => record.studentId == student.id);
-                  final record = _recordForStudent(slot, student);
-                  return DataRow(cells: [
-                    DataCell(Text(student.id)),
-                    DataCell(Text(student.name)),
-                    DataCell(_AttendanceStatusSelector(
-                      value: record.status,
+              if (mobile)
+                Column(
+                  children: visibleStudents.map((student) {
+                    final index = records
+                        .indexWhere((record) => record.studentId == student.id);
+                    final record = _recordForStudent(slot, student);
+                    return _MobileAttendanceStudentCard(
+                      student: student,
+                      percentage: state.attendancePercentageForStudent(student),
+                      status: record.status,
                       onChanged: (value) {
                         if (value == null) return;
                         _updateRecordStatus(slot, record, index, value);
                       },
-                    )),
-                    DataCell(Text(
-                        '${state.attendancePercentageForStudent(student)}%')),
-                  ]);
-                }).toList(),
-              ),
+                    );
+                  }).toList(),
+                )
+              else
+                AppDataTable(
+                  columns: const [
+                    DataColumn(label: Text('ID Pelajar')),
+                    DataColumn(label: Text('Nama')),
+                    DataColumn(label: Text('Status')),
+                    DataColumn(label: Text('Kehadiran %')),
+                  ],
+                  rows: visibleStudents.map((student) {
+                    final index = records
+                        .indexWhere((record) => record.studentId == student.id);
+                    final record = _recordForStudent(slot, student);
+                    return DataRow(cells: [
+                      DataCell(Text(student.id)),
+                      DataCell(Text(student.name)),
+                      DataCell(_AttendanceStatusSelector(
+                        value: record.status,
+                        onChanged: (value) {
+                          if (value == null) return;
+                          _updateRecordStatus(slot, record, index, value);
+                        },
+                      )),
+                      DataCell(Text(
+                          '${state.attendancePercentageForStudent(student)}%')),
+                    ]);
+                  }).toList(),
+                ),
               if (visibleStudents.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
@@ -275,7 +326,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _pickSessionDate(AppState state, TimetableSlot slot) async {
     final selected = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(sessionDate ?? slot.date) ?? DateTime.now(),
+      initialDate:
+          DateTime.tryParse(sessionDate ?? slot.date) ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
     );
@@ -314,8 +366,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: draftSlotId,
-                    decoration:
-                        const InputDecoration(labelText: 'Sesi Kelas'),
+                    decoration: const InputDecoration(labelText: 'Sesi Kelas'),
                     items: slots
                         .map((slot) => DropdownMenuItem(
                               value: slot.id,
@@ -421,9 +472,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   AttendanceRecord _recordForStudent(TimetableSlot slot, Student student) {
-    final record = records
-        .where((record) => record.studentId == student.id)
-        .firstOrNull;
+    final record =
+        records.where((record) => record.studentId == student.id).firstOrNull;
     return record ??
         AttendanceRecord(
           slotId: slot.id,
@@ -507,7 +557,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     String sessionDate,
     int weekNo,
   ) {
-    final existingSession = _existingSessionFor(state, slot, sessionDate, weekNo);
+    final existingSession =
+        _existingSessionFor(state, slot, sessionDate, weekNo);
     if (existingSession == null) return const [];
     final previousRecords = state.sessionAttendance[existingSession.id] ??
         state.attendance[slot.id] ??
@@ -519,8 +570,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     for (final record in records) {
       final previous = previousByStudent[record.studentId];
       if (previous == null || previous.status == record.status) continue;
-      final student =
-          state.students.where((item) => item.id == record.studentId).firstOrNull;
+      final student = state.students
+          .where((item) => item.id == record.studentId)
+          .firstOrNull;
       changes.add(AttendanceEditChange(
         studentId: record.studentId,
         studentName: record.studentName ?? student?.name ?? record.studentId,
@@ -637,8 +689,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
     }
 
-    final todaySlots =
-        sorted.where((slot) => _sessionDateForSlot(slot, now) == today).toList();
+    final todaySlots = sorted
+        .where((slot) => _sessionDateForSlot(slot, now) == today)
+        .toList();
 
     final ongoing =
         todaySlots.where((slot) => _isOngoing(slot, now)).firstOrNull;
@@ -824,69 +877,102 @@ class _SelectedClassHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(mobile ? 12 : 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xffe2e8f0)),
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(mobile ? 12 : 8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Flex(
+            direction: mobile ? Axis.vertical : Axis.horizontal,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xfff1f5f9),
-                  borderRadius: BorderRadius.circular(8),
+              if (!mobile) ...[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceTint,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.fact_check_outlined,
+                    color: AppColors.muted,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.fact_check_outlined,
-                  color: Color(0xff475569),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                const SizedBox(width: 12),
+              ],
+              if (mobile)
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${slot.subjectCode} - ${slot.section}',
+                      slot.subjectCode,
                       style: const TextStyle(
-                        color: Color(0xff0f172a),
-                        fontSize: 18,
+                        color: AppColors.primaryDark,
+                        fontSize: 20,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       slot.subjectName,
-                      style: const TextStyle(color: Color(0xff64748b)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppColors.muted),
                     ),
                   ],
+                )
+              else
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        slot.subjectCode,
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        slot.subjectName,
+                        style: const TextStyle(color: AppColors.muted),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (reason != null)
-                _InfoPill(
-                  icon: Icons.auto_awesome,
-                  label: reason!,
-                  tone: const Color(0xff0f766e),
-                  tinted: true,
-                ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: onChangeClass,
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Tukar Kelas'),
+              if (mobile) const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: mobile ? WrapAlignment.start : WrapAlignment.end,
+                children: [
+                  if (reason != null)
+                    _InfoPill(
+                      icon: Icons.auto_awesome,
+                      label: reason!,
+                      tone: AppColors.success,
+                      tinted: true,
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: onChangeClass,
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('Tukar Kelas'),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: mobile ? 10 : 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -894,27 +980,27 @@ class _SelectedClassHeader extends StatelessWidget {
               _InfoPill(
                 icon: Icons.groups_outlined,
                 label: slot.section,
-                tone: const Color(0xff475569),
+                tone: AppColors.muted,
               ),
               _InfoPill(
                 icon: Icons.schedule,
                 label: '${slot.startTime}-${slot.endTime}',
-                tone: const Color(0xff475569),
+                tone: AppColors.muted,
               ),
               _InfoPill(
                 icon: Icons.meeting_room_outlined,
                 label: slot.room,
-                tone: const Color(0xff475569),
+                tone: AppColors.muted,
               ),
               _InfoPill(
                 icon: Icons.event,
                 label: sessionDate,
-                tone: const Color(0xff475569),
+                tone: AppColors.muted,
               ),
               _InfoPill(
                 icon: Icons.calendar_view_week_outlined,
                 label: 'Minggu $weekNo',
-                tone: const Color(0xff475569),
+                tone: AppColors.muted,
               ),
             ],
           ),
@@ -986,43 +1072,54 @@ class _StudentAttendanceFilters extends StatelessWidget {
       AttendanceStatus.mc,
       AttendanceStatus.ck,
     ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 300,
-          child: TextField(
-            onChanged: onSearchChanged,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              labelText: 'Cari pelajar',
-              hintText: 'ID atau nama pelajar',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = MediaQuery.sizeOf(context).width < 600;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: mobile ? double.infinity : 300,
+              child: TextField(
+                onChanged: onSearchChanged,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  labelText: 'Cari pelajar',
+                  hintText: 'ID atau nama pelajar',
+                ),
+              ),
             ),
-          ),
-        ),
-        for (final status in statuses)
-          ChoiceChip(
-            label: Text(status?.label ?? 'Semua'),
-            selected: statusFilter == status,
-            onSelected: (_) => onStatusChanged(status),
-            backgroundColor: Colors.white,
-            selectedColor: const Color(0xffeef2ff),
-            side: BorderSide(
-              color: statusFilter == status
-                  ? const Color(0xffc7d2fe)
-                  : const Color(0xffe2e8f0),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final status in statuses)
+                  ChoiceChip(
+                    label: Text(status?.label ?? 'Semua'),
+                    selected: statusFilter == status,
+                    onSelected: (_) => onStatusChanged(status),
+                    backgroundColor: AppColors.surface,
+                    selectedColor: AppColors.primary.withValues(alpha: .1),
+                    side: BorderSide(
+                      color: statusFilter == status
+                          ? AppColors.primary.withValues(alpha: .28)
+                          : AppColors.border,
+                    ),
+                    labelStyle: TextStyle(
+                      color: statusFilter == status
+                          ? AppColors.primary
+                          : AppColors.muted,
+                      fontWeight: statusFilter == status
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
-            labelStyle: TextStyle(
-              color: statusFilter == status
-                  ? const Color(0xff3730a3)
-                  : const Color(0xff475569),
-              fontWeight:
-                  statusFilter == status ? FontWeight.w800 : FontWeight.w600,
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1039,10 +1136,11 @@ class _AttendanceStatusSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _statusColor(value);
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
-      height: 36,
+      height: mobile ? 40 : 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      constraints: const BoxConstraints(maxWidth: 132),
+      constraints: BoxConstraints(maxWidth: mobile ? double.infinity : 132),
       decoration: BoxDecoration(
         color: const Color(0xfff8fafc),
         border: Border.all(color: const Color(0xffe2e8f0)),
@@ -1084,6 +1182,117 @@ class _AttendanceStatusSelector extends StatelessWidget {
   }
 }
 
+class _MobileAttendanceStudentCard extends StatelessWidget {
+  const _MobileAttendanceStudentCard({
+    required this.student,
+    required this.percentage,
+    required this.status,
+    required this.onChanged,
+  });
+
+  final Student student;
+  final int percentage;
+  final AttendanceStatus status;
+  final ValueChanged<AttendanceStatus?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _statusColor(status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      student.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      student.id,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '$percentage%',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _AttendanceStatusSelector(
+                  value: status,
+                  onChanged: onChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: color.withValues(alpha: .22)),
+                ),
+                child: Text(
+                  status.label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _statusColor(AttendanceStatus status) {
+    return switch (status) {
+      AttendanceStatus.present => AppColors.success,
+      AttendanceStatus.late => AppColors.warning,
+      AttendanceStatus.absent => AppColors.danger,
+      AttendanceStatus.mc => AppColors.muted,
+      AttendanceStatus.ck => AppColors.muted,
+    };
+  }
+}
+
 class _AttendanceSummaryStrip extends StatelessWidget {
   const _AttendanceSummaryStrip({
     required this.summary,
@@ -1095,6 +1304,7 @@ class _AttendanceSummaryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -1167,9 +1377,11 @@ class _SummaryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = MediaQuery.sizeOf(context).width < 600;
     return Container(
-      width: emphasized ? 154 : 124,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      width: mobile ? (emphasized ? 136 : 94) : (emphasized ? 154 : 124),
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 10, vertical: mobile ? 8 : 9),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xffe2e8f0)),
@@ -1188,8 +1400,8 @@ class _SummaryTile extends StatelessWidget {
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xff64748b),
-                    fontSize: 11,
+                    color: AppColors.muted,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1198,7 +1410,9 @@ class _SummaryTile extends StatelessWidget {
                   value,
                   style: TextStyle(
                     color: color,
-                    fontSize: emphasized ? 20 : 17,
+                    fontSize: mobile
+                        ? (emphasized ? 18 : 15)
+                        : (emphasized ? 20 : 17),
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -1286,9 +1500,8 @@ class _InfoPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: tinted ? tone.withValues(alpha: .08) : const Color(0xffeff6ff),
         border: Border.all(
-            color: tinted
-                ? tone.withValues(alpha: .2)
-                : const Color(0xffbfdbfe)),
+            color:
+                tinted ? tone.withValues(alpha: .2) : const Color(0xffbfdbfe)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1384,9 +1597,8 @@ class _StudentAttendanceSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final risk = _riskFor(summary);
     final attendanceText = _attendanceText(summary);
-    final progressValue = summary.denominator == 0
-        ? 0.0
-        : summary.percentage.clamp(0, 100) / 100;
+    final progressValue =
+        summary.denominator == 0 ? 0.0 : summary.percentage.clamp(0, 100) / 100;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.all(12),
@@ -1456,9 +1668,7 @@ class _StudentAttendanceSummaryCard extends StatelessWidget {
               _MiniMetric(label: 'Sesi Hadir', value: '${summary.attended}'),
               _MiniMetric(
                   label: 'Sesi Tidak Hadir', value: '${summary.absent}'),
-              _MiniMetric(
-                  label: 'MC/CK',
-                  value: '${summary.mc + summary.ck}'),
+              _MiniMetric(label: 'MC/CK', value: '${summary.mc + summary.ck}'),
             ],
           ),
           const SizedBox(height: 6),
@@ -1600,9 +1810,10 @@ class _WeeklyMiniGrid extends StatelessWidget {
       runSpacing: 5,
       children: List.generate(18, (index) {
         final summary = weekly[index];
-        final text = summary.denominator == 0 && summary.mc == 0 && summary.ck == 0
-            ? '-'
-            : '${summary.percentage}%';
+        final text =
+            summary.denominator == 0 && summary.mc == 0 && summary.ck == 0
+                ? '-'
+                : '${summary.percentage}%';
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
