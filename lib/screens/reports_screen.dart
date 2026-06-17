@@ -227,7 +227,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         summaries: summaries,
         state: state,
         selectedWeek: _selectedWeek,
-        programCodeForStudent: _programCodeForStudent,
         filterSection: _FilterSection(
           search: _search,
           selectedThreshold: _selectedThresholdFilter,
@@ -443,7 +442,6 @@ class _MobileReportsContent extends StatelessWidget {
     required this.summaries,
     required this.state,
     required this.selectedWeek,
-    required this.programCodeForStudent,
     required this.filterSection,
     required this.onExport,
     required this.onExportStudent,
@@ -459,7 +457,6 @@ class _MobileReportsContent extends StatelessWidget {
   final List<AttendanceSummary> summaries;
   final AppState state;
   final int selectedWeek;
-  final String Function(Student) programCodeForStudent;
   final Widget filterSection;
   final VoidCallback onExport;
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
@@ -498,7 +495,6 @@ class _MobileReportsContent extends StatelessWidget {
                 summaries: summaries,
                 state: state,
                 selectedWeek: selectedWeek,
-                programCodeForStudent: programCodeForStudent,
                 onExportStudent: onExportStudent,
               ),
             ),
@@ -642,7 +638,6 @@ class _MobileReportsList extends StatelessWidget {
     required this.summaries,
     required this.state,
     required this.selectedWeek,
-    required this.programCodeForStudent,
     required this.onExportStudent,
   });
 
@@ -650,7 +645,6 @@ class _MobileReportsList extends StatelessWidget {
   final List<AttendanceSummary> summaries;
   final AppState state;
   final int selectedWeek;
-  final String Function(Student) programCodeForStudent;
   final Future<void> Function(Student, AttendanceSummary) onExportStudent;
 
   @override
@@ -659,20 +653,30 @@ class _MobileReportsList extends StatelessWidget {
       return const _EmptyState();
     }
 
-    return Column(
-      children: [
-        for (var i = 0; i < students.length; i++) ...[
-          _MobileReportCard(
-            student: students[i],
-            summary: summaries[i],
-            state: state,
-            selectedWeek: selectedWeek,
-            programCode: programCodeForStudent(students[i]),
-            onExport: () => onExportStudent(students[i], summaries[i]),
-          ),
-          if (i != students.length - 1) const SizedBox(height: 10),
-        ],
-      ],
+    return Container(
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _kBorder),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          children: [
+            for (var i = 0; i < students.length; i++) ...[
+              if (i > 0)
+                const Divider(height: 1, thickness: 1, color: _kBorder),
+              _MobileReportCard(
+                student: students[i],
+                summary: summaries[i],
+                state: state,
+                selectedWeek: selectedWeek,
+                onExport: () => onExportStudent(students[i], summaries[i]),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -683,7 +687,6 @@ class _MobileReportCard extends StatelessWidget {
     required this.summary,
     required this.state,
     required this.selectedWeek,
-    required this.programCode,
     required this.onExport,
   });
 
@@ -691,7 +694,6 @@ class _MobileReportCard extends StatelessWidget {
   final AttendanceSummary summary;
   final AppState state;
   final int selectedWeek;
-  final String programCode;
   final VoidCallback onExport;
 
   @override
@@ -702,26 +704,10 @@ class _MobileReportCard extends StatelessWidget {
     );
     final color = _ReportsScreenState.riskColor(risk);
     final disciplineCount = state.disciplineReports
-        .where((report) => report.studentId == student.id)
+        .where((r) => r.studentId == student.id)
         .length;
 
-    return MobileInfoCard(
-      leadingIcon: Icons.person_outline,
-      title: student.name,
-      subtitle: '${student.id} - $programCode - ${student.section}',
-      chips: [StatusChip(risk)],
-      metadata: [
-        _MobileCountPill(label: 'P', value: summary.present),
-        _MobileCountPill(label: 'L', value: summary.late),
-        _MobileCountPill(label: 'A', value: summary.absent),
-        _MobileCountPill(label: 'MC', value: summary.mc),
-        _MobileCountPill(label: 'CK', value: summary.ck),
-        _MobileCountPill(
-          label: 'Disiplin',
-          value: disciplineCount,
-          highlight: disciplineCount > 0,
-        ),
-      ],
+    return InkWell(
       onTap: () => showDialog<void>(
         context: context,
         builder: (_) => _StudentDetailDialog(
@@ -731,61 +717,91 @@ class _MobileReportCard extends StatelessWidget {
           onExport: onExport,
         ),
       ),
-      actions: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${summary.percentage}% Kehadiran',
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top row: dot · name · percentage
+            Row(
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    student.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _kText,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${summary.percentage}%',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: summary.percentage / 100,
-              minHeight: 7,
-              backgroundColor: color.withValues(alpha: .14),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+            const SizedBox(height: 5),
+            // Bottom: indented 17px — subtitle + discipline count + progress bar
+            Padding(
+              padding: const EdgeInsets.only(left: 17),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${student.id} · ${student.section}',
+                          style: const TextStyle(
+                              fontSize: 12, color: _kMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (disciplineCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          '$disciplineCount disiplin',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _kRed,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: summary.percentage / 100,
+                      minHeight: 3,
+                      backgroundColor: color.withValues(alpha: .15),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MobileCountPill extends StatelessWidget {
-  const _MobileCountPill({
-    required this.label,
-    required this.value,
-    this.highlight = false,
-  });
-
-  final String label;
-  final int value;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = highlight ? _kAmber : _kMuted;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: .20)),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: color,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+          ],
         ),
       ),
     );
@@ -1789,7 +1805,13 @@ class _InfoPill extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: _kMuted),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 12, color: _kMuted)),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 12, color: _kMuted),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
