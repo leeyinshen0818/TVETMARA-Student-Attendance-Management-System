@@ -1709,11 +1709,11 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 2.6,
+            childAspectRatio: context.isMobile ? 2.6 : 5.0,
           ),
           itemCount: _standardSlots.length,
           itemBuilder: (context, index) {

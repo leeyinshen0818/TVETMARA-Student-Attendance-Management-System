@@ -1347,7 +1347,6 @@ class _ReportsTable extends StatelessWidget {
         const DataColumn(
             label: SizedBox(width: 30, child: Center(child: Text('CK')))),
         const DataColumn(label: Text('Kehadiran')),
-        const DataColumn(label: Text('Status')),
         if (isAllWeeks) const DataColumn(label: Text('Naik Sem.')),
         const DataColumn(label: Text('Tindakan')),
       ],
@@ -1423,7 +1422,6 @@ class _ReportsTable extends StatelessWidget {
               ],
             ),
           )),
-          DataCell(StatusChip(risk)),
           if (isAllWeeks)
             DataCell(
               Icon(
@@ -1503,15 +1501,9 @@ class _LihatButiranButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(7),
           border: Border.all(color: _kTeal.withValues(alpha: 0.35)),
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person_search_outlined, size: 13, color: _kTeal),
-            SizedBox(width: 5),
-            Text('Lihat Butiran',
-                style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: _kTeal)),
-          ],
+        child: const Tooltip(
+          message: 'Lihat Butiran',
+          child: Icon(Icons.person_search_outlined, size: 16, color: _kTeal),
         ),
       ),
     );

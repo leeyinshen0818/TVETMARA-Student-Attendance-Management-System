@@ -574,6 +574,29 @@ class _StudentTable extends StatelessWidget {
   final String Function(String) riskLabel;
   final Color Function(String) riskColour;
 
+  String _programCodeForStudent(Student s) =>
+      _extractProgramCode(s.section) ??
+      _extractProgramCode(s.program) ??
+      s.program;
+
+  String? _extractProgramCode(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+    const knownCodes = {
+      'DED', 'DCP', 'DCB', 'DGS', 'DPP', 'DEK', 'DGM', 'SMK', 'ITW', 'SLR',
+      'SMI', 'IMF', 'SMM', 'DMM',
+    };
+    final firstToken = text.split(RegExp(r'\s+')).first.toUpperCase();
+    if (knownCodes.contains(firstToken)) return firstToken;
+    for (final match
+        in RegExp(r'\(([A-Z]{2,4})\)').allMatches(text).toList().reversed) {
+      final code = match.group(1);
+      if (code != null && knownCodes.contains(code)) return code;
+    }
+    final normalized = text.toUpperCase();
+    return knownCodes.contains(normalized) ? normalized : null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppDataTable(
@@ -584,7 +607,6 @@ class _StudentTable extends StatelessWidget {
         DataColumn(label: Text('Kelas')),
         DataColumn(label: Text('Sem')),
         DataColumn(label: Text('Kehadiran')),
-        DataColumn(label: Text('Risiko')),
         DataColumn(label: Text('Status')),
         DataColumn(label: Text('Tindakan')),
       ],
@@ -605,9 +627,19 @@ class _StudentTable extends StatelessWidget {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryDark))),
-          DataCell(Text(s.program,
-              style:
-                  const TextStyle(fontSize: 12, color: AppColors.primaryDark))),
+          DataCell(
+            Tooltip(
+              message: s.program,
+              child: SizedBox(
+                width: 60,
+                child: Text(_programCodeForStudent(s),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.primaryDark)),
+              ),
+            ),
+          ),
           DataCell(Text(s.section,
               style:
                   const TextStyle(fontSize: 12, color: AppColors.primaryDark))),
@@ -647,7 +679,6 @@ class _StudentTable extends StatelessWidget {
               ],
             ),
           )),
-          DataCell(StatusChip(riskLabel(risk))),
           DataCell(StatusChip(s.active ? 'Aktif' : 'Tidak Aktif')),
           DataCell(_LihatButiranButton(student: s, state: state)),
         ]);
@@ -665,14 +696,24 @@ class _LihatButiranButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: () => showDialog<void>(
+    return InkWell(
+      onTap: () => showDialog<void>(
         context: context,
         builder: (_) => _StudentDetailDialog(student: student, state: state),
       ),
-      icon: const Icon(Icons.person_search_outlined, size: 16),
-      label: const Text('Lihat Butiran',
-          style: TextStyle(fontWeight: FontWeight.w700)),
+      borderRadius: BorderRadius.circular(7),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+        ),
+        child: const Tooltip(
+          message: 'Lihat Butiran',
+          child: Icon(Icons.person_search_outlined, size: 16, color: AppColors.primary),
+        ),
+      ),
     );
   }
 }

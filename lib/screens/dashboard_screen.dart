@@ -2180,6 +2180,7 @@ List<TimetableSlot> _currentSessionSlots(AppState state) {
 bool _isActiveSlot(TimetableSlot slot) {
   final status = slot.status.trim().toLowerCase();
   return status == 'active' ||
+      status == 'imported' ||
       status == 'attendance pending' ||
       status == 'attendance not taken';
 }
