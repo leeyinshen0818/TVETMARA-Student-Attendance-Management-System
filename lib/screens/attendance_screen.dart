@@ -198,6 +198,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     editCount: existingSession.editHistory.length,
                     isEditing: _editingSubmittedSession,
                     summary: summary,
+                    totalStudents: students.length,
                     onEdit: () =>
                         setState(() => _editingSubmittedSession = true),
                   ),
@@ -1323,12 +1324,14 @@ class _SubmittedAttendanceBanner extends StatelessWidget {
     required this.editCount,
     required this.isEditing,
     required this.summary,
+    required this.totalStudents,
     required this.onEdit,
   });
 
   final int editCount;
   final bool isEditing;
   final AttendanceSummary summary;
+  final int totalStudents;
   final VoidCallback onEdit;
 
   @override
@@ -1359,9 +1362,11 @@ class _SubmittedAttendanceBanner extends StatelessWidget {
             const SizedBox(width: 10),
           ],
           if (mobile)
-            _SubmittedBannerText(summary: summary)
+            _SubmittedBannerText(summary: summary, totalStudents: totalStudents)
           else
-            Expanded(child: _SubmittedBannerText(summary: summary)),
+            Expanded(
+                child: _SubmittedBannerText(
+                    summary: summary, totalStudents: totalStudents)),
           SizedBox(width: mobile ? 0 : 10, height: mobile ? 12 : 0),
           Wrap(
             spacing: 8,
@@ -1481,9 +1486,11 @@ class _SubmittedStudentListPlaceholder extends StatelessWidget {
 }
 
 class _SubmittedBannerText extends StatelessWidget {
-  const _SubmittedBannerText({required this.summary});
+  const _SubmittedBannerText(
+      {required this.summary, required this.totalStudents});
 
   final AttendanceSummary summary;
+  final int totalStudents;
 
   @override
   Widget build(BuildContext context) {
@@ -1499,7 +1506,7 @@ class _SubmittedBannerText extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${summary.present} hadir, ${summary.late} lewat, ${summary.absent} tidak hadir, ${summary.mc + summary.ck} MC/CK.',
+          '$totalStudents pelajar: ${summary.present} hadir, ${summary.late} lewat, ${summary.absent} tidak hadir, ${summary.mc + summary.ck} MC/CK.',
           style: const TextStyle(
             color: Color(0xff166534),
             fontSize: 12,
@@ -1699,11 +1706,11 @@ class _MobileAttendanceStudentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -1736,7 +1743,7 @@ class _MobileAttendanceStudentCard extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 125,
+            width: 120,
             child: _AttendanceStatusSelector(
               value: status,
               onChanged: onChanged,

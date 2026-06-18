@@ -70,9 +70,7 @@ class _TempahanScreenState extends State<TempahanScreen>
           children: [
             MobileHeroCard(
               icon: Icons.event_available_outlined,
-              title: isPensyarah
-                  ? 'Tempahan Bilik'
-                  : 'Kelulusan Tempahan',
+              title: isPensyarah ? 'Tempahan Bilik' : 'Kelulusan Tempahan',
               subtitle: isPensyarah
                   ? 'Mohon bilik ganti.'
                   : 'Semak permohonan kelas ganti.',
@@ -148,7 +146,8 @@ class _TempahanScreenState extends State<TempahanScreen>
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.muted,
               labelStyle: const TextStyle(fontWeight: FontWeight.w900),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+              unselectedLabelStyle:
+                  const TextStyle(fontWeight: FontWeight.w700),
               dividerColor: Colors.transparent,
               padding: const EdgeInsets.all(4),
               tabs: [
@@ -1276,11 +1275,8 @@ class BookingDetailsDialog extends StatelessWidget {
                     title: 'Maklumat Semakan',
                     icon: Icons.verified_user_outlined,
                     rows: [
-                      _Row(
-                          'Disemak Oleh',
-                          booking.reviewedByName ??
-                              booking.reviewedBy ??
-                              '-'),
+                      _Row('Disemak Oleh',
+                          booking.reviewedByName ?? booking.reviewedBy ?? '-'),
                       if (booking.reviewedAt != null)
                         _Row('Tarikh Semakan', booking.reviewedAt!),
                       if (booking.rejectionReason != null)
@@ -1635,6 +1631,7 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
       if (parts.length != 2) return 0;
       return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
     }
+
     final aStart = minutes(startA);
     final aEnd = minutes(endA);
     final bStart = minutes(startB);
@@ -1672,14 +1669,22 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
       try {
         final parsedDate = DateTime.parse(dateStr);
         switch (parsedDate.weekday) {
-          case 1: return 'Isnin';
-          case 2: return 'Selasa';
-          case 3: return 'Rabu';
-          case 4: return 'Khamis';
-          case 5: return 'Jumaat';
-          case 6: return 'Sabtu';
-          case 7: return 'Ahad';
-          default: return '';
+          case 1:
+            return 'Isnin';
+          case 2:
+            return 'Selasa';
+          case 3:
+            return 'Rabu';
+          case 4:
+            return 'Khamis';
+          case 5:
+            return 'Jumaat';
+          case 6:
+            return 'Sabtu';
+          case 7:
+            return 'Ahad';
+          default:
+            return '';
         }
       } catch (_) {
         return '';
@@ -1726,13 +1731,16 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
             });
 
             final hasBookingConflict = bookings.any((b) {
-              if (cleanRoom(b.room) != targetRoomClean || b.replacementDate != date) return false;
+              if (cleanRoom(b.room) != targetRoomClean ||
+                  b.replacementDate != date) return false;
               final isApproved = b.status == 'Approved' || b.status == 'Lulus';
               if (!isApproved) return false;
-              return _timesOverlap(start, end, b.replacementStart, b.replacementEnd);
+              return _timesOverlap(
+                  start, end, b.replacementStart, b.replacementEnd);
             });
 
-            final isSelected = selectedStartTime == start && selectedEndTime == end;
+            final isSelected =
+                selectedStartTime == start && selectedEndTime == end;
 
             String label = 'Kosong';
             Color bgColor = const Color(0xffdcfce7);
@@ -1780,10 +1788,12 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: bgColor,
-                    border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+                    border: Border.all(
+                        color: borderColor, width: isSelected ? 2 : 1),
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: isSelected
                         ? [
@@ -1816,9 +1826,12 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
                             Text(
                               label,
                               style: TextStyle(
-                                color: textColor.withValues(alpha: isSelected ? 0.9 : 0.8),
+                                color: textColor.withValues(
+                                    alpha: isSelected ? 0.9 : 0.8),
                                 fontSize: 10,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),

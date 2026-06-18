@@ -1314,7 +1314,8 @@ class _ReportsTable extends StatelessWidget {
             child: Text(
               '${reports.length}',
               maxLines: 1,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: fg),
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w800, color: fg),
             ),
           ),
         ),

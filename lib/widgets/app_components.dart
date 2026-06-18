@@ -87,10 +87,10 @@ class AppStatCard extends StatelessWidget {
     final mobile = MediaQuery.sizeOf(context).width < 600;
 
     return Container(
-      padding: EdgeInsets.all(mobile ? 16 : 20),
+      padding: EdgeInsets.all(mobile ? 12 : 20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(mobile ? 16 : 20),
+        borderRadius: BorderRadius.circular(mobile ? 12 : 20),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -108,35 +108,35 @@ class AppStatCard extends StatelessWidget {
             children: [
               if (icon != null) ...[
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(mobile ? 6 : 8),
                   decoration: BoxDecoration(
                     color: surfaceColor ?? color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, size: 20, color: color),
+                  child: Icon(icon, size: mobile ? 18 : 20, color: color),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
               ],
               Expanded(
                 child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13,
+                    fontSize: mobile ? 11 : 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: mobile ? 8 : 12),
           Text(
             value,
             style: TextStyle(
               color: AppColors.textPrimary,
-              fontSize: mobile ? 24 : 32,
+              fontSize: mobile ? 20 : 32,
               fontWeight: FontWeight.w900,
               letterSpacing: -1,
             ),
@@ -183,13 +183,13 @@ class _AppActionCardState extends State<AppActionCard> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.all(mobile ? 16 : 20),
+          padding: EdgeInsets.all(mobile ? 12 : 20),
           decoration: BoxDecoration(
             color: _hovering
                 ? (widget.accentSurface ??
                     widget.accentColor.withValues(alpha: .05))
                 : AppColors.surface,
-            borderRadius: BorderRadius.circular(mobile ? 16 : 20),
+            borderRadius: BorderRadius.circular(mobile ? 12 : 20),
             border: Border.all(
               color: _hovering
                   ? widget.accentColor.withValues(alpha: .3)
@@ -207,15 +207,15 @@ class _AppActionCardState extends State<AppActionCard> {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(mobile ? 8 : 10),
                 decoration: BoxDecoration(
                   color: widget.accentSurface ??
                       widget.accentColor.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(widget.icon, color: widget.accentColor, size: 22),
+                child: Icon(widget.icon, color: widget.accentColor, size: mobile ? 18 : 22),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: mobile ? 10 : 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,9 +223,9 @@ class _AppActionCardState extends State<AppActionCard> {
                   children: [
                     Text(
                       widget.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
-                        fontSize: 15,
+                        fontSize: mobile ? 13 : 15,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -235,17 +235,17 @@ class _AppActionCardState extends State<AppActionCard> {
                         widget.subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
-                          fontSize: 12,
+                          fontSize: mobile ? 11 : 12,
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, color: AppColors.muted, size: 20),
+              SizedBox(width: mobile ? 4 : 8),
+              Icon(Icons.chevron_right, color: AppColors.muted, size: mobile ? 16 : 20),
             ],
           ),
         ),

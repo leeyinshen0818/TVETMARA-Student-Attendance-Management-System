@@ -113,7 +113,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
               title: 'Pengurusan Jadual',
               subtitle: '${sessionTimetable.length} rekod · $selectedSession',
               chips: [
-                StatusChip(user.role == UserRole.ketua_program ? 'Program' : 'Jabatan'),
+                StatusChip(user.role == UserRole.ketua_program
+                    ? 'Program'
+                    : 'Jabatan'),
               ],
             ),
             const SizedBox(height: 12),
@@ -129,12 +131,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         labelText: 'Sesi',
                         border: OutlineInputBorder(),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
                       items: sessionOptions
                           .map((s) => DropdownMenuItem(
                                 value: s,
-                                child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                child: Text(s,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (value) {
@@ -163,7 +168,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     icon: const Icon(Icons.touch_app_outlined, size: 18),
                     label: const Text('Tindakan'),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                     ),
                   ),
                 ],
@@ -2757,11 +2763,18 @@ class _MobileOfficialTimetableSection extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _CompactStat(icon: Icons.event_note_outlined, value: '${slots.length} Slot'),
-              _CompactStat(icon: Icons.groups_outlined, value: '${_countDistinct(slots.map(_slotClassValue))} Kelas'),
-              _CompactStat(icon: Icons.person_outline, value: '${_countDistinct(slots.map((s) => s.lecturerName))} Org'),
               _CompactStat(
-                icon: Icons.warning_amber_outlined, 
+                  icon: Icons.event_note_outlined,
+                  value: '${slots.length} Slot'),
+              _CompactStat(
+                  icon: Icons.groups_outlined,
+                  value: '${_countDistinct(slots.map(_slotClassValue))} Kelas'),
+              _CompactStat(
+                  icon: Icons.person_outline,
+                  value:
+                      '${_countDistinct(slots.map((s) => s.lecturerName))} Org'),
+              _CompactStat(
+                icon: Icons.warning_amber_outlined,
                 value: '${conflicts.length} Konflik',
                 color: conflicts.isEmpty ? AppColors.success : AppColors.danger,
               ),
@@ -2989,7 +3002,8 @@ class _MobileTimetableSlotList extends StatelessWidget {
                         visualDensity: VisualDensity.compact,
                       ),
                       onPressed: () => onDetails(slot),
-                      child: const Text('Butiran', style: TextStyle(fontSize: 12)),
+                      child:
+                          const Text('Butiran', style: TextStyle(fontSize: 12)),
                     ),
                     const Spacer(),
                     IconButton(
@@ -3593,7 +3607,8 @@ class _TimetableFilters extends StatelessWidget {
                 );
               },
               icon: const Icon(Icons.tune_outlined, size: 18),
-              label: Text(activeFilters > 0 ? 'Tapis ($activeFilters)' : 'Tapis'),
+              label:
+                  Text(activeFilters > 0 ? 'Tapis ($activeFilters)' : 'Tapis'),
             ),
           ],
         ),
@@ -3702,7 +3717,6 @@ class _TimetableFilters extends StatelessWidget {
       },
     );
   }
-
 
   List<String> _distinct(Iterable<String> values) {
     final result = values

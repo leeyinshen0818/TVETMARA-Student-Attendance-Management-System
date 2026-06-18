@@ -1411,7 +1411,7 @@ class _DashboardQuickAction extends StatelessWidget {
       builder: (context, constraints) {
         final narrow = MediaQuery.sizeOf(context).width < 600;
         final width =
-            narrow ? (MediaQuery.sizeOf(context).width - 44) / 2 : 250.0;
+            narrow ? (MediaQuery.sizeOf(context).width - 80) / 2 : 250.0;
 
         return SizedBox(
           width: width,

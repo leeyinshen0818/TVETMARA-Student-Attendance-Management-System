@@ -1,16 +1,16 @@
 // lib/screens/records_screen.dart
 //
-// Module M5 – Phase 2: Upgraded Ketua Rekod Pelajar
+// Module M5 â€“ Phase 2: Upgraded Ketua Rekod Pelajar
 //
 // Features:
-//   • Strict data scoping via AppState.scopedStudents (KJ = dept, KP = programme)
-//   • Search bar (Name / Student ID)
-//   • Dropdown filters: Programme, Class/Section, Semester, Status, Attendance Risk
-//   • Attendance progress bar per student row
-//   • "Lihat Butiran" dialog: weekly W1–W18 grid + discipline log + risk warning
+//   â€¢ Strict data scoping via AppState.scopedStudents (KJ = dept, KP = programme)
+//   â€¢ Search bar (Name / Student ID)
+//   â€¢ Dropdown filters: Programme, Class/Section, Semester, Status, Attendance Risk
+//   â€¢ Attendance progress bar per student row
+//   â€¢ "Lihat Butiran" dialog: weekly W1â€“W18 grid + discipline log + risk warning
 //
 // All user-facing labels and status chips are in Malay.
-// No hardcoded dummy data — all values come from AppState.
+// No hardcoded dummy data â€” all values come from AppState.
 
 import 'package:flutter/material.dart';
 
@@ -22,7 +22,7 @@ import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
 import '../widgets/status_chip.dart';
 
-// ─── Entry point ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Entry point â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class RecordsScreen extends StatefulWidget {
   const RecordsScreen({super.key});
@@ -159,6 +159,8 @@ class _RecordsScreenState extends State<RecordsScreen> {
         .where((s) => state.attendanceRiskForStudent(s) == 'Critical')
         .length;
 
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+
     return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -166,40 +168,69 @@ class _RecordsScreenState extends State<RecordsScreen> {
           AppPageHeader(
             title: 'Rekod Pelajar',
             subtitle:
-                'Paparan kehadiran dan status pelajar — $scopeLabel sahaja.',
+                'Paparan kehadiran dan status pelajar â€” $scopeLabel sahaja.',
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: AppStatCard(
-                  icon: Icons.group_outlined,
-                  label: 'Jumlah Pelajar',
-                  value: '${allStudents.length}',
-                  color: AppColors.primary,
+          if (isMobile)
+            Row(
+              children: [
+                Expanded(
+                    child: _MiniStat(
+                        icon: Icons.group_outlined,
+                        label: 'Jumlah',
+                        value: '${allStudents.length}',
+                        color: AppColors.primary)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _MiniStat(
+                        icon: Icons.warning_amber_rounded,
+                        label: 'Kritikal',
+                        value: '$criticalCount',
+                        color: criticalCount > 0
+                            ? AppColors.danger
+                            : AppColors.success)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _MiniStat(
+                        icon: Icons.bar_chart_rounded,
+                        label: 'Had',
+                        value: '${state.attendanceThreshold}%',
+                        color: AppColors.warning)),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: AppStatCard(
+                    icon: Icons.group_outlined,
+                    label: 'Jumlah Pelajar',
+                    value: '${allStudents.length}',
+                    color: AppColors.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppStatCard(
-                  icon: Icons.warning_amber_rounded,
-                  label: 'Risiko Kritikal',
-                  value: '$criticalCount',
-                  color:
-                      criticalCount > 0 ? AppColors.danger : AppColors.success,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppStatCard(
+                    icon: Icons.warning_amber_rounded,
+                    label: 'Risiko Kritikal',
+                    value: '$criticalCount',
+                    color: criticalCount > 0
+                        ? AppColors.danger
+                        : AppColors.success,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppStatCard(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Had Kehadiran',
-                  value: '${state.attendanceThreshold}%',
-                  color: AppColors.warning,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppStatCard(
+                    icon: Icons.bar_chart_rounded,
+                    label: 'Had Kehadiran',
+                    value: '${state.attendanceThreshold}%',
+                    color: AppColors.warning,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.only(bottom: 24),
@@ -231,17 +262,31 @@ class _RecordsScreenState extends State<RecordsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             child: AppPanel(
               title: 'Rekod Pelajar',
-              subtitle: 'Had kehadiran: ${state.attendanceThreshold}% · '
+              subtitle: 'Had kehadiran: ${state.attendanceThreshold}% Â· '
                   'Menunjukkan ${filtered.length} daripada ${allStudents.length} pelajar ($scopeLabel)',
               trailing: filtered.isEmpty
                   ? null
                   : StatusChip('${filtered.length} pelajar'),
-              child: _StudentTable(
-                students: filtered,
-                state: state,
-                riskLabel: _riskLabel,
-                riskColour: _riskColour,
-              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: filtered
+                          .map((s) => _MobileStudentCard(
+                                student: s,
+                                state: state,
+                                riskLabel: _riskLabel(
+                                    state.attendanceRiskForStudent(s)),
+                                riskColour: _riskColour(
+                                    state.attendanceRiskForStudent(s)),
+                              ))
+                          .toList(),
+                    )
+                  : _StudentTable(
+                      students: filtered,
+                      state: state,
+                      riskLabel: _riskLabel,
+                      riskColour: _riskColour,
+                    ),
             ),
           ),
         ],
@@ -250,9 +295,9 @@ class _RecordsScreenState extends State<RecordsScreen> {
   }
 }
 
-// ─── Filter bar ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Filter bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-class _FilterBar extends StatelessWidget {
+class _FilterBar extends StatefulWidget {
   const _FilterBar({
     required this.search,
     required this.filterProgram,
@@ -294,6 +339,13 @@ class _FilterBar extends StatelessWidget {
   final VoidCallback onClear;
 
   @override
+  State<_FilterBar> createState() => _FilterBarState();
+}
+
+class _FilterBarState extends State<_FilterBar> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -314,11 +366,20 @@ class _FilterBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: _SearchField(onChanged: onSearchChanged)),
-              if (hasActiveFilter) ...[
+              Expanded(child: _SearchField(onChanged: widget.onSearchChanged)),
+              if (MediaQuery.sizeOf(context).width < 600) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                  icon: const Icon(Icons.tune, size: 16),
+                  label: const Text('Tapis'),
+                ),
+              ],
+              if (widget.hasActiveFilter &&
+                  MediaQuery.sizeOf(context).width >= 600) ...[
                 const SizedBox(width: 10),
                 TextButton.icon(
-                  onPressed: onClear,
+                  onPressed: widget.onClear,
                   icon: const Icon(Icons.filter_alt_off_outlined, size: 15),
                   label: const Text('Padam Penapis',
                       style: TextStyle(fontSize: 12)),
@@ -327,53 +388,83 @@ class _FilterBar extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 12),
           LayoutBuilder(builder: (context, c) {
             final isWide = c.maxWidth > 680;
+            final isMobile = MediaQuery.sizeOf(context).width < 600;
+
+            if (isMobile && !_expanded) {
+              return const SizedBox.shrink();
+            }
+
             final drops = [
               _Dropdown(
                   label: 'Program',
-                  value: filterProgram,
-                  options: programOptions,
-                  onChanged: onProgramChanged),
+                  value: widget.filterProgram,
+                  options: widget.programOptions,
+                  onChanged: widget.onProgramChanged),
               _Dropdown(
                   label: 'Kelas',
-                  value: filterClass,
-                  options: classOptions,
-                  onChanged: onClassChanged),
+                  value: widget.filterClass,
+                  options: widget.classOptions,
+                  onChanged: widget.onClassChanged),
               _Dropdown(
                   label: 'Semester',
-                  value: filterSem,
-                  options: semesterOptions,
-                  onChanged: onSemChanged),
+                  value: widget.filterSem,
+                  options: widget.semesterOptions,
+                  onChanged: widget.onSemChanged),
               _Dropdown(
                 label: 'Status',
-                value: filterStatus,
+                value: widget.filterStatus,
                 options: const ['Semua Status', 'Aktif', 'Tidak Aktif'],
-                onChanged: onStatusChanged,
+                onChanged: widget.onStatusChanged,
               ),
               _Dropdown(
                   label: 'Risiko',
-                  value: filterRisk,
-                  options: riskOptions,
-                  onChanged: onRiskChanged),
+                  value: widget.filterRisk,
+                  options: widget.riskOptions,
+                  onChanged: widget.onRiskChanged),
             ];
-            if (isWide) {
-              return Row(
-                children: drops
-                    .map((w) => Expanded(
-                          child: Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: w),
-                        ))
-                    .toList(),
-              );
-            }
-            return Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children:
-                  drops.map((w) => SizedBox(width: 180, child: w)).toList(),
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isWide)
+                    Row(
+                      children: drops
+                          .map((w) => Expanded(
+                                child: Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: w),
+                              ))
+                          .toList(),
+                    )
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: drops
+                          .map((w) => SizedBox(width: 180, child: w))
+                          .toList(),
+                    ),
+                  if (isMobile && widget.hasActiveFilter) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: widget.onClear,
+                        icon:
+                            const Icon(Icons.filter_alt_off_outlined, size: 15),
+                        label: const Text('Padam Penapis',
+                            style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                            foregroundColor: AppColors.muted),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             );
           }),
         ],
@@ -394,7 +485,7 @@ class _SearchField extends StatelessWidget {
         onChanged: onChanged,
         style: const TextStyle(fontSize: 13, color: AppColors.primaryDark),
         decoration: InputDecoration(
-          hintText: 'Cari nama atau ID pelajar…',
+          hintText: 'Cari nama atau ID pelajarâ€¦',
           hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFBDD0DA)),
           prefixIcon: const Icon(Icons.search_rounded,
               size: 17, color: AppColors.muted),
@@ -468,7 +559,7 @@ class _Dropdown extends StatelessWidget {
   }
 }
 
-// ─── Student table ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Student table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _StudentTable extends StatelessWidget {
   const _StudentTable({
@@ -565,7 +656,7 @@ class _StudentTable extends StatelessWidget {
   }
 }
 
-// ─── Lihat Butiran button ─────────────────────────────────────────────────────
+// â”€â”€â”€ Lihat Butiran button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _LihatButiranButton extends StatelessWidget {
   const _LihatButiranButton({required this.student, required this.state});
@@ -574,38 +665,19 @@ class _LihatButiranButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => showDialog<void>(
+    return TextButton.icon(
+      onPressed: () => showDialog<void>(
         context: context,
         builder: (_) => _StudentDetailDialog(student: student, state: state),
       ),
-      borderRadius: BorderRadius.circular(7),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.person_search_outlined,
-                size: 13, color: AppColors.primary),
-            SizedBox(width: 5),
-            Text('Lihat Butiran',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary)),
-          ],
-        ),
-      ),
+      icon: const Icon(Icons.person_search_outlined, size: 16),
+      label: const Text('Lihat Butiran',
+          style: TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }
 
-// ─── Student Detail Dialog ────────────────────────────────────────────────────
+// â”€â”€â”€ Student Detail Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _StudentDetailDialog extends StatelessWidget {
   const _StudentDetailDialog({required this.student, required this.state});
@@ -671,7 +743,7 @@ class _StudentDetailDialog extends StatelessWidget {
                       ],
                       const _SectionTitle(
                         icon: Icons.calendar_month_outlined,
-                        label: 'Ringkasan Kehadiran Mingguan (W1 – W18)',
+                        label: 'Ringkasan Kehadiran Mingguan (W1 â€“ W18)',
                       ),
                       const SizedBox(height: 10),
                       _WeeklyGrid(weekly: weekly),
@@ -717,7 +789,7 @@ class _StudentDetailDialog extends StatelessWidget {
   }
 }
 
-// ─── Dialog header ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Dialog header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _DialogHeader extends StatelessWidget {
   const _DialogHeader({
@@ -829,7 +901,7 @@ class _InfoPill extends StatelessWidget {
   Widget build(BuildContext context) {
     // Text.rich treats the icon and the text as inline spans, so the parent
     // Wrap widget can break this pill onto the next line at any character
-    // boundary — including mid-word if the text is very long (e.g. full
+    // boundary â€” including mid-word if the text is very long (e.g. full
     // programme names like "DIPLOMA LANJUTAN KEJURUTERAAN ELEKTRIK...").
     // A Row with mainAxisSize.min would instead negotiate an unconstrained
     // width and overflow past the screen edge on narrow viewports.
@@ -857,7 +929,7 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
-// ─── Warning banner ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Warning banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _WarningBanner extends StatelessWidget {
   const _WarningBanner({required this.message});
@@ -891,7 +963,7 @@ class _WarningBanner extends StatelessWidget {
   }
 }
 
-// ─── Section title ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Section title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({required this.icon, required this.label});
@@ -914,7 +986,7 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ─── Weekly grid W1–W18 ───────────────────────────────────────────────────────
+// â”€â”€â”€ Weekly grid W1â€“W18 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _WeeklyGrid extends StatelessWidget {
   const _WeeklyGrid({required this.weekly});
@@ -958,7 +1030,7 @@ class _WeeklyGrid extends StatelessWidget {
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                         color: hasData ? colour : AppColors.muted)),
-                Text(hasData ? '$pct%' : '—',
+                Text(hasData ? '$pct%' : 'â€”',
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -972,7 +1044,7 @@ class _WeeklyGrid extends StatelessWidget {
   }
 }
 
-// ─── Empty in section ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Empty in section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _EmptyInSection extends StatelessWidget {
   const _EmptyInSection({required this.message});
@@ -1000,7 +1072,7 @@ class _EmptyInSection extends StatelessWidget {
   }
 }
 
-// ─── Discipline log tile ──────────────────────────────────────────────────────
+// â”€â”€â”€ Discipline log tile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _DisciplineTile extends StatelessWidget {
   const _DisciplineTile({required this.report});
@@ -1091,6 +1163,148 @@ class _DisciplineTile extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 24, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style:
+                        const TextStyle(fontSize: 11, color: AppColors.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                Text(value,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryDark),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileStudentCard extends StatelessWidget {
+  const _MobileStudentCard({
+    required this.student,
+    required this.state,
+    required this.riskLabel,
+    required this.riskColour,
+  });
+
+  final Student student;
+  final AppState state;
+  final String riskLabel;
+  final Color riskColour;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = state.attendanceSummaryForStudent(student);
+    final pct = summary.percentage;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(student.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text(
+                        '${student.id} · ${student.program} · ${student.section}',
+                        style: const TextStyle(
+                            color: AppColors.muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+              StatusChip(riskLabel),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('$pct%',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: riskColour)),
+                        Text('${summary.attended}/${summary.denominator}',
+                            style: const TextStyle(
+                                fontSize: 11, color: AppColors.muted)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pct / 100,
+                        minHeight: 6,
+                        backgroundColor: riskColour.withValues(alpha: 0.15),
+                        valueColor: AlwaysStoppedAnimation<Color>(riskColour),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              _LihatButiranButton(student: student, state: state),
+            ],
           ),
         ],
       ),
