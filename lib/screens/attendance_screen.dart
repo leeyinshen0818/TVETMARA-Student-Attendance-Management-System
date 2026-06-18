@@ -176,7 +176,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
           AppPanel(
             title: 'Sesi Kehadiran',
-            subtitle: '${slot.subjectCode} - ${slot.subjectName}',
             trailing: mobile || !canEditAttendance ? null : submitButton,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,7 +1133,7 @@ class _SelectedClassHeader extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -1142,71 +1141,48 @@ class _SelectedClassHeader extends StatelessWidget {
                 children: [
                   Text(
                     '${slot.subjectCode} - ${slot.subjectName}',
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.primaryDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
-                    '${slot.section} • ${slot.startTime}-${slot.endTime}',
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${slot.room} · $sessionDate · M$weekNo',
+                    '${slot.section} - ${slot.startTime}-${slot.endTime} - ${slot.room}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.muted,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (reason != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      reason!,
+                      style: const TextStyle(
+                        color: AppColors.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: onChangeClass,
-                  style: TextButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: AppColors.surfaceTint,
-                  ),
-                  child: const Text('Tukar',
-                      style:
-                          TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                ),
-                if (reason != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: .1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      reason!,
-                      style: const TextStyle(
-                          color: AppColors.success,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                ],
-              ],
+            IconButton(
+              icon: const Icon(Icons.edit_calendar,
+                  color: AppColors.primary, size: 20),
+              onPressed: onChangeClass,
+              tooltip: 'Tukar Sesi',
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surfaceTint,
+              ),
             ),
           ],
         ),
@@ -1777,42 +1753,37 @@ class _AttendanceSummaryStrip extends StatelessWidget {
           border: Border.all(color: const Color(0xffe2e8f0)),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _MobileSummaryItem(
-                  label: 'Pelajar',
-                  value: '$totalStudents',
-                  color: const Color(0xff334155)),
-              const SizedBox(width: 20),
-              _MobileSummaryItem(
-                  label: 'Hadir',
-                  value: '${summary.present}',
-                  color: const Color(0xff16a34a)),
-              const SizedBox(width: 20),
-              _MobileSummaryItem(
-                  label: 'Lewat',
-                  value: '${summary.late}',
-                  color: const Color(0xfff59e0b)),
-              const SizedBox(width: 20),
-              _MobileSummaryItem(
-                  label: 'Tak Hadir',
-                  value: '${summary.absent}',
-                  color: const Color(0xffdc2626)),
-              const SizedBox(width: 20),
-              _MobileSummaryItem(
-                  label: 'MC/CK',
-                  value: '${summary.mc + summary.ck}',
-                  color: const Color(0xff64748b)),
-              const SizedBox(width: 24),
-              _MobileSummaryItem(
-                  label: 'Kehadiran',
-                  value: '${summary.percentage}%',
-                  color: const Color(0xff2563eb),
-                  isEmphasized: true),
-            ],
-          ),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 10,
+          alignment: WrapAlignment.spaceEvenly,
+          children: [
+            _MobileSummaryItem(
+                label: 'Pljr',
+                value: '$totalStudents',
+                color: const Color(0xff334155)),
+            _MobileSummaryItem(
+                label: 'Hadir',
+                value: '${summary.present}',
+                color: const Color(0xff16a34a)),
+            _MobileSummaryItem(
+                label: 'Lewat',
+                value: '${summary.late}',
+                color: const Color(0xfff59e0b)),
+            _MobileSummaryItem(
+                label: 'TH',
+                value: '${summary.absent}',
+                color: const Color(0xffdc2626)),
+            _MobileSummaryItem(
+                label: 'MC',
+                value: '${summary.mc + summary.ck}',
+                color: const Color(0xff64748b)),
+            _MobileSummaryItem(
+                label: '%',
+                value: '${summary.percentage}%',
+                color: const Color(0xff2563eb),
+                isEmphasized: true),
+          ],
         ),
       );
     }

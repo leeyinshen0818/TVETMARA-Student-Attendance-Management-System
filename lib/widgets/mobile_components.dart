@@ -752,7 +752,11 @@ class MobileBottomSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            child,
+            Flexible(
+              child: SingleChildScrollView(
+                child: child,
+              ),
+            ),
           ],
         ),
       ),

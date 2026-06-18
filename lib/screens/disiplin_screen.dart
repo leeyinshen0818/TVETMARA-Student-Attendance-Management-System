@@ -23,6 +23,7 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
   final _descCtrl = TextEditingController(text: '');
   bool _submitting = false;
   int _selectedTab = 0;
+  String _filterStatus = 'Semua';
 
   @override
   void dispose() {
@@ -96,7 +97,10 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
             MobileSegmentedControl(
               labels: tabLabels,
               selectedIndex: _selectedTab,
-              onChanged: (index) => setState(() => _selectedTab = index),
+              onChanged: (index) => setState(() {
+                _selectedTab = index;
+                _filterStatus = 'Semua';
+              }),
             ),
             const SizedBox(height: 14),
             if (isPensyarah && _selectedTab == 0)
@@ -133,6 +137,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                 reports: visibleReports,
                 canReview: false,
                 emptyText: 'Tiada laporan disiplin ditemui.',
+                filterStatus: _filterStatus,
+                onFilterChanged: (v) => setState(() => _filterStatus = v),
                 onViewDetails: (report) => _showReportDetails(report),
                 onTakeAction: (report) => _showTakeActionDialog(state, report),
                 onReject: (report) => _showRejectDialog(state, report),
@@ -159,6 +165,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                 reports: visibleReports,
                 canReview: canReviewDiscipline,
                 emptyText: 'Tiada laporan disiplin ditemui.',
+                filterStatus: _filterStatus,
+                onFilterChanged: (v) => setState(() => _filterStatus = v),
                 onViewDetails: (report) => _showReportDetails(report),
                 onTakeAction: (report) => _showTakeActionDialog(state, report),
                 onReject: (report) => _showRejectDialog(state, report),
@@ -186,7 +194,10 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
           _DisciplineTabSelector(
             selectedIndex: _selectedTab,
             labels: tabLabels,
-            onChanged: (index) => setState(() => _selectedTab = index),
+            onChanged: (index) => setState(() {
+              _selectedTab = index;
+              _filterStatus = 'Semua';
+            }),
           ),
           const SizedBox(height: 16),
           if (isPensyarah && _selectedTab == 0)
@@ -223,6 +234,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               reports: visibleReports,
               canReview: false,
               emptyText: 'Tiada laporan disiplin ditemui.',
+              filterStatus: _filterStatus,
+              onFilterChanged: (v) => setState(() => _filterStatus = v),
               onViewDetails: (report) => _showReportDetails(report),
               onTakeAction: (report) => _showTakeActionDialog(state, report),
               onReject: (report) => _showRejectDialog(state, report),
@@ -243,11 +256,12 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
           else
             _DisciplineReportListPanel(
               title: 'Semua Laporan',
-              subtitle:
-                  'Semua laporan disiplin dalam skop peranan dan program anda.',
+              subtitle: 'Sejarah laporan kes disiplin dalam skop anda.',
               reports: visibleReports,
               canReview: canReviewDiscipline,
               emptyText: 'Tiada laporan disiplin ditemui.',
+              filterStatus: _filterStatus,
+              onFilterChanged: (v) => setState(() => _filterStatus = v),
               onViewDetails: (report) => _showReportDetails(report),
               onTakeAction: (report) => _showTakeActionDialog(state, report),
               onReject: (report) => _showRejectDialog(state, report),
@@ -712,6 +726,8 @@ class _DisciplineReportListPanel extends StatelessWidget {
     required this.onTakeAction,
     required this.onReject,
     required this.onClose,
+    this.filterStatus = 'Semua',
+    this.onFilterChanged,
   });
 
   final String title;
@@ -723,22 +739,60 @@ class _DisciplineReportListPanel extends StatelessWidget {
   final ValueChanged<DisciplineReport> onTakeAction;
   final ValueChanged<DisciplineReport> onReject;
   final ValueChanged<DisciplineReport> onClose;
+  final String filterStatus;
+  final ValueChanged<String>? onFilterChanged;
+
+  static const _filterValues = ['Semua', 'pending', 'reviewed', 'action_taken', 'closed', 'rejected'];
+  static const _filterLabels = ['Semua', 'Menunggu', 'Disemak', 'Tindakan Diambil', 'Ditutup', 'Ditolak'];
 
   @override
   Widget build(BuildContext context) {
+    final filteredReports = filterStatus == 'Semua'
+        ? reports
+        : reports
+            .where((r) => _normalizeDisciplineStatus(r.status) == filterStatus)
+            .toList();
+
+    final filterWidget = onFilterChanged != null
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(_filterValues.length, (i) {
+                final val = _filterValues[i];
+                final label = _filterLabels[i];
+                final active = filterStatus == val;
+                return FilterChip(
+                  label: Text(label),
+                  selected: active,
+                  onSelected: (_) => onFilterChanged!(val),
+                  selectedColor: const Color(0xffdbeafe),
+                  checkmarkColor: const Color(0xff1d4ed8),
+                );
+              }),
+            ),
+          )
+        : const SizedBox.shrink();
+
     if (context.isMobile) {
       return MobileSection(
         title: title,
         subtitle: subtitle,
-        child: reports.isEmpty
-            ? MobileEmptyState(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (onFilterChanged != null) filterWidget,
+            if (filteredReports.isEmpty)
+              MobileEmptyState(
                 icon: Icons.inbox_outlined,
                 title: emptyText,
                 subtitle: 'Tiada rekod untuk paparan semasa.',
               )
-            : Column(
+            else
+              Column(
                 children: [
-                  for (final report in reports)
+                  for (final report in filteredReports)
                     _DisciplineReportItem(
                       report: report,
                       status: _normalizeDisciplineStatus(report.status),
@@ -750,6 +804,8 @@ class _DisciplineReportListPanel extends StatelessWidget {
                     ),
                 ],
               ),
+          ],
+        ),
       );
     }
 
@@ -757,8 +813,10 @@ class _DisciplineReportListPanel extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final report in reports)
+          if (onFilterChanged != null) filterWidget,
+          for (final report in filteredReports)
             _DisciplineReportItem(
               report: report,
               status: _normalizeDisciplineStatus(report.status),
@@ -768,7 +826,7 @@ class _DisciplineReportListPanel extends StatelessWidget {
               onReject: () => onReject(report),
               onClose: () => onClose(report),
             ),
-          if (reports.isEmpty)
+          if (filteredReports.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 28),
               child: Center(

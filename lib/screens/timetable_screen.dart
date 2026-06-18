@@ -440,6 +440,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: false,
       builder: (sheetContext) => MobileBottomSheet(
         title: 'Tindakan Jadual',
@@ -3027,6 +3028,7 @@ class _MobileTimetableSlotList extends StatelessWidget {
   void _showMobileSlotActions(BuildContext context, TimetableSlot slot) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: false,
       builder: (sheetContext) => MobileBottomSheet(
         title: 'Tindakan Slot',
