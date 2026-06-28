@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../models/app_models.dart';
+import '../services/discipline_warning_letter_pdf_service.dart';
+import '../services/timetable_file_io.dart';
 import '../state/app_scope.dart';
 import '../widgets/app_layout.dart';
 import '../widgets/app_theme.dart';
@@ -136,11 +138,14 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                 subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
                 reports: visibleReports,
                 canReview: false,
+                compactCards: true,
                 emptyText: 'Tiada laporan disiplin ditemui.',
                 filterStatus: _filterStatus,
                 onFilterChanged: (v) => setState(() => _filterStatus = v),
                 onViewDetails: (report) => _showReportDetails(report),
                 onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onDownloadWarningLetter: (report) =>
+                    _downloadWarningLetter(state, report),
                 onReject: (report) => _showRejectDialog(state, report),
                 onClose: (report) => _showCloseDialog(state, report),
               )
@@ -154,6 +159,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                 emptyText: 'Tiada laporan yang memerlukan tindakan.',
                 onViewDetails: (report) => _showReportDetails(report),
                 onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onDownloadWarningLetter: (report) =>
+                    _downloadWarningLetter(state, report),
                 onReject: (report) => _showRejectDialog(state, report),
                 onClose: (report) => _showCloseDialog(state, report),
               )
@@ -169,6 +176,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
                 onFilterChanged: (v) => setState(() => _filterStatus = v),
                 onViewDetails: (report) => _showReportDetails(report),
                 onTakeAction: (report) => _showTakeActionDialog(state, report),
+                onDownloadWarningLetter: (report) =>
+                    _downloadWarningLetter(state, report),
                 onReject: (report) => _showRejectDialog(state, report),
                 onClose: (report) => _showCloseDialog(state, report),
               ),
@@ -233,11 +242,14 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               subtitle: 'Sejarah laporan disiplin yang telah anda hantar.',
               reports: visibleReports,
               canReview: false,
+              compactCards: true,
               emptyText: 'Tiada laporan disiplin ditemui.',
               filterStatus: _filterStatus,
               onFilterChanged: (v) => setState(() => _filterStatus = v),
               onViewDetails: (report) => _showReportDetails(report),
               onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onDownloadWarningLetter: (report) =>
+                  _downloadWarningLetter(state, report),
               onReject: (report) => _showRejectDialog(state, report),
               onClose: (report) => _showCloseDialog(state, report),
             )
@@ -250,6 +262,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               emptyText: 'Tiada laporan yang memerlukan tindakan.',
               onViewDetails: (report) => _showReportDetails(report),
               onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onDownloadWarningLetter: (report) =>
+                  _downloadWarningLetter(state, report),
               onReject: (report) => _showRejectDialog(state, report),
               onClose: (report) => _showCloseDialog(state, report),
             )
@@ -264,6 +278,8 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
               onFilterChanged: (v) => setState(() => _filterStatus = v),
               onViewDetails: (report) => _showReportDetails(report),
               onTakeAction: (report) => _showTakeActionDialog(state, report),
+              onDownloadWarningLetter: (report) =>
+                  _downloadWarningLetter(state, report),
               onReject: (report) => _showRejectDialog(state, report),
               onClose: (report) => _showCloseDialog(state, report),
             ),
@@ -371,6 +387,44 @@ class _DisiplinScreenState extends State<DisiplinScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Gagal merekod tindakan: $error'),
+      ));
+    }
+  }
+
+  Future<void> _downloadWarningLetter(
+    dynamic state,
+    DisciplineReport report,
+  ) async {
+    final normalizedStatus = _normalizeDisciplineStatus(report.status);
+    if (normalizedStatus != 'action_taken' && normalizedStatus != 'closed') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+          'Surat amaran hanya boleh dimuat turun selepas tindakan direkodkan.',
+        ),
+      ));
+      return;
+    }
+
+    try {
+      const exportService = DisciplineWarningLetterPdfService();
+      final bytes = await exportService.buildWarningLetterPdf(
+        report: report,
+        generatedBy: state.currentUser?.name ?? 'TVETMARA',
+        generatedAt: DateTime.now(),
+      );
+      downloadBinaryFile(
+        filename: exportService.fileNameFor(report),
+        bytes: bytes,
+        mimeType: 'application/pdf',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Surat amaran berjaya dijana.'),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Gagal menjana surat amaran: $error'),
       ));
     }
   }
@@ -724,8 +778,10 @@ class _DisciplineReportListPanel extends StatelessWidget {
     required this.emptyText,
     required this.onViewDetails,
     required this.onTakeAction,
+    required this.onDownloadWarningLetter,
     required this.onReject,
     required this.onClose,
+    this.compactCards = false,
     this.filterStatus = 'Semua',
     this.onFilterChanged,
   });
@@ -737,13 +793,29 @@ class _DisciplineReportListPanel extends StatelessWidget {
   final String emptyText;
   final ValueChanged<DisciplineReport> onViewDetails;
   final ValueChanged<DisciplineReport> onTakeAction;
+  final ValueChanged<DisciplineReport> onDownloadWarningLetter;
   final ValueChanged<DisciplineReport> onReject;
   final ValueChanged<DisciplineReport> onClose;
+  final bool compactCards;
   final String filterStatus;
   final ValueChanged<String>? onFilterChanged;
 
-  static const _filterValues = ['Semua', 'pending', 'reviewed', 'action_taken', 'closed', 'rejected'];
-  static const _filterLabels = ['Semua', 'Menunggu', 'Disemak', 'Tindakan Diambil', 'Ditutup', 'Ditolak'];
+  static const _filterValues = [
+    'Semua',
+    'pending',
+    'reviewed',
+    'action_taken',
+    'closed',
+    'rejected'
+  ];
+  static const _filterLabels = [
+    'Semua',
+    'Menunggu',
+    'Disemak',
+    'Tindakan Diambil',
+    'Ditutup',
+    'Ditolak'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -797,8 +869,11 @@ class _DisciplineReportListPanel extends StatelessWidget {
                       report: report,
                       status: _normalizeDisciplineStatus(report.status),
                       canApprove: canReview,
+                      compact: compactCards,
                       onViewDetails: () => onViewDetails(report),
                       onTakeAction: () => onTakeAction(report),
+                      onDownloadWarningLetter: () =>
+                          onDownloadWarningLetter(report),
                       onReject: () => onReject(report),
                       onClose: () => onClose(report),
                     ),
@@ -821,8 +896,10 @@ class _DisciplineReportListPanel extends StatelessWidget {
               report: report,
               status: _normalizeDisciplineStatus(report.status),
               canApprove: canReview,
+              compact: compactCards,
               onViewDetails: () => onViewDetails(report),
               onTakeAction: () => onTakeAction(report),
+              onDownloadWarningLetter: () => onDownloadWarningLetter(report),
               onReject: () => onReject(report),
               onClose: () => onClose(report),
             ),
@@ -972,8 +1049,10 @@ class _DisciplineReportItem extends StatelessWidget {
     required this.report,
     required this.status,
     required this.canApprove,
+    required this.compact,
     required this.onViewDetails,
     required this.onTakeAction,
+    required this.onDownloadWarningLetter,
     required this.onReject,
     required this.onClose,
   });
@@ -981,8 +1060,10 @@ class _DisciplineReportItem extends StatelessWidget {
   final DisciplineReport report;
   final String status;
   final bool canApprove;
+  final bool compact;
   final VoidCallback onViewDetails;
   final VoidCallback onTakeAction;
+  final VoidCallback onDownloadWarningLetter;
   final VoidCallback onReject;
   final VoidCallback onClose;
 
@@ -1025,7 +1106,96 @@ class _DisciplineReportItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (context.isMobile) ...[
+                  if (compact) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                report.studentName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${report.programName ?? report.programId ?? '-'} | ${report.section}',
+                                style: const TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            _DisciplineToneChip(
+                              label: _severityLabel(report.severity),
+                              tone: severityTone,
+                              icon: Icons.priority_high_rounded,
+                            ),
+                            _DisciplineToneChip(
+                              label: _statusLabel(status),
+                              tone: statusTone,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.report_problem_outlined,
+                          size: 17,
+                          color: severityTone.color,
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            report.issueType,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      children: [
+                        _ReportMeta(label: 'Laporan', value: report.id),
+                        _ReportMeta(
+                          label: 'Tarikh',
+                          value: report.createdAt ?? report.date,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _DisciplineCardActions(
+                      status: status,
+                      canReview: canApprove,
+                      onViewDetails: onViewDetails,
+                      onTakeAction: onTakeAction,
+                      onDownloadWarningLetter: onDownloadWarningLetter,
+                      onReject: onReject,
+                      onClose: onClose,
+                    ),
+                  ] else if (context.isMobile) ...[
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1090,6 +1260,7 @@ class _DisciplineReportItem extends StatelessWidget {
                       canReview: canApprove,
                       onViewDetails: onViewDetails,
                       onTakeAction: onTakeAction,
+                      onDownloadWarningLetter: onDownloadWarningLetter,
                       onReject: onReject,
                       onClose: onClose,
                     ),
@@ -1201,6 +1372,7 @@ class _DisciplineReportItem extends StatelessWidget {
                       canReview: canApprove,
                       onViewDetails: onViewDetails,
                       onTakeAction: onTakeAction,
+                      onDownloadWarningLetter: onDownloadWarningLetter,
                       onReject: onReject,
                       onClose: onClose,
                     ),
@@ -1386,6 +1558,7 @@ class _DisciplineCardActions extends StatelessWidget {
     required this.canReview,
     required this.onViewDetails,
     required this.onTakeAction,
+    required this.onDownloadWarningLetter,
     required this.onReject,
     required this.onClose,
   });
@@ -1394,6 +1567,7 @@ class _DisciplineCardActions extends StatelessWidget {
   final bool canReview;
   final VoidCallback onViewDetails;
   final VoidCallback onTakeAction;
+  final VoidCallback onDownloadWarningLetter;
   final VoidCallback onReject;
   final VoidCallback onClose;
 
@@ -1420,6 +1594,12 @@ class _DisciplineCardActions extends StatelessWidget {
             label: const Text('Tolak'),
           ),
         ],
+        if (status == 'action_taken' || status == 'closed')
+          FilledButton.icon(
+            onPressed: onDownloadWarningLetter,
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+            label: const Text('Muat Turun Surat Amaran'),
+          ),
         if (canReview && status == 'action_taken')
           OutlinedButton.icon(
             onPressed: onClose,

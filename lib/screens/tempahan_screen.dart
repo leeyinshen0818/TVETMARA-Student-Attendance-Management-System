@@ -1726,15 +1726,21 @@ class _RoomTimeSlotAvailabilitySelector extends StatelessWidget {
               final dayMatch = s.day.toLowerCase() == targetDay.toLowerCase() ||
                   s.dayOfWeek?.toLowerCase() == targetDay.toLowerCase();
               final dateMatch = s.date == date;
-              if (!dayMatch && !dateMatch) return false;
+              if (!dayMatch && !dateMatch) {
+                return false;
+              }
               return _timesOverlap(start, end, s.startTime, s.endTime);
             });
 
             final hasBookingConflict = bookings.any((b) {
               if (cleanRoom(b.room) != targetRoomClean ||
-                  b.replacementDate != date) return false;
+                  b.replacementDate != date) {
+                return false;
+              }
               final isApproved = b.status == 'Approved' || b.status == 'Lulus';
-              if (!isApproved) return false;
+              if (!isApproved) {
+                return false;
+              }
               return _timesOverlap(
                   start, end, b.replacementStart, b.replacementEnd);
             });
