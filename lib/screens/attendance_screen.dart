@@ -155,7 +155,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ? 'Simpan Pembetulan'
                   : 'Hantar'),
     );
-
     return AppPage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,6 +366,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     ),
                 ],
               ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _SubmittedSessionsPanel(
+            sessions: state.scopedAttendanceSessions,
+            currentSessionId: existingSession?.id,
+            onEditSession: (session) => _openSubmittedSessionForEdit(
+              state,
+              session,
             ),
           ),
           const SizedBox(height: 16),
@@ -773,6 +781,55 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         'Sesi kehadiran sedia ada dimuatkan. Anda boleh simpan pembetulan.',
       ),
     ));
+  }
+
+  Future<void> _openSubmittedSessionForEdit(
+    AppState state,
+    AttendanceSession session,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _saving = true;
+      _manualSlotOverride = true;
+      slotId = session.slotId;
+      sessionDate = session.sessionDate;
+      weekNo = session.weekNo;
+      _loadedExistingSession = session;
+      _requestedExistingSessionKey = null;
+      _checkedMissingSessionKey = null;
+      loadedSessionKey = null;
+      _editingSubmittedSession = true;
+      _autoSelectionReason = 'Edit sesi terdahulu';
+      _studentSearch = '';
+      _statusFilter = null;
+    });
+
+    try {
+      final loaded = await state.loadAttendanceSessionForSlotDateWeek(
+        slotId: session.slotId,
+        sessionDate: session.sessionDate,
+        weekNo: session.weekNo,
+        forceRefresh: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _loadedExistingSession = loaded ?? session;
+        loadedSessionKey = null;
+        _editingSubmittedSession = true;
+      });
+      messenger.showSnackBar(const SnackBar(
+        content: Text(
+          'Sesi terdahulu dibuka. Buat pembetulan dan tekan Simpan Pembetulan.',
+        ),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text('Sesi terdahulu gagal dimuatkan: $error'),
+      ));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   bool _isDuplicateAttendanceError(Object error) {
@@ -1940,6 +1997,189 @@ class _SummaryTile extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubmittedSessionsPanel extends StatefulWidget {
+  const _SubmittedSessionsPanel({
+    required this.sessions,
+    required this.currentSessionId,
+    required this.onEditSession,
+  });
+
+  final List<AttendanceSession> sessions;
+  final String? currentSessionId;
+  final ValueChanged<AttendanceSession> onEditSession;
+
+  @override
+  State<_SubmittedSessionsPanel> createState() =>
+      _SubmittedSessionsPanelState();
+}
+
+class _SubmittedSessionsPanelState extends State<_SubmittedSessionsPanel> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<AttendanceSession>.of(widget.sessions)
+      ..sort((a, b) {
+        final dateCompare = b.sessionDate.compareTo(a.sessionDate);
+        if (dateCompare != 0) return dateCompare;
+        return b.weekNo.compareTo(a.weekNo);
+      });
+    final mobile = MediaQuery.sizeOf(context).width < 600;
+
+    return AppPanel(
+      title: 'Sesi Kehadiran Terdahulu',
+      subtitle: _expanded
+          ? 'Pilih mana-mana sesi yang telah dihantar untuk terus membuat pembetulan.'
+          : '${sorted.length} sesi telah dihantar.',
+      trailing: TextButton.icon(
+        onPressed: () => setState(() => _expanded = !_expanded),
+        icon: Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+        label: Text(_expanded ? 'Tutup' : 'Buka'),
+      ),
+      child: AnimatedCrossFade(
+        duration: const Duration(milliseconds: 180),
+        crossFadeState:
+            _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+        firstChild: const SizedBox.shrink(),
+        secondChild: sorted.isEmpty
+            ? const Text(
+                'Belum ada sesi kehadiran terdahulu untuk diedit.',
+                style: TextStyle(color: AppColors.muted),
+              )
+            : mobile
+                ? Column(
+                    children: sorted
+                        .map((session) => _SubmittedSessionCard(
+                              session: session,
+                              isCurrent: session.id == widget.currentSessionId,
+                              onEdit: () => widget.onEditSession(session),
+                            ))
+                        .toList(),
+                  )
+                : AppDataTable(
+                    columns: const [
+                      DataColumn(label: Text('Tarikh')),
+                      DataColumn(label: Text('Minggu')),
+                      DataColumn(label: Text('Subjek')),
+                      DataColumn(label: Text('Kelas')),
+                      DataColumn(label: Text('Ringkasan')),
+                      DataColumn(label: Text('Tindakan')),
+                    ],
+                    rows: sorted.map((session) {
+                      final isCurrent = session.id == widget.currentSessionId;
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(session.sessionDate)),
+                          DataCell(Text('M${session.weekNo}')),
+                          DataCell(Text(
+                            '${session.subjectCode} - ${session.subjectName}',
+                            overflow: TextOverflow.ellipsis,
+                          )),
+                          DataCell(Text(session.section)),
+                          DataCell(Text(
+                            '${session.presentCount} hadir, '
+                            '${session.lateCount} lewat, '
+                            '${session.absentCount} TH, '
+                            '${session.mcCount + session.ckCount} MC/CK',
+                          )),
+                          DataCell(
+                            Wrap(
+                              spacing: 8,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                if (isCurrent)
+                                  const StatusChip('Sedang Dibuka'),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      widget.onEditSession(session),
+                                  icon: const Icon(Icons.edit_note, size: 16),
+                                  label: Text(isCurrent ? 'Edit' : 'Edit Sesi'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+      ),
+    );
+  }
+}
+
+class _SubmittedSessionCard extends StatelessWidget {
+  const _SubmittedSessionCard({
+    required this.session,
+    required this.isCurrent,
+    required this.onEdit,
+  });
+
+  final AttendanceSession session;
+  final bool isCurrent;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${session.subjectCode} - ${session.subjectName}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isCurrent) const StatusChip('Dibuka'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${session.sessionDate} · Minggu ${session.weekNo} · ${session.section}',
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${session.presentCount} hadir, ${session.lateCount} lewat, '
+            '${session.absentCount} tidak hadir, '
+            '${session.mcCount + session.ckCount} MC/CK',
+            style: const TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_note, size: 16),
+              label: Text(isCurrent ? 'Edit Sesi Ini' : 'Edit Sesi'),
             ),
           ),
         ],
