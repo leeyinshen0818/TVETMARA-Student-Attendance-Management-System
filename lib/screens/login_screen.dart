@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final email = TextEditingController(text: 'admin@tvetmara.edu.my');
-  final password = TextEditingController(text: 'admin123');
+  final email = TextEditingController();
+  final password = TextEditingController();
   bool _loggingIn = false;
   bool _seedingDemo = false;
   bool _obscurePassword = true;
